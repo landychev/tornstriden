@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Tornstriden – spelbord</title>
+  <link rel="stylesheet" href="spelbord.css">
+  <link rel="stylesheet" href="bildeffekter.css">
+  <script src="kort.js" defer></script>
+  <script src="bildeffekter.js" defer></script>
+  <script src="strid.js" defer></script>
+  <script src="spelbord.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="spelbord.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
+    <nav aria-label="Huvudmeny"><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><a href="effekter.html">Bildeffekter</a><button id="reset" type="button">Återställ</button></nav>
+  </header>
+  <main>
+    <section class="table" aria-label="Spelbord med två torn">
+      <div class="table-heading"><span class="eyebrow">SPELBORDET</span><span class="preview-label">Förhandsvisning · 1 mot 1</span></div>
+      <div class="rampart enemy-zone">
+        <div class="player-info"><span class="eyebrow">MOTSTÅNDAREN</span><h1>Norra tornet</h1><p id="enemy-life" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="enemy-count">10 kort på handen</p></div>
+        <div class="tower-wrap" id="enemy-tower"><img src="assets/torn.svg" alt="Motståndarens medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
+        <div class="hidden-hand" aria-label="Motståndarens kort är dolda"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <div class="battle">
+        <div class="battle-copy"><span class="eyebrow">STRIDSPLATSEN</span><h2 id="phase-title">Ditt anfall</h2><p id="phase-description">Välj ett attackkort ur handen.</p><div class="mode-picker" role="group" aria-label="Välj teststrid"><button id="attack-mode" type="button" aria-pressed="true">Testa attack</button><button id="defence-mode" type="button" aria-pressed="false">Testa försvar</button></div></div>
+        <div class="combat-cards"><div class="slot" id="attack-slot" aria-label="Attackkort"></div><span class="versus" aria-hidden="true">mot</span><div class="slot" id="defence-slot" aria-label="Försvarskort"></div></div>
+        <div class="piles"><div class="deck-stack" aria-hidden="true">T</div><span>Kortlek</span><div class="discard-stack" id="discard-number">0</div><span>Slänghög</span></div>
+      </div>
+      <div class="rampart own-zone">
+        <div class="player-info"><span class="eyebrow">DU</span><h2>Södra tornet</h2><p id="own-life" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="own-count">10 kort på handen</p></div>
+        <div class="tower-wrap" id="own-tower"><img src="assets/torn.svg" alt="Ditt medeltida stentorn" width="280" height="320"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
+        <div class="turn-label"><span class="turn-dot" aria-hidden="true"></span><span id="turn-label">Din tur att välja kort</span></div>
+      </div>
+    </section>
+    <details class="test-settings"><summary>Ställ in teststriden</summary><div class="test-fields">
+      <label>Motståndarens kort<select id="opponent-card"></select></label>
+      <label>Dina startliv<select id="own-start-life"><option value="3">3 liv</option><option value="2">2 liv</option><option value="1">1 liv</option></select></label>
+      <label>Motståndarens startliv<select id="enemy-start-life"><option value="3">3 liv</option><option value="2">2 liv</option><option value="1">1 liv</option></select></label>
+    </div><p>Byte av kort eller startliv återställer teststriden. Prova ett liv för sista-livet-korten eller två liv för läkning.</p></details>
+    <section class="hand-area" aria-labelledby="hand-heading">
+      <div class="hand-header"><div><span class="eyebrow">DINA KORT</span><h2 id="hand-heading">Ett kort kan vända striden.</h2></div><p id="hand-count">10 kort</p></div>
+      <div class="hand-sets" role="group" aria-label="Välj tio kort att prova"><button id="original-hand" type="button" aria-pressed="false">De första 10 korten</button><button id="new-hand" type="button" aria-pressed="false">Kort 11–20</button><button id="effects-hand" type="button" aria-pressed="true">10 effektkort</button><span>Byte av hand startar en ny teststrid.</span></div>
+      <div id="hand" class="hand" aria-label="Välj ett kort för att läsa dess effekt"></div>
+      <div class="action-bar">
+        <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p>Tryck på ett kort för att läsa effekten.</p></div>
+        <div class="actions"><button id="pass" class="secondary" type="button">Avstå försvar</button><button id="resolve" class="primary" type="button" disabled>Avgör teststriden <span aria-hidden="true">→</span></button></div>
+      </div>
+      <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
+    </section>
+    <footer class="page-footer"><p><strong>En teststrid åt gången.</strong> Motdragen är förberedda. Under Ställ in teststriden kan du välja motståndarens kort och bådas startliv.</p><p>30 kort att utforska, 10 åt gången på handen. Effektkorten provas här i duell. De nya korten är förslag att balanspröva. Ingen fullständig match eller datormotståndare ännu.</p></footer>
+    <noscript><p>Aktivera JavaScript för att visa korten och prova striden.</p></noscript>
+  </main>
+</body>
+</html>

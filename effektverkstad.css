@@ -1,0 +1,39 @@
+.workshop { max-width: 1160px; padding-bottom: 48px; }
+.workshop-intro { padding: 26px 0 32px; }
+.workshop-intro .eyebrow, .choose-section > .eyebrow, .preview-caption .eyebrow { color: #7a7058; }
+.workshop h1 { font: 40px/1.1 Georgia, serif; margin: 12px 0; }
+.workshop-intro > p { color: #666859; max-width: 680px; }
+.workshop-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.16fr); gap: 48px; align-items: start; }
+.art-frame { padding: 12px; background: #fffdf7; border: 1px solid #d0cbbb; border-radius: 15px; box-shadow: 0 10px 40px #24342214; }
+.art-frame .fx-art { border-radius: 8px; }
+.preview-caption { display: flex; align-items: center; justify-content: space-between; margin-top: 23px; }
+.preview-caption h2 { font: 28px Georgia, serif; margin: 5px 0 18px; }
+#strength-label { font-size: 15px; color: #77735e; }
+.range-label { display: block; font-size: 13px; }
+#strength { width: 100%; accent-color: #385742; min-height: 36px; margin: 0; }
+.checks { display: flex; flex-wrap: wrap; gap: 12px 20px; font-size: 13px; }
+.checks label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+.checks input { accent-color: #385742; width: 17px; height: 17px; }
+.upload-area { margin-top: 20px; padding-top: 20px; border-top: 1px solid #d1cdbf; }
+.upload-area > label { display: block; margin-bottom: 8px; font-size: 14px; }
+.upload-area input { width: 100%; min-height: 44px; font: 13px system-ui, sans-serif; }
+.upload-area button { min-height: 44px; padding: 10px 14px; background: transparent; border: 1px solid #c7c2b3; border-radius: 6px; color: #353b30; font-size: 12px; }
+.upload-area p { font-size: 12px; color: #747461; }
+#upload-error:empty { display: none; }
+#upload-error { color: #923d39; }
+.choose-section h2 { font: 28px/1.2 Georgia, serif; margin: 9px 0 22px; }
+.effect-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+.effect-option { background: #fffdf7; border: 1px solid #d3cebf; border-radius: 10px; padding: 7px; color: #33392e; text-align: left; }
+.effect-option .fx-art { border-radius: 5px; }
+.effect-option > span:last-child { display: block; padding: 10px 3px 6px; font-size: 12px; }
+.effect-option[aria-pressed='true'] { outline: 2px solid #4e6b47; outline-offset: 2px; }
+.download-area { margin-top: 26px; padding-top: 21px; border-top: 1px solid #d2cebf; }
+.download-area h3, .workshop-note h3 { font: 24px Georgia, serif; margin: 0 0 7px; }
+.download-area > p { color: #696b5b; font-size: 13px; margin: 0 0 15px; }
+.download-link { display: inline-block; background: #294538; color: #fffbee; text-decoration: none; padding: 13px 17px; border-radius: 6px; font-size: 13px; }
+.download-area .asset-note { margin-top: 12px; font-size: 11px; line-height: 1.6; }
+.workshop-note { margin-top: 28px; padding-top: 22px; border-top: 1px solid #d2cebf; }
+.workshop-note p, .workshop-note a { font-size: 13px; color: #646955; }
+.workshop-note a { color: #365d42; }
+@media (max-width: 760px) { .workshop-grid { grid-template-columns: 1fr; gap: 35px; } .workshop { max-width: 550px; } .workshop h1 { font-size: 33px; } .workshop-intro { padding-top: 12px; } }
+@media (max-width: 360px) { .effect-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

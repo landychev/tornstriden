@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="sv">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tornstriden – bildeffekter</title><link rel="stylesheet" href="spelbord.css"><link rel="stylesheet" href="bildeffekter.css"><link rel="stylesheet" href="effektverkstad.css"><script src="bildeffekter.js" defer></script><script src="effektverkstad.js" defer></script></head>
+<body>
+<header class="masthead"><a class="brand" href="spelbord.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a><nav aria-label="Huvudmeny"><a href="spelbord.html">Spelbordet</a><a href="textkort.html#effektkort">10 effektkort ↗</a></nav></header>
+<main class="workshop">
+  <header class="workshop-intro"><span class="eyebrow">BILDEFFEKTER</span><h1>Lite mer magi i varje kort.</h1><p>Sex genomskinliga lager att lägga över en kortbild. Välj ett uttryck och prova på tornet eller på en egen bild.</p></header>
+  <div class="workshop-grid">
+    <section class="preview-section" aria-labelledby="preview-title">
+      <div class="art-frame"><div id="art-preview" class="fx-art" data-fx="eld"><img id="base-image" class="fx-subject" src="assets/torn.svg" alt="Exempelbild av tornet"><img id="overlay-image" class="fx-layer" src="assets/effekter/eld.svg" alt="" aria-hidden="true"></div></div>
+      <div class="preview-caption"><div><span class="eyebrow">FÖRHANDSVISNING</span><h2 id="preview-title">Eldglöd</h2></div><span id="strength-label">85 %</span></div>
+      <label class="range-label" for="strength">Effektstyrka</label><input id="strength" type="range" min="0" max="100" value="85">
+      <div class="checks"><label><input id="show-layer" type="checkbox" checked> Visa bildlagret</label><label><input id="animate-layer" type="checkbox"> Lugn rörelse</label></div>
+      <div class="upload-area"><label for="base-upload">Prova med egen bild</label><input id="base-upload" type="file" accept="image/png,image/jpeg,image/webp"><p>Bilden stannar i din webbläsare. Inget laddas upp.</p><button id="reset-image" type="button">Återställ tornbilden</button><p id="upload-error" role="alert"></p></div>
+    </section>
+    <section class="choose-section" aria-labelledby="choose-title"><span class="eyebrow">VÄLJ UTTRYCK</span><h2 id="choose-title">Eld, is eller mörk magi?</h2><div id="effect-options" class="effect-options" role="group" aria-label="Välj bildeffekt"></div>
+      <div class="download-area"><h3 id="effect-name">Eldglöd</h3><p id="effect-description">Varma lågor och gnistor längs kanterna.</p><a id="download-layer" class="download-link" href="assets/effekter/eld.svg" download="tornstriden-eld.svg">Hämta genomskinligt lager (SVG) ↓</a><p class="asset-note">1024 × 1024 · skalbar bild · transparent bakgrund<br>Hämtar bara effektlagret, utan tornet. Rörelse och effektstyrka gäller förhandsvisningen.</p></div>
+      <aside class="workshop-note"><h3>Motivet får vara i centrum.</h3><p>Effekterna ligger främst runt bildens kanter. Namn, siffror och regler ligger utanför bildytan så att kortet förblir lätt att läsa.</p><a href="textkort.html#effektkort">Se de tio korten med specialeffekter →</a></aside>
+    </section>
+  </div>
+</main>
+</body></html>

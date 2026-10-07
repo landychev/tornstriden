@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+<defs><radialGradient id="a"><stop offset=".6" stop-color="#b387ff" stop-opacity="0"/><stop offset=".83" stop-color="#a374ff" stop-opacity=".32"/><stop offset="1" stop-color="#c8acff" stop-opacity="0"/></radialGradient></defs>
+<circle cx="512" cy="512" r="506" fill="url(#a)"/><g stroke="#d6b4ff"><circle cx="512" cy="512" r="435" stroke-width="3" opacity=".8"/><circle cx="512" cy="512" r="393" stroke-width="2" stroke-dasharray="2 19" opacity=".85"/><circle cx="512" cy="512" r="450" stroke-width="1" opacity=".45"/></g>
+<g stroke="#e1c7ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M501 52V107M481 76L501 55L522 77L501 97M921 493L965 515L921 537M942 505V539M498 924L521 944L498 967V924M84 482V537M65 497L84 515L105 493M781 196L828 242M792 210L815 190L833 208M780 812L817 786L837 808L803 836M206 795L240 833M190 815L227 787M195 217L223 191L249 218L222 244Z"/></g>
+<g fill="#ead8ff"><circle cx="338" cy="112" r="4"/><circle cx="908" cy="687" r="5"/><circle cx="349" cy="912" r="5"/><circle cx="110" cy="357" r="4"/></g>
+</svg>

@@ -1,0 +1,17 @@
+/* Fristående bildlager: motiv och genomskinligt SVG-lager hålls separata. */
+.fx-art { position: relative; display: block; isolation: isolate; overflow: hidden; border-radius: 8px; background: radial-gradient(ellipse at 50% 35%, #45566b, #16252d 75%); aspect-ratio: 1; }
+.fx-art > .fx-subject { position: absolute; width: 100%; height: 100%; inset: 0; object-fit: contain; padding: 12%; }
+.fx-art > .fx-subject.custom-image { object-fit: cover; padding: 0; }
+.fx-art > .fx-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; opacity: var(--fx-opacity, .85); }
+.fx-art.moving > .fx-layer { animation: fx-breathe 6s ease-in-out infinite alternate; }
+.fx-art[data-fx='frost'] { background: radial-gradient(ellipse at 50% 30%, #475f75, #152637 80%); }
+.fx-art[data-fx='eld'] { background: radial-gradient(ellipse at 50% 30%, #5c443d, #291e25 80%); }
+.fx-art[data-fx='runor'], .fx-art[data-fx='skugga'] { background: radial-gradient(ellipse at 50% 35%, #4a3b64, #221d32 80%); }
+.fx-art[data-fx='ljus'] { background: radial-gradient(ellipse at 50% 30%, #5f614e, #26332e 80%); }
+.mini-card .fx-art { height: 48px; aspect-ratio: auto; margin: 0 0 8px; border-radius: 4px; }
+.mini-card .fx-art > .fx-subject { padding: 0; }
+.mini-card .fx-art > .fx-layer { object-fit: cover; }
+.playing-card .fx-art { min-height: 150px; aspect-ratio: 4 / 3; margin-bottom: 16px; }
+@keyframes fx-breathe { from { transform: scale(1); } to { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .fx-art.moving > .fx-layer { animation: none; } }
+@media print { .fx-art.moving > .fx-layer { animation: none; } }
