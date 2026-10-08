@@ -5,47 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Tornstriden – 30 kort</title>
+  <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="bildeffekter.css">
   <style>
-    body { margin: 0; padding: clamp(16px, 4vw, 48px); background: light-dark(#f0ede7, #161719); }
+    body { margin: 0; padding: clamp(16px, 4vw, 48px); background: var(--bg); }
   </style>
 </head>
 <body>
 <!-- Card preview begins -->
 <main id="tornstriden-textkort">
   <style>
-    #tornstriden-textkort { color-scheme: light dark; --paper: light-dark(#fffdf7, #252628); --ink: light-dark(#262822, #f5f0e5); --quiet: light-dark(#60625a, #bbbdb5); --line: light-dark(#d6d3ca, #4e504a); max-width: 1100px; margin: auto; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); }
+    #tornstriden-textkort { --quiet: var(--muted); max-width: 1100px; margin: auto; font: 16px/1.5 system-ui, sans-serif; color: var(--ink); }
     #tornstriden-textkort * { box-sizing: border-box; }
     #tornstriden-textkort .intro { margin: 0 0 24px; }
     #tornstriden-textkort .intro p { margin: 6px 0 0; color: var(--quiet); }
     #tornstriden-textkort h1 { margin: 0; font: 500 30px/1.2 Georgia, serif; }
     #tornstriden-textkort .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 20px; }
-    #tornstriden-textkort .playing-card { --type: light-dark(#963f32, #ef9c87); --wash: light-dark(#f2e3d9, #42302d); display: flex; flex-direction: column; min-width: 0; min-height: 420px; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-top: 6px solid var(--type); border-radius: 14px; }
-    #tornstriden-textkort .defence { --type: light-dark(#335d85, #98bfed); --wash: light-dark(#e0eaf1, #293a4b); }
-    #tornstriden-textkort .hybrid { --type: light-dark(#3d6b49, #a0c5a1); --wash: light-dark(#e2ecdf, #303f31); }
-    #tornstriden-textkort .magic { --type: light-dark(#72508c, #c9a5e7); --wash: light-dark(#eee3f3, #403248); }
+    #tornstriden-textkort .playing-card { --type: var(--type-attack); --wash: var(--wash-attack); display: flex; flex-direction: column; min-width: 0; min-height: 420px; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-top: 6px solid var(--type); border-radius: 14px; }
+    #tornstriden-textkort .defence { --type: var(--type-defence); --wash: var(--wash-defence); }
+    #tornstriden-textkort .hybrid { --type: var(--type-hybrid); --wash: var(--wash-hybrid); }
+    #tornstriden-textkort .magic { --type: var(--type-magic); --wash: var(--wash-magic); }
     #tornstriden-textkort .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
     #tornstriden-textkort .kind { color: var(--type); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
     #tornstriden-textkort .number { color: var(--quiet); font-size: 12px; }
-    #tornstriden-textkort h2 { margin: 16px 0; font: 500 26px/1.15 Georgia, serif; overflow-wrap: anywhere; }
+    #tornstriden-textkort h2 { margin: 16px 0; font: 500 26px/1.15 Georgia, serif; overflow-wrap: break-word; hyphens: auto; }
     #tornstriden-textkort .power { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; margin: 0 0 18px; border-radius: 8px; background: var(--wash); }
-    #tornstriden-textkort .value { font: 500 44px/1 Georgia, serif; color: var(--ink); }
-    #tornstriden-textkort .power-label { font-size: 13px; text-align: right; }
+    #tornstriden-textkort .value { font: 500 32px/1 Georgia, serif; color: var(--ink); white-space: nowrap; }
+    #tornstriden-textkort .power-label { font-size: 13px; text-align: right; overflow-wrap: anywhere; }
     #tornstriden-textkort dl { margin: 0; }
     #tornstriden-textkort dt { margin-top: 12px; color: var(--quiet); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
     #tornstriden-textkort dd { margin: 3px 0 0; font-size: 14px; }
     #tornstriden-textkort footer { margin-top: auto; padding-top: 20px; color: var(--quiet); font-size: 11px; }
     #tornstriden-textkort .catalog-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
     #tornstriden-textkort .catalog-controls button { font: inherit; font-size: 13px; min-height: 44px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
-    #tornstriden-textkort .catalog-controls button[aria-pressed='true'] { background: light-dark(#294538, #d5e4cd); color: light-dark(#fffbee, #1f3024); }
+    #tornstriden-textkort .catalog-controls button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); }
     #tornstriden-textkort .catalog-controls a { color: var(--ink); font-size: 13px; }
     #tornstriden-textkort .catalog-note { color: var(--quiet); font-size: 13px; margin-bottom: 25px; }
-    #tornstriden-textkort .value { font-size: 32px; white-space: nowrap; }
-    #tornstriden-textkort .power-label { overflow-wrap: anywhere; }
     @media (max-width: 540px) { #tornstriden-textkort .playing-card { aspect-ratio: auto; min-height: 380px; } }
     @media print {
       body { background: white; padding: 0; }
-      #tornstriden-textkort { color-scheme: light; }
+      :root { color-scheme: light; }
       #tornstriden-textkort .cards { grid-template-columns: repeat(2, 70mm); gap: 6mm; }
       #tornstriden-textkort .playing-card { width: 70mm; min-height: 98mm; aspect-ratio: auto; break-inside: avoid; print-color-adjust: exact; }
       #tornstriden-textkort .intro { margin-bottom: 6mm; }
@@ -63,8 +62,6 @@
   </div>
 </main>
 <!-- Card preview ends -->
-<script src="kort.js"></script>
-<script src="bildeffekter.js"></script>
-<script src="kortoversikt.js"></script>
+<script type="module" src="kortoversikt.js"></script>
 </body>
 </html>

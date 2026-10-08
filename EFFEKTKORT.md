@@ -38,7 +38,7 @@ Alla kort räknas som spelarens enda kort i striden och slängs efteråt. Effekt
 6. Jämför styrkorna. Lika räcker för lyckat försvar. Misslyckat försvar kostar ett liv.
 7. Utför eventuell läkning eller motstöt enligt kortet. Lägg därefter spelade kort i slänghögen. Om ett torn faller slängs också dess kvarvarande handkort.
 
-Regelmotorn finns i `strid.js`. Kör `node --test strid.test.js` för att kontrollera specialeffekter och kombinationer.
+Regelmotorn finns i `strid.js`. Kör `npm test` för att kontrollera specialeffekter och kombinationer.
 
 ## Sex fristående bildlager
 

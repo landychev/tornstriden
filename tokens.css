@@ -1,0 +1,9 @@
+/* Gemensamma färgtokens för alla sidor. Ljust läge är grund, mörkt läge följer systemet. */
+:root { color-scheme: light dark; --bg: #f0ede5; --paper: #fffdf7; --ink: #282b25; --muted: #65675d; --edge: #d8d6ca; --line: #d5d4c6; --field: #263f38; --gold: #e3ce94; --accent: #294538; --accent-ink: #fffbee; --wash-result: #e4e8dc; --invalid: #963f32;
+  --type-attack: #963f32; --wash-attack: #f2e3d9; --type-defence: #335d85; --wash-defence: #e0eaf1; --type-hybrid: #3d6b49; --wash-hybrid: #e2ecdf; --type-magic: #72508c; --wash-magic: #eee3f3; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161719; --paper: #252628; --ink: #f0ebe0; --muted: #b4b6ac; --edge: #4a4c46; --line: #3d3f3a; --accent: #d5e4cd; --accent-ink: #1f3024; --wash-result: #22302a; --invalid: #ef9c87;
+    --type-attack: #ef9c87; --wash-attack: #42302d; --type-defence: #98bfed; --wash-defence: #293a4b; --type-hybrid: #a0c5a1; --wash-hybrid: #303f31; --type-magic: #c9a5e7; --wash-magic: #403248; }
+}
+@media print { :root { --bg: #f0ede5; --paper: #fffdf7; --ink: #282b25; --muted: #65675d; --edge: #d8d6ca; --line: #d5d4c6; --field: #263f38; --gold: #e3ce94; --accent: #294538; --accent-ink: #fffbee; --wash-result: #e4e8dc; --invalid: #963f32;
+  --type-attack: #963f32; --wash-attack: #f2e3d9; --type-defence: #335d85; --wash-defence: #e0eaf1; --type-hybrid: #3d6b49; --wash-hybrid: #e2ecdf; --type-magic: #72508c; --wash-magic: #eee3f3; } }

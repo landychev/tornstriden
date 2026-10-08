@@ -3,14 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <title>Tornstriden – spelbord</title>
+  <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="spelbord.css">
   <link rel="stylesheet" href="bildeffekter.css">
-  <script src="kort.js" defer></script>
-  <script src="bildeffekter.js" defer></script>
-  <script src="strid.js" defer></script>
-  <script src="spelbord.js" defer></script>
+  <script type="module" src="spelbord.js"></script>
 </head>
 <body>
   <header class="masthead">
@@ -49,7 +47,7 @@
         <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p>Tryck på ett kort för att läsa effekten.</p></div>
         <div class="actions"><button id="pass" class="secondary" type="button">Avstå försvar</button><button id="resolve" class="primary" type="button" disabled>Avgör teststriden <span aria-hidden="true">→</span></button></div>
       </div>
-      <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
+      <div id="result" class="result" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
     </section>
     <footer class="page-footer"><p><strong>En teststrid åt gången.</strong> Motdragen är förberedda. Under Ställ in teststriden kan du välja motståndarens kort och bådas startliv.</p><p>30 kort att utforska, 10 åt gången på handen. Effektkorten provas här i duell. De nya korten är förslag att balanspröva. Ingen fullständig match eller datormotståndare ännu.</p></footer>
     <noscript><p>Aktivera JavaScript för att visa korten och prova striden.</p></noscript>

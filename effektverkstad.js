@@ -1,7 +1,7 @@
+import { effects, art } from './bildeffekter.js';
+
 (() => {
-  'use strict';
   const $ = id => document.getElementById(id);
-  const { effects, art } = window.TORNSTRIDEN_FX;
   let objectURL = null;
   let uploadRevision = 0;
   $('effect-options').innerHTML = effects.map(effect => `<button class="effect-option" type="button" data-effect="${effect.id}" aria-pressed="${effect.id === 'eld'}" aria-label="${effect.name}">${art(effect.id)}<span>${effect.name}</span></button>`).join('');

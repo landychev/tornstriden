@@ -1,0 +1,16 @@
+{
+  "name": "tornstriden",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ett kortspel om två medeltidsborgar – webbprototyp",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "preview": "node preview.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}

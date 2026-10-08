@@ -55,4 +55,4 @@ Layouten anpassar sig till mobil och dator. Korten väljs med knapptryck och fun
 
 ## Specialkort och bildeffekter
 
-Läs [EFFEKTKORT.md](EFFEKTKORT.md) för kort 21–30, effektordning och bildlager. Öppna `effekter.html` för att välja mellan sex transparenta lager och prova en egen bild. Effekternas duellregler är implementerade och testas med `node --test strid.test.js`. Lagregler och spelbalans behöver fortfarande provas.
+Läs [EFFEKTKORT.md](EFFEKTKORT.md) för kort 21–30, effektordning och bildlager. Öppna `effekter.html` för att välja mellan sex transparenta lager och prova en egen bild. Effekternas duellregler är implementerade och testas med `npm test`. Lagregler och spelbalans behöver fortfarande provas.

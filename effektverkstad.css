@@ -37,3 +37,15 @@
 .workshop-note a { color: #365d42; }
 @media (max-width: 760px) { .workshop-grid { grid-template-columns: 1fr; gap: 35px; } .workshop { max-width: 550px; } .workshop h1 { font-size: 33px; } .workshop-intro { padding-top: 12px; } }
 @media (max-width: 360px) { .effect-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-color-scheme: dark) {
+  .workshop-intro .eyebrow, .choose-section > .eyebrow, .preview-caption .eyebrow, .workshop-intro > p, #strength-label, .upload-area p, .download-area > p, .workshop-note p { color: var(--muted); }
+  .art-frame, .effect-option { background: var(--paper); border-color: var(--edge); box-shadow: none; }
+  .effect-option, .upload-area button { color: var(--ink); }
+  .upload-area, .download-area, .workshop-note { border-color: var(--line); }
+  .upload-area button { border-color: var(--edge); }
+  .effect-option[aria-pressed='true'] { outline-color: var(--accent); }
+  .download-link { background: var(--accent); color: var(--accent-ink); }
+  .workshop-note a { color: var(--accent); }
+  #upload-error { color: var(--invalid); }
+  #strength, .checks input { accent-color: var(--accent); }
+}

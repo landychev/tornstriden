@@ -16,25 +16,30 @@ Det finns ännu ingen komplett match, datorstyrd motståndare eller server för 
 
 ## Öppna prototypen
 
-Öppna `spelbord.html` direkt i en webbläsare, eller starta en lokal förhandsvisning från den här katalogen:
+Prototypen är skriven som ES-moduler och behöver därför en lokal webbserver – att dubbelklicka på `spelbord.html` fungerar inte. Med Node.js installerat:
 
 ```sh
-python3 -m http.server 8765 --bind 127.0.0.1
+npm start
 ```
 
-Öppna sedan [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html).
-
-Om porten redan används av en tidigare förhandsvisning, avsluta den servern eller välj en annan port. Servern ska startas i repositoryts rot. Den lokala förhandsvisningen är ingen publicering på internet.
+Öppna sedan [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html). Servern (`server.js`) har inga beroenden; en annan port väljs med `PORT=8080 npm start`. Den lokala förhandsvisningen är ingen publicering på internet.
 
 ## Tester
 
-Med Node.js installerat:
-
 ```sh
-node --test strid.test.js
+npm test
 ```
 
-Prototypen kräver för närvarande inga externa JavaScript-paket.
+Testerna körs också automatiskt på GitHub vid varje push (`.github/workflows/test.yml`). Prototypen kräver inga externa paket; enbart `npm run preview` behöver Playwright.
+
+## Förhandsvisningsbilder
+
+De tre `*-forhandsvisning.jpg` återskapas med:
+
+```sh
+npm install && npx playwright install chromium   # en gång
+npm run preview
+```
 
 ## Dokumentation
 
@@ -49,15 +54,17 @@ Prototypen kräver för närvarande inga externa JavaScript-paket.
 
 | Fil | Ansvar |
 | --- | --- |
-| `kort.js` | Kortens namn, styrkor, texter och specialeffekter. |
-| `strid.js` | Regelberäkning för en enskild duell. |
+| `kort.js` | Kortens namn, styrkor, texter och specialeffekter, samt bonuskonstanterna (`BONUS`) och maxliv. Kortets siffra härleds ur data. |
+| `strid.js` | Regelberäkning för en enskild duell. Läser `BONUS` från `kort.js`. |
 | `strid.test.js` | Tester för regelberäkningen. |
-| `spelbord.html`, `spelbord.css`, `spelbord.js` | Spelbordets presentation och testkontroller. |
+| `spelbord.html`, `spelbord.css`, `spelbord.js` | Spelbordet: ett `state`-objekt, en `render()` som målar allt, och handlingar som bara ändrar state. |
+| `tokens.css` | Gemensamma färgtokens för ljust och mörkt läge. |
+| `server.js`, `preview.js` | Lokal webbserver och skript som återskapar förhandsvisningsbilderna. |
 | `textkort.html`, `kortoversikt.js` | Kortkatalogen. |
 | `effekter.html`, `effektverkstad.js`, `effektverkstad.css` | Bildverkstaden. |
 | `bildeffekter.js`, `bildeffekter.css`, `assets/effekter/` | Återanvändbara visuella lager. |
 
-Förhandsvisningsbilder och `bildeffekter.zip` är sparade leveranser. De behöver bara förnyas när motsvarande presentation eller bildlager ändras.
+Förhandsvisningsbilder och `bildeffekter.zip` är sparade leveranser. Bilderna förnyas med `npm run preview` när motsvarande sida ändras; zip-filen när bildlagren ändras.
 
 ## GitHub
 

@@ -1,11 +1,9 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const { resolve } = require('./strid.js');
-const context = { window: {} };
-vm.runInNewContext(fs.readFileSync(__dirname + '/kort.js', 'utf8'), context);
-const cards = context.window.TORNSTRIDEN_CARDS;
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { cards, cardValue, BONUS, MAX_LIFE } from './kort.js';
+import { resolve, abilities } from './strid.js';
+const __dirname = new URL('.', import.meta.url).pathname;
 const card = id => cards.find(item => item.id === id);
 const fight = (a, d, attackerLife = 3, defenderLife = 3) => resolve({ attacker: card(a), defender: card(d), attackerLife, defenderLife });
 
@@ -14,6 +12,30 @@ test('30 unika kort; tio specialkort med existerande bildlager', () => {
   assert.equal(new Set(cards.map(c => c.id)).size, 30);
   assert.equal(cards.filter(c => c.ability).length, 10);
   for (const c of cards.filter(c => c.ability)) assert.ok(fs.existsSync(`${__dirname}/assets/effekter/${c.overlay}.svg`));
+});
+test('Varje förmåga i kortdatan är känd av regelmotorn och ger en händelse', () => {
+  for (const c of cards.filter(c => c.ability)) {
+    assert.ok(abilities.includes(c.ability), `${c.name}: okänd förmåga "${c.ability}"`);
+    const opponents = cards.filter(o => c.attack ? o.defence && !o.ability : o.attack && !o.ability);
+    const fired = opponents.some(o => [1, 2, 3].some(life => {
+      const r = c.attack ? resolve({ attacker: c, defender: o, attackerLife: life }) : resolve({ attacker: o, defender: c, defenderLife: life });
+      return r.events.some(e => e.includes(c.name));
+    }));
+    assert.ok(fired, `${c.name}: förmågan "${c.ability}" syns aldrig i händelserna`);
+  }
+});
+test('Kortets siffra härleds ur data och stämmer med grundstyrka och bonus', () => {
+  for (const c of cards) {
+    assert.equal(c.value, cardValue(c));
+    const base = c.cancel ? 1 : c.attack ?? c.defence;
+    assert.ok(c.value.startsWith(String(base)), `${c.name}: "${c.value}" börjar inte med ${base}`);
+  }
+  assert.equal(card('sista-anfallet').value, `2 + ${BONUS.lastAttack}`);
+  assert.equal(card('sista-bastionen').value, `2 + ${BONUS.lastDefence}`);
+  assert.equal(card('drakeld').value, `4 + ${BONUS.dragon}`);
+  assert.equal(card('riddare').value, '3 / 2');
+  assert.equal(card('bagskytt').value, '2');
+  assert.equal(card('spegelskold').value, '1 / =');
 });
 test('Sprängladdning sänker försvar men stoppas helt av barriär', () => {
   assert.equal(fight('sprangladdning', 'skoldmur').defence, 1);
@@ -81,6 +103,7 @@ test('Alla kortkombinationer håller liv och styrkor inom giltiga gränser', () 
   for (const a of cards.filter(c => c.attack)) {
     for (const d of cards.filter(c => c.defence || c.cancel)) {
       for (const attackerLife of [1, 2, 3]) for (const defenderLife of [1, 2, 3]) {
+        assert.equal(MAX_LIFE, 3);
         const r = resolve({attacker:a, defender:d, attackerLife, defenderLife});
         assert.ok(r.attack >= 0 && r.defence >= 0);
         assert.ok(r.attackerLife >= 0 && r.attackerLife <= 3);
