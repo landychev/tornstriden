@@ -1,0 +1,35 @@
+/* Tillägg för matchvyn. Grundlayouten kommer från spelbord.css. */
+.notice:empty { display: none; }
+.notice { margin: 14px 0 0; padding: 10px 14px; border-left: 3px solid var(--invalid); background: var(--wash-result); font-size: 13px; }
+.notice.info { border-left-color: #58734d; }
+#phase-title { outline: none; }
+.battle-copy p strong { color: #ede9d9; }
+.deck-stack { font-size: 16px; }
+.hand-sets[hidden] { display: none; }
+.hand-sets span { flex-basis: 100%; }
+.hand .mini-card.chosen { outline: 2px solid #29483a; outline-offset: 2px; transform: translateY(-6px); }
+.hand .mini-card .swap-mark { position: absolute; top: 8px; right: 8px; font: 600 10px/1 system-ui, sans-serif; color: var(--accent-ink); background: var(--accent); border-radius: 10px; padding: 4px 7px; }
+.confirm-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.confirm-panel p { margin: 0; flex-basis: 100%; font-size: 13px; }
+.log { margin-top: 20px; font-size: 13px; color: var(--muted); }
+.log summary { cursor: pointer; padding: 6px 0; }
+.log ol { margin: 6px 0 0; padding-left: 22px; max-height: 240px; overflow: auto; }
+.log li { margin: 2px 0; }
+.dev-panel { margin-top: 18px; padding: 10px 14px; border: 1px dashed var(--edge); border-radius: 6px; font-size: 12px; color: var(--muted); }
+.dev-panel summary { cursor: pointer; font-weight: 600; }
+.dev-panel label { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--ink); }
+.dev-panel ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 6px 0; padding: 0; }
+.dev-panel li { border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; color: var(--ink); }
+.dev-state { font-family: ui-monospace, monospace; font-size: 11px; }
+.result .winner { font-size: 15px; margin-top: 6px; }
+.hidden-hand.empty { visibility: hidden; }
+@media (max-width: 680px) { nav button { padding: 8px 10px; } }
+.heading-tools { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.opponent-pick { font-size: 11px; color: #c4cdbe; display: flex; align-items: center; gap: 8px; }
+.opponent-pick select { font: 12px system-ui, sans-serif; min-height: 34px; padding: 6px 8px; border-radius: 5px; border: 1px solid #70816b; background: #1d3129; color: #ede9d9; }
+.thinking { display: inline-flex; align-items: center; gap: 8px; }
+.thinking::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--muted); border-top-color: transparent; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.dev-panel select { font: 12px system-ui, sans-serif; min-height: 32px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--edge); background: var(--paper); color: var(--ink); }
+.computer-log { margin: 4px 0 8px; padding-left: 20px; max-height: 160px; overflow: auto; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .thinking::before { animation: none; border-top-color: var(--muted); } }

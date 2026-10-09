@@ -2,7 +2,7 @@
 
 **Datum:** 7 oktober 2026
 
-**Status:** Ursprunglig plan för webbversionen. Kort, spelbord, teststrider och bildlager finns nu. Kompletta matcher och onlinespel återstår. Se [utvecklingsplanen](UTVECKLINGSPLAN.md) för aktuell arbetsordning.
+**Status:** Ursprunglig plan för webbversionen. Kort, spelbord, bildlager, en komplett lokal duell och läget 1 mot datorn finns nu (byggordningens punkt 1–2). Onlinespel, lagspel och grafikpaketet återstår. Se [utvecklingsplanen](UTVECKLINGSPLAN.md) för aktuell arbetsordning.
 
 **Regelunderlag:** [SPELREGLER.md](SPELREGLER.md)
 
@@ -30,7 +30,7 @@ Första leveransen bör innehålla 1 mot datorn, 1 mot 1 och 2 mot 2. Större la
 
 En dator räknas som en vanlig deltagare och följer exakt samma regler. Kortbalansen behöver testas separat för dueller: en barriär stoppar hela attacken när bara ett attackkort spelas.
 
-Regler som är markerade som förslag i SPELREGLER.md är fortfarande förslag. Innan implementation behöver vi fastställa kortpåfyllning, kortgräns per strid, enkel attack 1 och vem som anfaller efter ett misslyckat försvar.
+Duellreglerna är beslutade som `duell-v1` med kortleken `duell-50-v1`; se SPELREGLER.md avsnitt 13. Lagreglerna i SPELREGLER.md är fortfarande förslag.
 
 ## Datorns beteende
 

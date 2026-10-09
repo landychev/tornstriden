@@ -2,7 +2,7 @@
 
 ## Öppna prototypen
 
-Öppna `spelbord.html` i en webbläsare. Den fungerar lokalt utan installation. Länken **Alla 30 kort** leder till den uppdaterade kortöversikten `textkort.html`.
+Starta `npm start` och öppna `spelbord.html` (ES-moduler kräver en lokal server). Sidan är ett testbord för enskilda strider; den riktiga matchen finns i `match.html`. Länken **Alla 30 kort** leder till kortöversikten `textkort.html`.
 
 ## Det som går att prova
 
@@ -16,7 +16,7 @@
 - **Avstå försvar:** spara hela handen och förlora ett liv.
 - **Återställ:** återgå till valda startliv och tio kort för att prova en ny strid. Byte mellan attack- och försvarstest återställer också situationen.
 
-Detta är fristående teststrider, inte en fullständig match. Motdragen är förbestämda. Startbyten, draghögens innehåll, påfyllning, seger, datorbeslut, laghjälp och onlinespel är ännu inte implementerade. Kortleken på bordet är visuell. Slänghögens siffra visar korten som förbrukats i teststriden.
+Detta är fristående teststrider, inte en fullständig match. Motdragen är förbestämda. En komplett lokal duell med startbyten, draghög, påfyllning, seger och datormotståndare finns i `match.html`; laghjälp och onlinespel är ännu inte implementerade. Kortleken på bordet är visuell. Slänghögens siffra visar korten som förbrukats i teststriden.
 
 ## Fem nya kortförslag
 

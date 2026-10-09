@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Tornstriden – match</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="spelbord.css">
+  <link rel="stylesheet" href="bildeffekter.css">
+  <link rel="stylesheet" href="match.css">
+  <script type="module" src="matchvy.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="spelbord.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
+    <nav aria-label="Huvudmeny"><a href="spelbord.html">Teststrider</a><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
+  </header>
+  <main>
+    <section class="table" aria-label="Spelbord med två torn">
+      <div class="table-heading"><span class="eyebrow">MATCH · DUELL</span><div class="heading-tools"><label class="opponent-pick">Motståndare <select id="mode"><option value="computer">Datorn</option><option value="hotseat">Två spelare vid samma skärm</option></select></label><span class="preview-label" id="match-label">Regler duell-v1 · Kortlek duell-50-v1</span></div></div>
+      <div class="rampart enemy-zone">
+        <div class="player-info"><span class="eyebrow" id="label-B">DATORN</span><h1>Norra tornet</h1><p id="life-B" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-B">10 kort på handen</p></div>
+        <div class="tower-wrap" id="tower-B"><img src="assets/torn.svg" alt="Norra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
+        <div class="hidden-hand" id="hidden-B" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+      <div class="battle">
+        <div class="battle-copy"><span class="eyebrow" id="battle-eyebrow">STRIDSPLATSEN</span><h2 id="phase-title" tabindex="-1">Startbyten</h2><p id="phase-description"></p></div>
+        <div class="combat-cards"><div class="slot" id="attack-slot" aria-label="Attackkort"></div><span class="versus" aria-hidden="true">mot</span><div class="slot" id="defence-slot" aria-label="Försvarskort"></div></div>
+        <div class="piles"><div class="deck-stack" id="draw-number" aria-label="Kort i draghögen">30</div><span>Draghög</span><div class="discard-stack" id="discard-number" aria-label="Kort i slänghögen">0</div><span>Slänghög</span></div>
+      </div>
+      <div class="rampart own-zone">
+        <div class="player-info"><span class="eyebrow">SPELARE A</span><h2>Södra tornet</h2><p id="life-A" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-A">10 kort på handen</p></div>
+        <div class="tower-wrap" id="tower-A"><img src="assets/torn.svg" alt="Södra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
+        <div class="turn-label"><span class="turn-dot" aria-hidden="true"></span><span id="turn-label"></span></div>
+      </div>
+    </section>
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    <section class="hand-area" aria-labelledby="hand-heading">
+      <div class="hand-header"><div><span class="eyebrow" id="hand-owner">SÖDRA TORNETS KORT</span><h2 id="hand-heading">Välj kort</h2></div><p id="hand-count">10 kort</p></div>
+      <div id="usage" class="hand-sets" role="group" aria-label="Hur kortet används" hidden><button id="usage-normal" type="button" aria-pressed="true">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false">Enkel attack 1 – utan specialeffekt</button><span>Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.</span></div>
+      <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
+      <div class="action-bar">
+        <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p></p></div>
+        <div id="actions" class="actions"></div>
+      </div>
+      <div id="result" class="result" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
+      <details class="log"><summary>Matchlogg</summary><ol id="log"></ol></details>
+      <details class="dev-panel" id="dev-panel"><summary>Utvecklingsläge</summary>
+        <p>Mot datorn styr du Södra tornet; datorn spelar Norra tornet med samma regelkontroll som du. Med två spelare vid samma skärm visas handen för den som står på tur.</p>
+        <label>Datorns strategi <select id="strategy"><option value="smart">Grundstrategi (dator-v1)</option><option value="random">Slumpmässiga giltiga drag</option></select></label>
+        <label><input type="checkbox" id="show-both"> Visa även den andra spelarens hand (bara för utveckling)</label>
+        <div id="other-hand"></div>
+        <p>Datorns beslut och skäl:</p><ol id="computer-log" class="computer-log"></ol>
+        <p id="dev-state" class="dev-state"></p>
+      </details>
+    </section>
+    <footer class="page-footer"><p><strong>Lokal duell mot datorn eller mot en spelare vid samma skärm.</strong> Matchen sparas inte: om sidan laddas om eller stängs försvinner den och inget resultat registreras.</p><p>Regler: <code>duell-v1</code>, kortlek <code>duell-50-v1</code> (50 kort), datorstrategi <code>dator-v1</code>. Datorn ser bara sin egen hand och det som ligger öppet på bordet. Onlinespel kommer senare.</p></footer>
+    <noscript><p>Aktivera JavaScript för att spela matchen.</p></noscript>
+  </main>
+</body>
+</html>

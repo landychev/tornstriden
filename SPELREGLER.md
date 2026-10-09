@@ -1,8 +1,8 @@
 # Tornstriden – spelinstruktion
 
-**Version:** 0.1, för provspelning
+**Version:** 0.2, för provspelning
 
-**Datum:** 7 oktober 2026
+**Datum:** 9 oktober 2026
 
 **Spelare:** 2, 4, 6 eller 8, fördelade på två lika stora lag
 
@@ -23,6 +23,9 @@ Några frågor var fortfarande öppna. Följande **förslag för provspelningen*
 - Lagen byter anfallsroll efter varje strid, även efter ett misslyckat försvar.
 - Ingen ersätter enskilda förbrukade kort. Endast en spelare vars hand är helt tom får dra fem nya kort efter striden. Detta är ett föreslaget undantag som löser frågan om tom hand.
 - Ett valfritt kort kan användas som en enkel attack med styrka 1 i stället för sin vanliga funktion. Då går det att anfalla även med en hand som bara innehåller försvarskort.
+
+**För webbspelets duell (två spelare) är förslagen ovan nu beslutade.** Se avsnitt 13,
+som också låser en kortlek på 50 kort. Lagreglerna i avsnitt 1–12 är oförändrade förslag.
 
 Kortlekens sammansättning, färger och ordningen inom lagen nedan är också förslag. Presentationen anger 2, 4 eller 6 spelare; här ingår även 8 för att möjliggöra ert önskemål om 4 mot 4. Speltiden och balansen behöver testas.
 
@@ -261,3 +264,33 @@ Börja gärna med två mot två. Spela ett helt parti med samma regler innan ni 
 - Hur många minuter tar ett parti? Målet är ett snabbt spel, men någon speltid är ännu inte uppmätt.
 
 Anteckna vad som hände och ändra en regel eller kortfördelning åt gången. Reglerna ovan är en första sammanhängande prototyp, inte en färdigtestad balans.
+
+## 13. Beslutade duellregler för webbspelet
+
+**Regelversion:** `duell-v1` · **Kortlek:** `duell-50-v1` · **Beslutat:** 9 oktober 2026
+
+Detta avsnitt gäller en duell mellan två spelare, med ett torn var och en gemensam
+kortlek, så som webbspelet spelar den. Värdena finns i `matchregler.js`; stridens
+specialeffekter beräknas av `strid.js` enligt ordningen i [EFFEKTKORT.md](EFFEKTKORT.md).
+Genomförandet beskrivs i [UTVECKLINGSPLAN.md](UTVECKLINGSPLAN.md).
+
+| Regel | Beslut |
+| --- | --- |
+| Spelare | Två, ett torn var. Samma regler för människa och dator. |
+| Startliv | 3, och maxliv 3 även efter läkning. |
+| Startkort | 10 var, utdelade växelvis. Endast den egna handen visas; motståndarens liv och kortantal är öppna. |
+| Startbyten | Två omgångar med 0–2 kort per omgång. Undanlagda kort kommer inte tillbaka förrän bytena är klara; då blandas de in i draghögen. Båda har fortfarande 10 kort när första striden börjar. |
+| Kortlek | 50 kort: två exemplar av varje kort utan specialeffekt (20 typer, inklusive Eldklot och Magisk barriär) och ett exemplar av varje specialkort (10 typer). Fördelningen är en uttrycklig lista över kort-ID och antal; nya kort i katalogen ändrar inte leken utan ett nytt beslut. |
+| Första anfallare | Lottas efter startbytena. |
+| Turväxling | Spelarna turas om att anfalla efter varje strid, oavsett resultat. Ingen extra tur. |
+| Kort per strid | Anfallaren spelar exakt ett kort om handen inte är tom. Försvararen spelar högst ett giltigt försvarskort eller avstår. Ett kort används aldrig två gånger i samma strid. |
+| Enkel attack | Valfritt kort får spelas som vanlig, icke-magisk attack med styrka 1 och utan kortets specialeffekt. Magisk barriär stoppar den; Försegling stoppar den inte som magi och Spegelsköld kopierar inte dess styrka. Originalkortet ändras aldrig. |
+| Avgörande | Försvar lika med eller högre än attack stoppar anfallet. En träff kostar exakt ett liv; specialeffekter enligt kortet. |
+| Matchslut | Kontrolleras efter alla stridseffekter, före påfyllning och turbyte. Spelaren vars torn når noll liv är utslagen och motståndaren vinner – även när anfallaren faller av en motstöt. Den utslagnes handkort slängs. |
+| Påfyllning | Efter striden får en levande spelare med helt tom hand upp till fem kort; mottagarna bestäms innan utdelningen, nästa anfallare först, ett kort i taget. En hand med kort kvar fylls inte på. |
+| Omblandning | När draghögen är tom blandas slänghögen till ny draghög, även mitt under en utdelning. Kort på händerna blandas inte in. Räcker korten inte får spelaren så många som finns, utan senare komplettering så länge handen har kort. |
+| Avstå försvar | Gäller bara den aktuella striden: spelaren behåller hela handen och förlorar ett liv om attacken går igenom. |
+| Ge upp | Tillåtet i alla faser utom efter avslut, även under motståndarens tur, efter bekräftelse i gränssnittet. Motståndaren vinner direkt; liv och händer ändras inte, pågående strid räknas inte. |
+| Lämna eller ladda om sidan | Den lokala matchen försvinner och inget resultat sparas i denna version. |
+
+**Avgränsning:** laghjälp, val av måltavla och onlinespel ingår inte i `duell-v1`.

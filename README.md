@@ -6,13 +6,14 @@ Detta repository är projektets huvudsakliga arbetskatalog. Nya filer och framti
 
 ## Nuvarande version
 
-- 30 kortförslag, inklusive tio kort med specialeffekter.
-- Ett spelbord med två torn och fristående teststrider.
-- Beräkning av duellresultat, specialeffekter, läkning och livförlust.
-- Sex transparenta bildlager och en verkstad där de kan provas på en egen bild.
-- Automatiska tester för kort och stridsregler.
+- En komplett lokal duell i `match.html` (startsidan): startbyten, anfall, försvar, enkel attack, påfyllning vid tom hand, omblandning, vinst och Ge upp.
+- En datormotståndare (`dator.js`, strategi `dator-v1`) som spelar Norra tornet med samma regelkontroll som människan och bara ser sin egen hand och det öppna bordet. Läget Två spelare vid samma skärm finns också.
+- Beslutade duellregler (`duell-v1`) och en låst kortlek på 50 kort (`duell-50-v1`) i `matchregler.js`.
+- 30 korttyper, inklusive tio kort med specialeffekter, och en stridsberäkning för duellresultat, specialeffekter, läkning och livförlust.
+- Ett testbord (`spelbord.html`) för fristående teststrider, en kortkatalog och sex transparenta bildlager med en verkstad.
+- 56 automatiska tester för kort, strid, regler, matchmotor och dator.
 
-Det finns ännu ingen komplett match, datorstyrd motståndare eller server för onlinespel. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
+Matchen sparas inte – om sidan laddas om försvinner den. Datorn följer en enkel grundstrategi (fasta försvarsexempel vid anfall, exakt beräkning vid försvar) och kan göra svaga val mot specialkort som Spegelsköld eller Törnesköld; vikterna ligger i `STRATEGY` i `dator.js`. Det finns ingen server för onlinespel. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
 
 ## Öppna prototypen
 
@@ -22,7 +23,7 @@ Prototypen är skriven som ES-moduler och behöver därför en lokal webbserver 
 npm start
 ```
 
-Öppna sedan [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html). Servern (`server.js`) har inga beroenden; en annan port väljs med `PORT=8080 npm start`. Den lokala förhandsvisningen är ingen publicering på internet.
+Öppna sedan [matchen](http://127.0.0.1:8765/match.html), [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html). Servern (`server.js`) har inga beroenden; en annan port väljs med `PORT=8080 npm start`. Den lokala förhandsvisningen är ingen publicering på internet.
 
 ## Uppdatera spelet på servern
 
@@ -42,7 +43,7 @@ Webbservern behöver redan vara inställd att visa statiska filer därifrån.
 
 Skriptet hittar källfilerna utifrån sin egen plats. Det kopierar spelets HTML,
 CSS, JavaScript, bildresurser och licens samt skapar `index.html` från
-spelbordet. Befintliga filer med samma namn skrivs över, inklusive `index.html`.
+matchen (`match.html`). Befintliga filer med samma namn skrivs över, inklusive `index.html`.
 Andra filer i målkatalogen lämnas kvar. Uppdateringen sker fil för fil.
 Git-historik, lokala inställningar och utvecklingsverktyg kopieras inte.
 
@@ -117,7 +118,7 @@ Tester körs vid behov med kommandot ovan; ingen automatisk testkörning på Git
 
 ## Förhandsvisningsbilder
 
-De tre `*-forhandsvisning.jpg` återskapas med:
+De fyra `*-forhandsvisning.jpg` återskapas med:
 
 ```sh
 npm install && npx playwright install chromium   # en gång
@@ -126,10 +127,10 @@ npm run preview
 
 ## Dokumentation
 
-- [Utvecklingsplan och nästa steg](UTVECKLINGSPLAN.md)
-- [Spelregler och öppna regelförslag](SPELREGLER.md)
+- [Utvecklingsplan: vad som är gjort och nästa steg](UTVECKLINGSPLAN.md)
+- [Spelregler, inklusive de beslutade duellreglerna i avsnitt 13](SPELREGLER.md)
 - [Plan för webbspel och grafik](WEBBSPEL.md)
-- [Prototypens funktioner](PROTOTYP.md)
+- [Testbordets funktioner](PROTOTYP.md)
 - [Specialkort och bildlager](EFFEKTKORT.md)
 - Ursprungligt arbetsmaterial: `kortspel.pptx`.
 
@@ -140,6 +141,13 @@ npm run preview
 | `kort.js` | Kortens namn, styrkor, texter och specialeffekter, samt bonuskonstanterna (`BONUS`) och maxliv. Kortets siffra härleds ur data. |
 | `strid.js` | Regelberäkning för en enskild duell. Läser `BONUS` från `kort.js`. |
 | `strid.test.js` | Tester för regelberäkningen. |
+| `matchregler.js` | Beslutade duellregler, versionsbeteckningar, den låsta kortleken (kort-ID → antal), `buildDeck` och `battleCard` för enkel attack. |
+| `matchregler.test.js` | Tester för kortlek, enkel attack och regelbesluten i del 1. |
+| `match.js` | Matchmotorn: matchobjekt, kortexemplar, `newMatch`, `process` (alla handlingar med match-ID och revision), `playerView` och `allowedActions`. Läser aldrig HTML. |
+| `match.test.js` | Tester för motorn, bland annat en hel referensmatch med förutbestämd lek. |
+| `match.html`, `matchvy.js`, `match.css` | Matchvyn: visningsläge, `render()` från spelarvyn, handlingar som bara går genom `process()`, samt datorns avbrytbara paus och beslutsfel. |
+| `dator.js` | Datormotståndaren: giltiga val ur spelarvyn, slump- och grundstrategi, strategivikter (`STRATEGY`). Ändrar aldrig matchen. |
+| `dator.test.js` | Tester för datorns beslut och hela seedade matcher dator mot dator. |
 | `spelbord.html`, `spelbord.css`, `spelbord.js` | Spelbordet: ett `state`-objekt, en `render()` som målar allt, och handlingar som bara ändrar state. |
 | `tokens.css` | Gemensamma färgtokens för ljust och mörkt läge. |
 | `server.js`, `preview.js` | Lokal webbserver och skript som återskapar förhandsvisningsbilderna. |
@@ -147,7 +155,7 @@ npm run preview
 | `effekter.html`, `effektverkstad.js`, `effektverkstad.css` | Bildverkstaden. |
 | `bildeffekter.js`, `bildeffekter.css`, `assets/effekter/` | Återanvändbara visuella lager. |
 
-Förhandsvisningsbilder och `bildeffekter.zip` är sparade leveranser. Bilderna förnyas med `npm run preview` när motsvarande sida ändras; zip-filen när bildlagren ändras.
+Förhandsvisningsbilderna förnyas med `npm run preview` när motsvarande sida ändras.
 
 ## GitHub
 

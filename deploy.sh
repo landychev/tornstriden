@@ -18,9 +18,9 @@ source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # Explicit lista: Git-data, lokala inställningar och utvecklingsverktyg publiceras inte.
 files=(
-  spelbord.html textkort.html effekter.html
-  spelbord.css bildeffekter.css effektverkstad.css tokens.css
-  spelbord.js kort.js strid.js bildeffekter.js kortoversikt.js effektverkstad.js
+  spelbord.html match.html textkort.html effekter.html
+  spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css
+  spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js
   LICENSE
 )
 for file in "${files[@]}"; do
@@ -45,6 +45,6 @@ while IFS= read -r -d '' asset; do
   install -m 644 -- "$asset" "$target/$relative"
 done < <(find "$source_dir/assets" -type f ! -name '.DS_Store' -print0)
 
-# Gör spelet till startsida även när webbservern använder index.html.
-install -m 644 -- "$source_dir/spelbord.html" "$target/index.html"
+# Gör matchen till startsida även när webbservern använder index.html.
+install -m 644 -- "$source_dir/match.html" "$target/index.html"
 printf 'Klart! Webbspelsfilerna är uppdaterade i %s\n' "$target"
