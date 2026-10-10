@@ -18,6 +18,13 @@ try {
     const page = await browser.newPage({ viewport: { width, height }, colorScheme: 'light' });
     await page.goto(`http://127.0.0.1:${PORT}/${path}`);
     await page.waitForTimeout(600);
+    // Stäng hjälprutorna (spelförklaring och bytesförklaring) så att bilden visar bordet.
+    await page.evaluate(() => { let d; while ((d = document.querySelector('dialog[open]'))) d.close(); });
+    await page.waitForTimeout(200);
+    // Även målningar nedanför synfältet ska vara avkodade innan bilden tas.
+    await page.evaluate(async () => {
+      await Promise.all([...document.images].map(image => { image.loading = 'eager'; return image.decode(); }));
+    });
     await page.screenshot({ path: file, type: 'jpeg', quality: 82 });
     console.log('skrev', file);
     await page.close();

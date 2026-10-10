@@ -60,6 +60,57 @@
 .hand .mini-card.dealt { animation: deal-in .45s cubic-bezier(.2, .7, .2, 1) backwards; }
 @keyframes deal-in { from { opacity: 0; transform: translateY(26px); } }
 
+/* ---- Bytesraden: ovanför handen, inramad så att knapparna inte går att missa ---- */
+.swap-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px 24px; margin: 0 0 18px; padding: 16px 20px; border: 2px solid var(--accent); border-radius: 10px; background: var(--wash-result); }
+.swap-bar .selection-info h3 { font-size: 21px; }
+.swap-bar .actions { align-items: center; }
+.swap-bar .actions button { min-height: 52px; padding: 13px 24px; font-size: 15px; border-radius: 8px; }
+.swap-bar .primary { font-weight: 600; }
+.swap-bar .primary:not(:disabled) { box-shadow: 0 6px 16px #29453840; animation: nudge 1.4s ease-in-out 2; }
+@keyframes nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
+/* ---- Hjälprutor: spelförklaring och bytesförklaring. Rundade, med ett grönt
+   bordshuvud (tornet respektive en liten kortgrafik), runda stegnummer och pillerknapp. ---- */
+.help-dialog { border: 0; border-radius: 26px; padding: 0; width: min(600px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); box-shadow: 0 28px 70px #0d1a1780; overflow: auto; }   /* auto: rutan kan scrolla på låga skärmar */
+.help-dialog::backdrop { background: #10251ea6; backdrop-filter: blur(2px); }
+.help-dialog[open] { animation: dialog-in .25s ease-out; }
+.help-head { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 24px; padding: 26px 32px 24px; color: #ede9d9; background: radial-gradient(ellipse at 50% 20%, #3b5544 0%, #294139 60%, #223830 100%); }
+.help-head::before { content: ''; position: absolute; inset: 10px; border: 1px solid #c8bc7e30; border-radius: 18px; pointer-events: none; }
+.help-head > * { position: relative; }
+.help-head > div:last-child { flex: 1; min-width: 200px; }
+.help-head .eyebrow { color: #bdbb97; }
+.help-head h3 { margin: 6px 0 0; font: 28px/1.15 Georgia, serif; }
+.help-head p { margin: 6px 0 0; color: #c8d2c0; font-size: 13px; }
+.help-head img { width: 86px; height: 98px; flex: 0 0 auto; filter: drop-shadow(0 8px 12px #0d1a1780); }
+.help-body { padding: 22px 32px 4px; font-size: 14px; line-height: 1.5; }
+.help-steps { list-style: none; margin: 0; padding: 0; }
+.help-steps li { display: flex; gap: 14px; align-items: flex-start; margin: 0 0 12px; }
+.help-steps li > div { padding-top: 4px; }
+.step-no { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font: 15px/1 Georgia, serif; box-shadow: 0 3px 8px #29453833; }
+.help-hearts { color: #c9a24a; letter-spacing: .05em; }
+.chip { display: inline-block; padding: 1px 9px 2px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--paper); background: var(--type); white-space: nowrap; }
+.chip.attack { --type: var(--type-attack); }
+.chip.defence { --type: var(--type-defence); }
+.chip.hybrid { --type: var(--type-hybrid); }
+.chip.magic { --type: var(--type-magic); }
+.art-badge { display: inline-block; font: 600 10px/1 system-ui, sans-serif; color: var(--accent-ink); background: var(--accent); border-radius: 10px; padding: 4px 7px; vertical-align: 1px; }
+.help-note { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+.help-actions { display: flex; justify-content: flex-end; padding: 18px 32px 26px; }
+.help-actions .primary { min-height: 52px; padding: 14px 32px; border-radius: 999px; font-size: 15px; font-weight: 600; box-shadow: 0 8px 18px #29453840; }
+
+/* Bytesgrafiken i huvudet: tre kort varav två märkta, en pil och draghögen. Färgerna är fasta
+   eftersom huvudet alltid är mörkgrönt, oavsett ljust eller mörkt läge. */
+.swap-art { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 6px 8px 6px 2px; }
+.art-cards { display: flex; align-items: flex-end; padding-right: 12px; }
+.art-card { position: relative; width: 40px; height: 56px; margin-right: -9px; border-radius: 6px; background: #fffdf7; border-top: 4px solid #963f32; box-shadow: 0 5px 12px #0d1a1780; transform: rotate(-9deg); }
+.art-card:first-child i { right: auto; left: -8px; }   /* annars döljs märket av mittkortet */
+.art-card:nth-child(2) { border-top-color: #335d85; transform: translateY(-5px); z-index: 1; }
+.art-card:nth-child(3) { border-top-color: #72508c; transform: rotate(9deg); }
+.art-card i { position: absolute; top: 5px; right: -8px; font: 600 9px/1 system-ui, sans-serif; font-style: normal; color: #263c30; background: #e0d7b5; border-radius: 10px; padding: 3px 6px; z-index: 2; box-shadow: 0 2px 4px #0d1a1766; }
+.art-arrow { font: 24px/1 Georgia, serif; color: #dacb94; }
+.art-pile { width: 36px; height: 50px; border-radius: 5px; border: 1px solid #9b9971; background: #21372e; color: #dacb94; font: 20px Georgia, serif; display: grid; place-items: center; box-shadow: 3px 3px #6d7a5766; }
+@media (prefers-color-scheme: dark) { .help-hearts { color: #e5cf99; } }
+
 /* ---- Stridsresultatet som dialogruta ---- */
 .result-dialog { border: 0; border-radius: 12px; padding: 0; width: min(560px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); box-shadow: 0 24px 60px #0d1a1766; overflow: hidden; }
 .result-dialog::backdrop { background: #10251ea6; backdrop-filter: blur(2px); }
@@ -71,6 +122,15 @@
 .result-dialog .actions { padding: 14px 26px 20px; justify-content: flex-end; }
 @media (max-width: 680px) {
   .battle-actions { padding-top: 16px; }
+  .swap-bar { padding: 14px 14px; }
+  .swap-bar .actions button { flex: 1; }
+  .help-dialog { border-radius: 20px; }
+  .help-head { padding: 22px 20px 20px; gap: 6px 18px; }
+  .help-head h3 { font-size: 24px; }
+  .help-head img { width: 64px; height: 73px; }
+  .help-body { padding: 18px 20px 2px; }
+  .help-actions { padding: 14px 20px 20px; }
+  .help-actions .primary { width: 100%; }
   .result-dialog .result { padding: 18px 18px 14px; }
   .result-dialog .actions { padding: 12px 18px 18px; }
 }

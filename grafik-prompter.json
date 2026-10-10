@@ -1,0 +1,198 @@
+{
+  "tool": "imagegen (built-in)",
+  "reference": "design/grafik-koncept.png",
+  "jobs": [
+    {
+      "id": "stormning",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: A charismatic battle-worn swordsman charging toward the viewer, steel plate armor, crimson surcoat, dark tousled hair, expressive determined face. Sword raised diagonally.",
+      "transparent": false,
+      "file": "assets/kort/stormning.jpg"
+    },
+    {
+      "id": "skoldmur",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Three resolute medieval soldiers bracing a tightly interlocked shield wall. Foreground blue shield and visible central human face are large and legible.",
+      "transparent": false,
+      "file": "assets/kort/skoldmur.jpg"
+    },
+    {
+      "id": "bagskytt",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Focused hooded human archer with drawn wooden bow, green cloak, brown leather armor, expressive face in three-quarter profile, bow and arrow anatomically coherent.",
+      "transparent": false,
+      "file": "assets/kort/bagskytt.jpg"
+    },
+    {
+      "id": "eldklot",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Purple hooded female human mage conjuring a single brilliant orange fireball in one hand. Dramatic warm reflected light, strong recognizable face.",
+      "transparent": false,
+      "file": "assets/kort/eldklot.jpg"
+    },
+    {
+      "id": "barriar",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Silver-haired human sorcerer extending a hand to create a translucent luminous violet magical protective barrier, shield-shaped arc surrounding them.",
+      "transparent": false,
+      "file": "assets/kort/barriar.jpg"
+    },
+    {
+      "id": "spejare",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Agile hooded young human scout crouching at a stone battlement, short cloak, leather armor, dagger, alert face, dawn light, muted crimson accents.",
+      "transparent": false,
+      "file": "assets/kort/spejare.jpg"
+    },
+    {
+      "id": "armborst",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Veteran human crossbow soldier aiming a large medieval wooden crossbow, visible face, iron helmet and burgundy padded armor; crossbow dominates foreground.",
+      "transparent": false,
+      "file": "assets/kort/armborst.jpg"
+    },
+    {
+      "id": "katapult",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: A substantial medieval wooden catapult on wheels with a single long throwing arm and a stone in its sling, iron braces and thick ropes, two human crew soldiers operating it. Full machine easily recognizable and centered, siege field behind.",
+      "transparent": false,
+      "file": "assets/kort/katapult.jpg"
+    },
+    {
+      "id": "tornvakt",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Resolute bearded human tower guard in steel helmet and armor with blue cloth, massive steel-edged blue shield, standing watch, face visible.",
+      "transparent": false,
+      "file": "assets/kort/tornvakt.jpg"
+    },
+    {
+      "id": "jarnport",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Massive closed iron-reinforced fortress gate and lowered portcullis, torch-lit stone arch, a vigilant human guard standing prominently at one side. Gate is the primary subject, blue heraldic banners.",
+      "transparent": false,
+      "file": "assets/kort/jarnport.jpg"
+    },
+    {
+      "id": "murbracka",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Heavy medieval battering ram with an iron ram's-head striking tip, suspended under a wheeled timber shelter, two human siege engineers pushing forward, dramatic dusty fortress approach.",
+      "transparent": false,
+      "file": "assets/kort/murbracka.jpg"
+    },
+    {
+      "id": "ryttaranfall",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Armored human knight on a charging warhorse, crimson banner and surcoat, sword raised, heroic three-quarter view. Horse and rider clearly recognizable, dynamic painterly scene.",
+      "transparent": false,
+      "file": "assets/kort/ryttaranfall.jpg"
+    },
+    {
+      "id": "belagringstorn",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Tall wooden medieval siege tower on large wheels, timber cladding, iron bracing, a lowered assault bridge and human soldiers operating it, fortress wall in distant background. Single machine dominates, cinematic low viewpoint.",
+      "transparent": false,
+      "file": "assets/kort/belagringstorn.jpg"
+    },
+    {
+      "id": "palissad",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Rugged human defender behind freshly built pointed timber palisade stakes, gripping a spear, rough wood details, blue cloth accents, defensive scene.",
+      "transparent": false,
+      "file": "assets/kort/palissad.jpg"
+    },
+    {
+      "id": "vallgrav",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: A wide water-filled defensive moat directly beneath an imposing stone fortress with a raised drawbridge, a prominent human sentry on the near bank, cool blue water and torch reflections. Moat easily readable.",
+      "transparent": false,
+      "file": "assets/kort/vallgrav.jpg"
+    },
+    {
+      "id": "fastningsmur",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Mighty stone fortress wall with crenellations and blue banners, prominent armored human wall captain and two guards on the battlement. Masonry and defensive thickness clearly conveyed.",
+      "transparent": false,
+      "file": "assets/kort/fastningsmur.jpg"
+    },
+    {
+      "id": "riddare",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Noble human knight in polished battle-worn plate armor, green surcoat, sword and shield, face visible beneath an open helmet, confident three-quarter stance.",
+      "transparent": false,
+      "file": "assets/kort/riddare.jpg"
+    },
+    {
+      "id": "livvakt",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Broad-shouldered human bodyguard in dark steel and green cloth standing defensively, spear and large protective shield, stern visible face, castle entrance behind.",
+      "transparent": false,
+      "file": "assets/kort/livvakt.jpg"
+    },
+    {
+      "id": "eldstorm",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Powerful human battle mage in flowing dark violet robes summoning a swirling storm of fire overhead, multiple curved flame trails, silhouette and face remain readable amid orange embers.",
+      "transparent": false,
+      "file": "assets/kort/eldstorm.jpg"
+    },
+    {
+      "id": "runskold",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Human rune guardian holding a large round shield etched with luminous violet runes, armored visible face, magical protective concentric patterns, strong central shield silhouette.",
+      "transparent": false,
+      "file": "assets/kort/runskold.jpg"
+    },
+    {
+      "id": "sprangladdning",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Medieval human sapper in leather armor kneeling beside a wooden powder barrel with a glowing fuse at a fortress wall, red cloth accents, tense dramatic light. No modern weapons, no explosion obscuring the subject.",
+      "transparent": false,
+      "file": "assets/kort/sprangladdning.jpg"
+    },
+    {
+      "id": "sista-anfallet",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Exhausted but defiant human swordsman making a final heroic charge, battered armor, tattered crimson flag, sunset and embers, determined visible face. No blood or gore.",
+      "transparent": false,
+      "file": "assets/kort/sista-anfallet.jpg"
+    },
+    {
+      "id": "drakeld",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: A formidable red dragon breathing an orange stream of fire across a medieval battlement, clear dragon head and folded wing silhouette, violet stormy sky. Dragon is the dominant character.",
+      "transparent": false,
+      "file": "assets/kort/drakeld.jpg"
+    },
+    {
+      "id": "vampyrbett",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Elegant pale vampire noble with subtle visible fangs, dark violet cloak and silver clasps, hand drawing a spiral of crimson life energy, moody moonlight, expressive face. No blood, no gore, no victim.",
+      "transparent": false,
+      "file": "assets/kort/vampyrbett.jpg"
+    },
+    {
+      "id": "helande-ljus",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Compassionate human healer in ivory and violet robes, hands releasing radiant golden healing light around a small magical fortress silhouette, warm hopeful face, elegant painterly fantasy.",
+      "transparent": false,
+      "file": "assets/kort/helande-ljus.jpg"
+    },
+    {
+      "id": "isrustning",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Human armored defender encased in translucent blue crystalline frost armor, visible face, ice crust on pauldrons and shield, violet and cyan highlights, clear broad silhouette.",
+      "transparent": false,
+      "file": "assets/kort/isrustning.jpg"
+    },
+    {
+      "id": "torneskold",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Strong human defender holding a massive shield covered in twisting thorny vines with blue cloth and steel armor, face visible, shield dominates foreground, restrained green magical glow.",
+      "transparent": false,
+      "file": "assets/kort/torneskold.jpg"
+    },
+    {
+      "id": "sista-bastionen",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Weary but unbowed human fortress captain guarding a battered stone gateway, dented blue shield, torn blue banner, golden dawn light, determined face. No gore.",
+      "transparent": false,
+      "file": "assets/kort/sista-bastionen.jpg"
+    },
+    {
+      "id": "spegelskold",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Human enchantress-warrior holding an ornate highly reflective silver mirror shield reflecting a violet magical bolt, visible face, steel armor and purple cloth, mirror is clear focal point.",
+      "transparent": false,
+      "file": "assets/kort/spegelskold.jpg"
+    },
+    {
+      "id": "forsegling",
+      "prompt": "Use case: stylized-concept. Production game card illustration for Tornstriden. Input image is STYLE REFERENCE ONLY: match the PAINTERLY FANTASY characters in the top row. Create ONE portrait 2:3 full-bleed illustration, NOT a finished card, no frame, no text, no numbers, no typography, no border, no watermark. Natural human proportions, visible painterly brush texture, richly rendered weathered steel and leather, cinematic warm torchlight and cool shadows. Dramatic but readable at small thumbnail sizes, subject fills the middle 85% of image, uncluttered atmospheric medieval backdrop. Keep important face/subject away from top left corner where the game places a value badge. No cartoon outlines or glossy 3D people. Same coherent visual universe as reference. Subject: Hooded human rune mage closing a luminous violet circular magical seal with both hands, floating geometric glyphs without readable lettering, focused face, stone arch backdrop.",
+      "transparent": false,
+      "file": "assets/kort/forsegling.jpg"
+    },
+    {
+      "id": "torn-bla",
+      "prompt": "Use case: stylized-concept. Production tower game sprite for Tornstriden. Input image is STYLE REFERENCE ONLY: match precisely the CHUNKY STYLIZED 3D TOWERS in the lower row. Create ONE isolated fortified stone keep in three-quarter view, broad sculpted masonry, central crenellated tower with modest side turrets, iron portcullis, golden torchlight, large heraldic banners, small rocky base, sculpted hand-painted 3D materials. Clean strong compact silhouette, equal height and might to both reference towers. Entire tower, flags and base visible with a narrow transparent margin. Square composition, object fills 90% of canvas. Genuinely transparent RGBA background, no ground plane outside rocky base, no surrounding landscape, no cards, no text, no labels, no checkerboard baked into image. BLUE banners and blue conical side turret roofs. Intact imposing tower.",
+      "transparent": true,
+      "file": "assets/torn/torn-bla.png"
+    },
+    {
+      "id": "torn-rod",
+      "prompt": "Use case: stylized-concept. Production tower game sprite for Tornstriden. Input image is STYLE REFERENCE ONLY: match precisely the CHUNKY STYLIZED 3D TOWERS in the lower row. Create ONE isolated fortified stone keep in three-quarter view, broad sculpted masonry, central crenellated tower with modest side turrets, iron portcullis, golden torchlight, large heraldic banners, small rocky base, sculpted hand-painted 3D materials. Clean strong compact silhouette, equal height and might to both reference towers. Entire tower, flags and base visible with a narrow transparent margin. Square composition, object fills 90% of canvas. Genuinely transparent RGBA background, no ground plane outside rocky base, no surrounding landscape, no cards, no text, no labels, no checkerboard baked into image. CRIMSON RED banners and red conical side turret roofs. Intact imposing tower.",
+      "transparent": true,
+      "file": "assets/torn/torn-rod.png"
+    }
+  ]
+}

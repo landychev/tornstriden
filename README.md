@@ -132,6 +132,7 @@ npm run preview
 - [Plan för webbspel och grafik](WEBBSPEL.md)
 - [Testbordets funktioner](PROTOTYP.md)
 - [Specialkort och bildlager](EFFEKTKORT.md)
+- [Målade kort, 3D-torn och bildprompter](GRAFIK.md)
 - Ursprungligt arbetsmaterial: `kortspel.pptx`.
 
 ## Filer att börja i

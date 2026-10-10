@@ -8,7 +8,7 @@
    kort flyger till draghögen och stridsresultatet visas i en dialogruta. */
 import { MAX_LIFE } from './kort.js';
 import { USAGE, canAttack, canDefend } from './matchregler.js';
-import { art } from './bildeffekter.js';
+import { cardFace, towerAppearance } from './grafik.js';
 import { newMatch, process, playerView, allowedActions, cardType, PHASE, ACTION, STATUS, END } from './match.js';
 import { decide, packAction, DecisionError, STRATEGIES, STRATEGY } from './dator.js';
 
@@ -58,8 +58,8 @@ const myTurn = () => match.activePlayer === ui.viewer;
 const stateKey = () => `${match.id}|${match.revision}|${match.phase}|${match.activePlayer}`;
 
 /* ---- Små ritfunktioner ---- */
-const cardHTML = type => `<span class="mini-kind">${type.label}</span><span class="mini-name">${type.name}</span>${art(type.overlay)}<span class="mini-value">${type.value}</span><span class="mini-label">${type.valueLabel}</span>`;
-const simpleHTML = type => `<span class="mini-kind">Enkel attack</span><span class="mini-name">${type.name}</span><span class="mini-value">1</span><span class="mini-label">Attack 1 · utan specialeffekt</span>`;
+const cardHTML = type => cardFace(type);
+const simpleHTML = type => cardFace(type, { simple: true });
 const button = (action, label, { kind = 'primary', disabled = false, id = '' } = {}) => `<button type="button" class="${kind}"${id ? ` id="${id}"` : ''} data-action="${action}" data-revision="${match.revision}"${disabled ? ' disabled' : ''}>${label}</button>`;
 
 function hearts(id, count, previous = count) {
@@ -124,6 +124,7 @@ function tower(id) {
   const r = match.lastResult;
   const shown = [PHASE.result, PHASE.over].includes(match.phase) && r;
   const el = $(`tower-${id}`);
+  towerAppearance(el, p.life);
   el.classList.toggle('damaged', p.life < MAX_LIFE && p.life > 0);
   el.classList.toggle('fallen', p.life === 0);
   el.classList.toggle('held', Boolean(shown && r.defender === id && r.defended));
@@ -138,7 +139,7 @@ function phaseText() {
   const active = match.activePlayer ? nameOf(match.activePlayer) : '';
   const waiting = ui.thinking ? ' Datorn väljer kort…' : '';
   switch (match.phase) {
-    case PHASE.swap: return { title: `Startbyten – omgång ${match.swapRound} av ${match.rules.swapRounds}`, text: ui.thinking ? 'Datorn väljer sina byten…' : `${active}: markera 0–${match.rules.maxCardsPerSwap} kort att byta och bekräfta. Undanlagda kort blandas tillbaka först när bytena är klara.` };
+    case PHASE.swap: return { title: `Startbyten – omgång ${match.swapRound} av ${match.rules.swapRounds}`, text: ui.thinking ? 'Datorn väljer sina byten…' : `${active}: markera upp till ${match.rules.maxCardsPerSwap} kort i handen nedanför och tryck Byt kort – eller Behåll handen. Bortbytta kort blandas tillbaka först när bytena är klara.` };
     case PHASE.attack: return { title: `${active} anfaller`, text: ui.thinking ? `Strid ${match.battleNumber}.${waiting}` : `Strid ${match.battleNumber}. Välj ett kort ur handen. Vilket kort som helst kan spelas som enkel attack 1.` };
     case PHASE.defence: { const a = v.battle.attack; const type = cardType(a.cardId); return { title: `${active} försvarar`, text: `${nameOf(v.battle.attacker)} anfaller med ${a.usage === USAGE.simple ? `${type.name} som enkel attack 1` : `${type.name} (${type.value})`}.${ui.thinking ? waiting : ' Välj ett försvarskort eller avstå.'}` }; }
     case PHASE.result: { const r = match.lastResult; return { title: r.defended ? 'Försvaret håller' : `${nameOf(r.defender)} träffas`, text: `Attack ${r.attackStrength} mot försvar ${r.defenceStrength}. Läs resultatet och tryck Fortsätt.` }; }
@@ -199,8 +200,12 @@ function renderActions() {
   } else if (match.phase === PHASE.swap && allowed.includes(ACTION.swap)) {
     where = 'hand';
     const n = ui.selected.length;
-    info = `<h3>${n === 0 ? 'Behåll handen eller markera kort att byta' : `${n} av ${match.rules.maxCardsPerSwap} kort markerade`}</h3><p>Omgång ${match.swapRound} av ${match.rules.swapRounds}. ${type ? html(type.effect) : 'Tryck på ett kort för att markera det; tryck igen för att ångra.'}</p>`;
-    actions = button('swap', n === 0 ? 'Behåll handen' : `Byt ${n} kort`, { id: 'confirm-swap' });
+    const max = match.rules.maxCardsPerSwap;
+    const round = `Omgång ${match.swapRound} av ${match.rules.swapRounds}.`;
+    info = n === 0
+      ? `<h3>Markera kort att byta – eller behåll handen</h3><p>${round} Tryck på upp till ${max} kort som du vill byta mot nya. Tryck sedan på <strong>Byt kort</strong>. Vill du inte byta något trycker du på <strong>Behåll handen</strong>.</p>`
+      : `<h3>${n} av ${max} kort markerade</h3><p>${round} ${type ? `${html(type.effect)} ` : ''}Tryck på <strong>Byt ${n} kort</strong> för att få nya från draghögen, eller tryck på ett markerat kort för att ångra.</p>`;
+    actions = button('keep', 'Behåll handen', { kind: 'secondary', id: 'keep-hand' }) + button('swap', n === 0 ? 'Byt kort' : `Byt ${n} kort`, { disabled: n === 0, id: 'confirm-swap' });
   } else if (match.phase === PHASE.attack && allowed.includes(ACTION.attack)) {
     const ok = type && canAttack(type, ui.usage);
     const hint = type && !ok ? `<p class="invalid">${html(type.name)} har ingen attackstyrka. Välj ”Enkel attack 1” för att anfalla med kortet ändå.</p>` : '';
@@ -265,6 +270,21 @@ function renderResult() {
   setTimeout(() => flying.then(() => { if (resultKey === key && !dialog.open) dialog.showModal(); }), 0);
 }
 
+/* ---- Hjälprutor. Spelförklaringen öppnas när sidan laddas (och via knappen Så spelar du).
+   Bytesförklaringen öppnas en gång per spelare och match när det är dags att byta,
+   men väntar tills spelförklaringen är stängd så att rutorna inte staplas. ---- */
+const swapHelpShown = new Set();   // "match-ID|spelare" som redan fått bytesförklaringen
+function renderSwapHelp() {
+  const dialog = $('swap-dialog');
+  const due = match.phase === PHASE.swap && myTurn() && !ui.thinking && !ui.confirm && !ui.decisionError;
+  if (!due) { if (dialog.open) dialog.close(); return; }
+  const key = `${match.id}|${ui.viewer}`;
+  if (swapHelpShown.has(key) || dialog.open || $('intro-dialog').open) return;
+  swapHelpShown.add(key);
+  $('swap-who').textContent = ui.mode === 'computer' ? 'Du spelar Södra tornet och byter först. Sedan byter datorn.' : `${nameOf(ui.viewer)} byter nu – den andra spelaren tittar bort.`;
+  dialog.showModal();
+}
+
 function renderDev() {
   const other = match.players.find(p => p.id !== ui.viewer);
   const show = $('show-both').checked;
@@ -322,6 +342,7 @@ function render() {
   renderHand();
   renderActions();
   renderResult();
+  renderSwapHelp();
   renderDev();
 
   // Meddelanden och fokus
@@ -457,10 +478,11 @@ function choose(instanceId) {
   }
 }
 
-/* Bekräfta bytet: de markerade korten flyger till draghögen och de nya delas ut i handen. */
-function swapCards() {
-  const marked = [...$('hand').querySelectorAll('[aria-pressed="true"]')].map(el => [el, docRect(el)]);
-  const reply = send(ACTION.swap, { playerId: ui.viewer, cards: [...ui.selected] });
+/* Bekräfta bytet: de markerade korten flyger till draghögen och de nya delas ut i handen.
+   Med `keep` behålls hela handen – eventuella markeringar ignoreras. */
+function swapCards({ keep = false } = {}) {
+  const marked = keep ? [] : [...$('hand').querySelectorAll('[aria-pressed="true"]')].map(el => [el, docRect(el)]);
+  const reply = send(ACTION.swap, { playerId: ui.viewer, cards: keep ? [] : [...ui.selected] });
   if (reply.status !== STATUS.ok) return;
   const pile = pileRect();
   marked.forEach(([el, from], i) => {
@@ -484,7 +506,8 @@ function setMode(mode) {
 }
 
 const actionHandlers = {
-  swap: swapCards,
+  swap: () => swapCards(),
+  keep: () => swapCards({ keep: true }),
   attack: () => send(ACTION.attack, { playerId: ui.viewer, card: ui.selected[0], usage: ui.usage }),
   defend: () => send(ACTION.defend, { playerId: ui.viewer, card: ui.selected[0] }),
   pass: () => send(ACTION.pass, { playerId: ui.viewer }),
@@ -513,7 +536,15 @@ $('new-match').addEventListener('click', () => { if ([PHASE.over, PHASE.error].i
 $('mode').addEventListener('change', () => setMode($('mode').value));
 $('strategy').addEventListener('change', () => { ui.strategy = $('strategy').value === STRATEGIES.random ? STRATEGIES.random : STRATEGIES.smart; render(); });
 $('show-both').addEventListener('change', renderDev);
+/* Hjälprutorna: knapparna stänger; när spelförklaringen stängs kan bytesförklaringen öppnas.
+   Bytesförklaringen lämnar fokus på första kortet i handen. */
+$('show-help').addEventListener('click', () => $('intro-dialog').showModal());
+$('intro-close').addEventListener('click', () => $('intro-dialog').close());
+$('swap-close').addEventListener('click', () => $('swap-dialog').close());
+$('intro-dialog').addEventListener('close', renderSwapHelp);
+$('swap-dialog').addEventListener('close', () => $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true }));
 window.addEventListener('beforeunload', event => { if (![PHASE.over, PHASE.error].includes(match.phase) && match.revision > 0) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pagehide', cancelComputerJob);
+$('intro-dialog').showModal();   // före första render(): bytesförklaringen väntar tills den stängts
 syncComputerTurn();
 render();

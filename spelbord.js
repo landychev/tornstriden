@@ -2,7 +2,7 @@
    Handlingarna längst ner ändrar bara state och anropar render(). */
 import { cards, MAX_LIFE } from './kort.js';
 import { resolve } from './strid.js';
-import { art } from './bildeffekter.js';
+import { cardFace, towerAppearance } from './grafik.js';
 
 const $ = id => document.getElementById(id);
 const HAND_SETS = { original: 0, new: 10, effects: 20 };
@@ -40,7 +40,7 @@ function counts() {
 }
 
 /* ---- Små ritfunktioner ---- */
-const cardHTML = card => `<span class="mini-kind">${card.label}</span><span class="mini-name">${card.name}</span>${art(card.overlay)}<span class="mini-value">${card.value}</span><span class="mini-label">${card.valueLabel}</span>`;
+const cardHTML = card => cardFace(card);
 
 function life(id, count, previous = count) {
   $(id).setAttribute('aria-label', `${count} av ${MAX_LIFE} liv`);
@@ -54,6 +54,7 @@ function slot(id, card, label) {
 
 function tower(id, { start, life: current, defended, isDefender }) {
   const el = $(id);
+  towerAppearance(el, current);
   el.classList.toggle('damaged', current < start);
   el.classList.toggle('fallen', current === 0);
   el.classList.toggle('held', Boolean(state.outcome) && isDefender && defended);

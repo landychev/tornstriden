@@ -19,8 +19,8 @@ source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # Explicit lista: Git-data, lokala inställningar och utvecklingsverktyg publiceras inte.
 files=(
   spelbord.html match.html textkort.html effekter.html
-  spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css
-  spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js
+  spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css
+  spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js grafik.js
   LICENSE
 )
 for file in "${files[@]}"; do

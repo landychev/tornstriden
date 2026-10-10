@@ -1,0 +1,123 @@
+/* Målade kort och skulpterade torn. Separat från matchlogik och kortanimationer. */
+.mini-card {
+  --frame: #8f352b;
+  padding: 4px 4px 9px;
+  border: 2px solid var(--frame);
+  border-radius: 10px;
+  background: linear-gradient(150deg, #fff4d9, #e9d7b2);
+  color: #30271f;
+  box-shadow: inset 0 0 0 1px #f6dda06b, 0 4px 9px #08150f33;
+  overflow: hidden;
+}
+.mini-card.defence { --frame: #2e597e; }
+.mini-card.hybrid { --frame: #396840; }
+.mini-card.magic { --frame: #75448c; }
+.mini-card .card-art {
+  flex: none;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  margin: 0;
+  border-radius: 5px 5px 2px 2px;
+  background: #293831;
+}
+.card-art > .fx-subject.custom-image { object-fit: cover; object-position: center; padding: 0; }
+.card-art > .fx-layer { opacity: .28; }
+.mini-card .mini-value {
+  position: absolute;
+  top: 9px;
+  left: 8px;
+  z-index: 1;
+  min-width: 31px;
+  max-width: calc(100% - 16px);
+  padding: 6px 7px 8px;
+  border: 1px solid #f3d994;
+  border-radius: 6px 6px 12px 12px;
+  color: #fff8e5;
+  background: var(--frame);
+  box-shadow: 0 2px 5px #0008;
+  text-shadow: 0 1px 2px #0009;
+  font: 25px/1 Georgia, serif;
+  text-align: center;
+  letter-spacing: -.04em;
+}
+.mini-card .mini-name {
+  display: grid;
+  place-items: center;
+  min-height: 39px;
+  margin: 0;
+  padding: 6px 3px 5px;
+  border-bottom: 1px solid #94744a40;
+  color: #30271f;
+  text-align: center;
+  font: bold 15px/1.1 Georgia, serif;
+  text-wrap: balance;
+}
+.mini-card .mini-kind {
+  min-height: 24px;
+  margin: 6px 3px 0;
+  color: var(--frame);
+  font: 700 9px/1.3 system-ui, sans-serif;
+  letter-spacing: .02em;
+  text-align: center;
+}
+.mini-card .mini-label {
+  margin: 2px 3px 0;
+  color: #63533e;
+  font: 10px/1.3 system-ui, sans-serif;
+  text-align: center;
+}
+.mini-card .new-tag { color: #63533e; text-align: center; }
+.hand .mini-card.unusable { opacity: .7; filter: saturate(.55); }
+.hand .mini-card[aria-pressed='true'] { outline: 3px solid #c79b40; outline-offset: 3px; box-shadow: 0 6px 20px #161b154d; }
+.hand .mini-card .swap-mark { top: auto; bottom: 10px; right: 6px; z-index: 2; background: #294538; color: #fff6dd; box-shadow: 0 2px 5px #0005; }
+.slot { min-height: 295px; width: 150px; flex: 0 1 150px; }
+.slot .mini-card .mini-name { font-size: 17px; min-height: 42px; }
+.slot .mini-card .mini-kind { font-size: 9px; }
+.slot .mini-card .mini-label { font-size: 10px; }
+.tower-wrap { width: 230px; height: 215px; }
+.tower-wrap img { filter: drop-shadow(0 8px 9px #081a1680); }
+.tower-emblem { display: none; }
+.rampart { min-height: 215px; grid-template-columns: 1fr 250px 1fr; }
+.tower-wrap.damaged { filter: none; }
+.tower-wrap[data-life='2'] img { filter: saturate(.8) brightness(.9) drop-shadow(0 8px 9px #081a1680); }
+.tower-wrap[data-life='1'] img { filter: saturate(.5) brightness(.72) drop-shadow(0 0 9px #dd582c66); }
+.tower-wrap::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 15% 20% 20%;
+  background: radial-gradient(ellipse at 65% 65%, #d97a285e, transparent 45%), radial-gradient(ellipse at 45% 25%, #333c38b8, transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+}
+.tower-wrap[data-life='1']::before { opacity: 1; }
+.tower-wrap.fallen { opacity: .45; }
+.help-head img { object-fit: contain; }
+
+/* Kortkatalogen behåller hela regeltexten under varje målning. */
+#tornstriden-textkort .playing-card .card-art { aspect-ratio: 2 / 3; margin: 0 0 14px; min-height: 0; border-radius: 6px; }
+#tornstriden-textkort .playing-card { box-shadow: 0 5px 18px #17291b12; }
+
+@media (max-width: 1180px) {
+  .mini-card .mini-name { font-size: 17px; }
+}
+@media (max-width: 680px) {
+  .rampart { grid-template-columns: 1fr 145px; min-height: 165px; padding-inline: 20px; }
+  .tower-wrap { width: 158px; height: 165px; }
+  .player-info h1, .player-info h2 { font-size: 22px; }
+  .hand { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .hand .mini-card .mini-name { font-size: 18px; }
+  .hand .mini-card .mini-kind { font-size: 10px; min-height: 14px; }
+  .hand .mini-card .mini-label { font-size: 11px; }
+  .slot { min-height: 285px; }
+  .combat-cards { gap: 7px; }
+}
+@media (max-width: 360px) {
+  .rampart { grid-template-columns: 1fr 115px; padding-inline: 16px; }
+  .tower-wrap { width: 128px; height: 155px; }
+  .mini-card .mini-value { font-size: 22px; }
+}
+@media print {
+  #tornstriden-textkort .playing-card .card-art { aspect-ratio: 4 / 3; }
+}

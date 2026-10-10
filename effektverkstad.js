@@ -49,7 +49,7 @@ import { effects, art } from './bildeffekter.js';
     uploadRevision++;
     if (objectURL) URL.revokeObjectURL(objectURL);
     objectURL = null;
-    $('base-image').src = 'assets/torn.svg';
+    $('base-image').src = 'assets/torn/torn-bla.png';
     $('base-image').alt = 'Exempelbild av tornet';
     $('base-image').classList.remove('custom-image');
     $('base-upload').value = '';

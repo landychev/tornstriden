@@ -10,18 +10,19 @@
   <link rel="stylesheet" href="bildeffekter.css">
   <link rel="stylesheet" href="match.css">
   <script type="module" src="matchvy.js"></script>
+  <link rel="stylesheet" href="grafik.css">
 </head>
 <body>
   <header class="masthead">
     <a class="brand" href="spelbord.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
-    <nav aria-label="Huvudmeny"><a href="spelbord.html">Teststrider</a><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
+    <nav aria-label="Huvudmeny"><a href="spelbord.html">Teststrider</a><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><button id="show-help" type="button">Så spelar du</button><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
   </header>
   <main>
     <section class="table" aria-label="Spelbord med två torn">
       <div class="table-heading"><span class="eyebrow">MATCH · DUELL</span><div class="heading-tools"><label class="opponent-pick">Motståndare <select id="mode"><option value="computer">Datorn</option><option value="hotseat">Två spelare vid samma skärm</option></select></label><span class="preview-label" id="match-label">Regler duell-v1 · Kortlek duell-50-v1</span></div></div>
       <div class="rampart enemy-zone">
         <div class="player-info"><span class="eyebrow" id="label-B">DATORN</span><h1>Norra tornet</h1><p id="life-B" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-B">10 kort på handen</p></div>
-        <div class="tower-wrap" id="tower-B"><img src="assets/torn.svg" alt="Norra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
+        <div class="tower-wrap" id="tower-B"><img src="assets/torn/torn-bla.png" alt="Norra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
         <div class="hidden-hand" id="hidden-B" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
       </div>
       <div class="battle" id="battle">
@@ -36,21 +37,60 @@
       </div>
       <div class="rampart own-zone">
         <div class="player-info"><span class="eyebrow">SPELARE A</span><h2>Södra tornet</h2><p id="life-A" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-A">10 kort på handen</p></div>
-        <div class="tower-wrap" id="tower-A"><img src="assets/torn.svg" alt="Södra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
+        <div class="tower-wrap" id="tower-A"><img src="assets/torn/torn-rod.png" alt="Södra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
         <div class="turn-label"><span class="turn-dot" aria-hidden="true"></span><span id="turn-label"></span></div>
       </div>
     </section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section class="hand-area" aria-labelledby="hand-heading">
       <div class="hand-header"><div><span class="eyebrow" id="hand-owner">SÖDRA TORNETS KORT</span><h2 id="hand-heading">Välj kort</h2></div><p id="hand-count">10 kort</p></div>
-      <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
-      <div class="action-bar" id="hand-bar" hidden>
+      <!-- Bytesraden ligger ovanför handen så att knapparna syns utan att man behöver scrolla. -->
+      <div class="swap-bar" id="hand-bar" hidden>
         <div id="hand-info" class="selection-info"></div>
         <div id="hand-actions" class="actions"></div>
       </div>
+      <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
       <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title">
         <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
         <div id="dialog-actions" class="actions"></div>
+      </dialog>
+      <!-- Spelförklaring: öppnas när sidan laddas och via knappen Så spelar du. -->
+      <dialog id="intro-dialog" class="help-dialog" aria-labelledby="intro-title">
+        <div class="help-head">
+          <img src="assets/torn/torn-rod.png" alt="" width="86" height="98">
+          <div><span class="eyebrow">SÅ SPELAR DU</span><h3 id="intro-title">Välkommen till Tornstriden</h3><p>Två torn, tre liv var – fäll motståndarens torn först.</p></div>
+        </div>
+        <div class="help-body">
+          <ol class="help-steps">
+            <li><span class="step-no" aria-hidden="true">1</span><div><strong>Målet.</strong> Båda tornen har tre liv <span class="help-hearts" aria-hidden="true">♥♥♥</span>. Den som först tar motståndarens tre liv vinner matchen.</div></li>
+            <li><span class="step-no" aria-hidden="true">2</span><div><strong>Korten.</strong> Du har tio kort på handen. <span class="chip attack">Röda</span> anfaller, <span class="chip defence">blå</span> försvarar, <span class="chip hybrid">gröna</span> kan göra båda och <span class="chip magic">lila</span> är magi med en specialeffekt. Siffran är kortets styrka.</div></li>
+            <li><span class="step-no" aria-hidden="true">3</span><div><strong>Startbyten.</strong> Innan striderna börjar får du i två omgångar byta upp till två kort mot nya från draghögen.</div></li>
+            <li><span class="step-no" aria-hidden="true">4</span><div><strong>Striderna.</strong> Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.</div></li>
+            <li><span class="step-no" aria-hidden="true">5</span><div><strong>Bra att veta.</strong> Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</div></li>
+          </ol>
+          <p class="help-note">Mot datorn spelar du Södra tornet. Knappen <strong>Så spelar du</strong> i menyn visar den här rutan igen.</p>
+        </div>
+        <div class="help-actions"><button type="button" class="primary" id="intro-close">Börja spela</button></div>
+      </dialog>
+      <!-- Bytesförklaring: öppnas en gång per spelare och match när startbytena börjar. -->
+      <dialog id="swap-dialog" class="help-dialog" aria-labelledby="swap-title">
+        <div class="help-head">
+          <div class="swap-art" aria-hidden="true">
+            <div class="art-cards"><span class="art-card"><i>Byts</i></span><span class="art-card"></span><span class="art-card"><i>Byts</i></span></div>
+            <span class="art-arrow">→</span>
+            <span class="art-pile">30</span>
+          </div>
+          <div><span class="eyebrow">STARTBYTEN</span><h3 id="swap-title">Dags att byta kort</h3><p id="swap-who"></p></div>
+        </div>
+        <div class="help-body">
+          <ol class="help-steps">
+            <li><span class="step-no" aria-hidden="true">1</span><div>Titta på din hand. Tryck på upp till <strong>två kort</strong> du vill bli av med – de får märket <span class="art-badge">Byts</span>. Tryck igen för att ångra.</div></li>
+            <li><span class="step-no" aria-hidden="true">2</span><div>Tryck på den stora knappen <strong>Byt kort</strong> ovanför handen. Du får lika många nya kort från draghögen.</div></li>
+            <li><span class="step-no" aria-hidden="true">3</span><div>Vill du behålla alla dina kort? Tryck på <strong>Behåll handen</strong>.</div></li>
+          </ol>
+          <p class="help-note">Det blir två bytesomgångar. Bortbytta kort blandas tillbaka i draghögen först när båda spelarna är klara.</p>
+        </div>
+        <div class="help-actions"><button type="button" class="primary" id="swap-close">Okej, visa mina kort</button></div>
       </dialog>
       <details class="log"><summary>Matchlogg</summary><ol id="log"></ol></details>
       <details class="dev-panel" id="dev-panel"><summary>Utvecklingsläge</summary>

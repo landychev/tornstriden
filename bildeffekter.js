@@ -10,5 +10,5 @@ export const effects = Object.freeze([
 
 export function art(id, moving = false) {
   if (!effects.some(effect => effect.id === id)) return '';
-  return `<span class="fx-art${moving ? ' moving' : ''}" data-fx="${id}" aria-hidden="true"><img class="fx-subject" src="assets/torn.svg" alt=""><img class="fx-layer" src="assets/effekter/${id}.svg" alt=""></span>`;
+  return `<span class="fx-art${moving ? ' moving' : ''}" data-fx="${id}" aria-hidden="true"><img class="fx-subject" src="assets/torn/torn-bla.png" alt=""><img class="fx-layer" src="assets/effekter/${id}.svg" alt=""></span>`;
 }
