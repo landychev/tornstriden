@@ -33,3 +33,44 @@
 .dev-panel select { font: 12px system-ui, sans-serif; min-height: 32px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--edge); background: var(--paper); color: var(--ink); }
 .computer-log { margin: 4px 0 8px; padding-left: 20px; max-height: 160px; overflow: auto; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .thinking::before { animation: none; border-top-color: var(--muted); } }
+
+/* ---- Knappraden på stridsplatsen (anfall, försvar, fortsätt) ---- */
+.battle-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px 24px; padding-top: 18px; border-top: 1px solid #bcbb992e; }
+.battle-actions .selection-info h3 { color: #ede9d9; }
+.battle-actions .selection-info p { color: #c8d2c0; }
+.battle-actions .selection-info .invalid { color: #f0b9a6; }
+.battle-actions .primary { background: #e0d7b5; color: #263c30; border-color: #e0d7b5; }
+.battle-actions .secondary { color: #dde2d4; border-color: #70816b; }
+.battle-actions .confirm-panel p { color: #dde2d4; }
+.battle-actions .thinking::before { border-color: #c8d2c0; border-top-color: transparent; }
+.usage { order: 3; margin: 0; flex-basis: 100%; }
+.usage button { color: #dde2d4; border-color: #70816b; font-size: 11px; min-height: 36px; padding: 7px 10px; }
+.usage button[aria-pressed='true'] { color: #263c30; background: #e0d7b5; border-color: #e0d7b5; }
+.usage span { color: #b8c5ae; flex-basis: auto; }
+
+/* ---- Kort som lagts på stridsplatsen: platshållare kvar i handen ---- */
+.hand.placing .mini-card[aria-pressed='true'], .hand.placing .mini-card[aria-pressed='true']:hover { opacity: .35; transform: none; box-shadow: none; outline: 2px dashed var(--accent); }
+.slot .mini-card.not-usable { opacity: .55; filter: saturate(.4); }
+
+/* ---- Flygande kort (kopia som animeras mellan hand, stridsplats och högar) ---- */
+.fly-card { position: absolute; z-index: 50; margin: 0; pointer-events: none; transform-origin: 0 0; will-change: transform, opacity; box-shadow: 0 14px 30px #0d1a1766; }
+.fly-card .swap-mark { display: none; }
+
+/* ---- Nya kort delas ut i handen ---- */
+.hand .mini-card.dealt { animation: deal-in .45s cubic-bezier(.2, .7, .2, 1) backwards; }
+@keyframes deal-in { from { opacity: 0; transform: translateY(26px); } }
+
+/* ---- Stridsresultatet som dialogruta ---- */
+.result-dialog { border: 0; border-radius: 12px; padding: 0; width: min(560px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); box-shadow: 0 24px 60px #0d1a1766; overflow: hidden; }
+.result-dialog::backdrop { background: #10251ea6; backdrop-filter: blur(2px); }
+.result-dialog[open] { animation: dialog-in .25s ease-out; }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(12px); } }
+.result-dialog .result { margin: 0; padding: 22px 26px 18px; border-left: 0; border-top: 5px solid #58734d; }
+.result-dialog .result h3 { font-size: 26px; }
+.result-dialog .result ul { margin: 10px 0; }
+.result-dialog .actions { padding: 14px 26px 20px; justify-content: flex-end; }
+@media (max-width: 680px) {
+  .battle-actions { padding-top: 16px; }
+  .result-dialog .result { padding: 18px 18px 14px; }
+  .result-dialog .actions { padding: 12px 18px 18px; }
+}

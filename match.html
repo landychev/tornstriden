@@ -24,10 +24,15 @@
         <div class="tower-wrap" id="tower-B"><img src="assets/torn.svg" alt="Norra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
         <div class="hidden-hand" id="hidden-B" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
       </div>
-      <div class="battle">
+      <div class="battle" id="battle">
         <div class="battle-copy"><span class="eyebrow" id="battle-eyebrow">STRIDSPLATSEN</span><h2 id="phase-title" tabindex="-1">Startbyten</h2><p id="phase-description"></p></div>
         <div class="combat-cards"><div class="slot" id="attack-slot" aria-label="Attackkort"></div><span class="versus" aria-hidden="true">mot</span><div class="slot" id="defence-slot" aria-label="Försvarskort"></div></div>
         <div class="piles"><div class="deck-stack" id="draw-number" aria-label="Kort i draghögen">30</div><span>Draghög</span><div class="discard-stack" id="discard-number" aria-label="Kort i slänghögen">0</div><span>Slänghög</span></div>
+        <div class="battle-actions" id="battle-actions" hidden>
+          <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p></p></div>
+          <div id="usage" class="hand-sets usage" role="group" aria-label="Hur kortet används" hidden><button id="usage-normal" type="button" aria-pressed="true">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false">Enkel attack 1 – utan specialeffekt</button><span>Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.</span></div>
+          <div id="actions" class="actions"></div>
+        </div>
       </div>
       <div class="rampart own-zone">
         <div class="player-info"><span class="eyebrow">SPELARE A</span><h2>Södra tornet</h2><p id="life-A" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-A">10 kort på handen</p></div>
@@ -38,13 +43,15 @@
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section class="hand-area" aria-labelledby="hand-heading">
       <div class="hand-header"><div><span class="eyebrow" id="hand-owner">SÖDRA TORNETS KORT</span><h2 id="hand-heading">Välj kort</h2></div><p id="hand-count">10 kort</p></div>
-      <div id="usage" class="hand-sets" role="group" aria-label="Hur kortet används" hidden><button id="usage-normal" type="button" aria-pressed="true">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false">Enkel attack 1 – utan specialeffekt</button><span>Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.</span></div>
       <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
-      <div class="action-bar">
-        <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p></p></div>
-        <div id="actions" class="actions"></div>
+      <div class="action-bar" id="hand-bar" hidden>
+        <div id="hand-info" class="selection-info"></div>
+        <div id="hand-actions" class="actions"></div>
       </div>
-      <div id="result" class="result" aria-live="polite" aria-atomic="true" tabindex="-1"></div>
+      <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title">
+        <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
+        <div id="dialog-actions" class="actions"></div>
+      </dialog>
       <details class="log"><summary>Matchlogg</summary><ol id="log"></ol></details>
       <details class="dev-panel" id="dev-panel"><summary>Utvecklingsläge</summary>
         <p>Mot datorn styr du Södra tornet; datorn spelar Norra tornet med samma regelkontroll som du. Med två spelare vid samma skärm visas handen för den som står på tur.</p>

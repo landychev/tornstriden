@@ -48,7 +48,7 @@ Kortleken är en uttrycklig lista kort-ID → antal: två exemplar av varje kort
 
 ### Matchvy (`match.html`, `matchvy.js`, `match.css`)
 
-Återanvänder spelbordets design. Fasta torn (Södra = A nederst, Norra = B överst), markera kort och bekräfta, uttryckligt val av enkel attack, Fortsätt som läspaus efter varje strid, Ny match och Ge upp med bekräftelse i sidan, matchlogg, knappar bundna till revisionen. Lägen: **Datorn** (standard) eller **Två spelare vid samma skärm**. Utvecklingsläget kan visa båda händerna, välja strategi och visa datorns beslut med skäl. Fungerar med tangentbord, i 360 px bredd och i mörkt läge.
+Återanvänder spelbordets design. Fasta torn (Södra = A nederst, Norra = B överst), markera kort och bekräfta, uttryckligt val av enkel attack, Fortsätt som läspaus efter varje strid, Ny match och Ge upp med bekräftelse i sidan, matchlogg, knappar bundna till revisionen. Presentation: ett valt kort dras upp till sin ruta på stridsplatsen och sidan scrollar med, knapparna för anfall/försvar ligger på stridsplatsen (bytesknappen vid handen), bortbytta kort flyger till draghögen och nya kort delas ut med animation, stridsresultatet visas i en dialogruta med Fortsätt. Lägen: **Datorn** (standard) eller **Två spelare vid samma skärm**. Utvecklingsläget kan visa båda händerna, välja strategi och visa datorns beslut med skäl. Fungerar med tangentbord, i 360 px bredd och i mörkt läge.
 
 ### Dator (`dator.js`, strategi `dator-v1`)
 
