@@ -103,6 +103,23 @@ från domännamnet. Certbot kan vara schemalagd via systemd eller cron beroende
 på hur den installerats; om ingen timer visas, kontrollera den befintliga
 installationsmetodens förnyelseschema.
 
+### Cachning av spelets filer
+
+Utan egna cachningsregler kan webbläsare återanvända gamla `.js`- och `.css`-filer
+i timmar efter en deploy och blanda dem med nya. `apache/tornstriden-cache.conf`
+gör att sidor, skript och stilmallar alltid valideras mot servern (oförändrade filer
+svarar med 304); bilder och ljud cachas som vanligt. Filen är fristående från de
+virtuella värdarna, gäller både HTTP och Certbots HTTPS-värd och rör inte deras
+inställningar. Installera en gång som root:
+
+```sh
+install -m 644 apache/tornstriden-cache.conf /etc/apache2/conf-available/tornstriden-cache.conf
+a2enmod headers && a2enconf tornstriden-cache
+apache2ctl configtest && systemctl reload apache2
+```
+
+Kontrollera med `curl -sI https://tornstriden.landychev.se/matchvy.js | grep -i cache-control`.
+
 Vid kommande koduppdateringar räcker `git pull --ff-only` följt av `./deploy.sh`.
 Kopiera inte om Apache-konfigurationen efter Certbot-körningen, eftersom det
 kan skriva över Certbots HTTPS-omdirigering. Deployskriptet ändrar inte
