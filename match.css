@@ -61,7 +61,8 @@
 .compact-match .hand .mini-card .card-art { height: auto; min-height: 0; flex: 1; aspect-ratio: auto; }
 .compact-match .hand .mini-card .mini-name { flex: none; font-size: 14px; min-height: 38px; padding: 4px 1px; }
 .compact-match .hand .mini-card .mini-kind { flex: none; font-size: 9px; min-height: 24px; margin: 3px 0 0; }
-.compact-match .hand .mini-card .mini-label { display: none; }
+/* Effektraden (t.ex. ”Bonus mot försvarskort”, ”Attack · försvar −2”) visas i handen så att specialkortens extra verkan syns utan att kortet behöver väljas. */
+.compact-match .hand .mini-card .mini-label { flex: none; margin: 1px 2px 0; font-size: 9px; line-height: 1.25; min-height: 23px; }
 .compact-match .hand .mini-card .swap-mark { top: 8px; bottom: auto; right: 5px; }
 .compact-match .hand-hint { flex: none; margin: 0; font-size: 11px; color: var(--muted); }
 .compact-match .hand-hint .swipe-hint { display: none; }
@@ -145,6 +146,7 @@
   .compact-match .slot .mini-card .mini-name { font-size: 10px; min-height: 26px; }
   .compact-match .selection-info p:not(.invalid) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
   .compact-match .hand .mini-card .mini-kind { min-height: 14px; font-size: 8px; }
+  .compact-match .hand .mini-card .mini-label { min-height: 11px; font-size: 8px; }
   .compact-match .hand .mini-card .mini-name { min-height: 30px; font-size: 12px; }
 }
 @media (max-height: 720px) and (min-width: 1001px) {

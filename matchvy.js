@@ -224,7 +224,11 @@ function renderActions() {
   } else if (match.phase === PHASE.defence && allowed.includes(ACTION.defend)) {
     const ok = type && canDefend(type);
     const hint = type && !ok ? `<p class="invalid">Kortet kan inte försvara. Välj ett annat eller avstå.</p>` : '';
-    info = type ? `<h3>${html(type.name)}</h3>${hint || `<p>${html(type.effect)}</p>`}` : '<h3>Välj ditt försvarskort</h3><p>Lika hög eller högre försvarsstyrka stoppar attacken. Att avstå sparar hela handen men kostar ett liv om attacken går igenom.</p>';
+    // Försvararen får läsa det anfallande kortets effekt innan ett eget kort väljs.
+    const incoming = view().battle.attack;
+    const incomingType = cardType(incoming.cardId);
+    const incomingText = incoming.usage === USAGE.simple ? `${html(incomingType.name)} spelas som enkel attack 1, utan specialeffekt.` : `<strong>${html(incomingType.name)}:</strong> ${html(incomingType.effect)}`;
+    info = type ? `<h3>${html(type.name)}</h3>${hint || `<p>${html(type.effect)}</p>`}` : `<h3>Välj ditt försvarskort</h3><p>${incomingText}</p><p>Lika hög eller högre försvarsstyrka stoppar attacken. Att avstå sparar hela handen men kostar ett liv om attacken går igenom.</p>`;
     actions = button('pass', 'Avstå försvar', { kind: 'secondary', id: 'confirm-pass' }) + button('defend', ok ? `Försvara med ${html(type.name)}` : 'Försvara', { disabled: !ok, id: 'confirm-defend' });
   } else if (match.phase === PHASE.result) {
     info = `<h3>Strid ${match.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${nameOf(opponentOf(match.lastResult.attacker))}.${match.players.some(p => p.life > 0 && !p.hand.length) ? ' En tom hand får upp till fem nya kort.' : ''}</p>`;

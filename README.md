@@ -7,7 +7,7 @@ Detta repository är projektets huvudsakliga arbetskatalog. Nya filer och framti
 ## Nuvarande version
 
 - En komplett lokal duell i `match.html` (startsidan): startbyten, anfall, försvar, enkel attack, påfyllning vid tom hand, omblandning, vinst och Ge upp.
-- Kompakt matchvy med tornen bredvid varandra och handen i samma skärmbild som striden. Startbyten ger korten extra utrymme; på smala skärmar bläddras handen i sidled. Ett valt kort kan öppnas förstorat med hela effekttexten. På mycket låga skärmar eller vid kraftig zoom får sidan växa för att hålla innehållet åtkomligt.
+- Kompakt matchvy med tornen bredvid varandra och handen i samma skärmbild som striden. Startbyten ger korten extra utrymme; på smala skärmar bläddras handen i sidled. Specialkortens effektrad (t.ex. ”Bonus mot försvarskort”) syns direkt på korten i handen, försvararen ser det anfallande kortets effekt i textrutan, och ett valt kort kan öppnas förstorat med hela effekttexten. På mycket låga skärmar eller vid kraftig zoom får sidan växa för att hålla innehållet åtkomligt.
 - Lugnare kortanimationer, startmeddelande om vem som anfaller först och visuella signaler för anfall/försvar.
 - Dramatisk bakgrundsmusik och separata ljud för vanliga anfall, magiska anfall och spelade försvarskort. Knappen **Ljud** vid handen öppnar av/på och separata volymer. Inställningarna sparas lokalt, ljudet aktiveras efter första klicket och pausas när fliken lämnas. Musiken stannar vid matchslut. Spelet fungerar även om ljudstöd eller ljudfiler saknas.
 - En datormotståndare (`dator.js`, strategi `dator-v1`) som spelar Norra tornet med samma regelkontroll som människan och bara ser sin egen hand och det öppna bordet. Läget Två spelare vid samma skärm finns också.
