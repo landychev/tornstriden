@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="shield" viewBox="0 0 96 96">
+    <path d="M48 5 83 17v29c0 22-15 35-35 45C28 81 13 68 13 46V17Z" fill="#b88934" stroke="#f4dd94" stroke-width="3"/>
+    <path d="M48 13 75 23v24c0 16-10 28-27 36C31 75 21 63 21 47V23Z" fill="#185946" stroke="#dfbb67" stroke-width="2"/>
+    <path d="m31 47 11 11 24-26" fill="none" stroke="#f5dda0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="swords" viewBox="0 0 96 96">
+    <path d="m18 8 14 7 46 53-9 9-47-55Z" fill="#f8ecd1" stroke="#b98d3b" stroke-width="3"/>
+    <path d="m78 8-14 7-46 53 9 9 47-55Z" fill="#f8ecd1" stroke="#b98d3b" stroke-width="3"/>
+    <path d="m59 73 16-16m-38 16L21 57M19 77l-8 9m66-9 8 9" stroke="#d2aa51" stroke-width="8" stroke-linecap="round"/>
+    <path d="m22 72-9 11m61-11 9 11" stroke="#795522" stroke-width="4"/>
+  </symbol>
+  <symbol id="cards" viewBox="0 0 96 96">
+    <rect x="12" y="17" width="42" height="62" rx="5" transform="rotate(-14 33 48)" fill="#174b3c" stroke="#e5c679" stroke-width="3"/>
+    <rect x="42" y="17" width="42" height="62" rx="5" transform="rotate(14 63 48)" fill="#174b3c" stroke="#e5c679" stroke-width="3"/>
+    <rect x="27" y="12" width="42" height="66" rx="5" fill="#22634d" stroke="#f0d897" stroke-width="3"/>
+    <path d="m48 28 11 17-11 17-11-17Z" fill="#dfbd6b"/>
+  </symbol>
+  <symbol id="crown" viewBox="0 0 96 96">
+    <path d="m14 31 19 15L48 16l15 30 19-15-9 43H23Z" fill="#d4a447" stroke="#f9e3a0" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M24 67h48v13H24Z" fill="#a6792b" stroke="#f0d18a" stroke-width="3"/>
+    <path d="m48 44 6 10-6 9-6-9Z" fill="#13563f"/>
+    <g fill="#f8e4a9"><circle cx="13" cy="28" r="5"/><circle cx="48" cy="13" r="5"/><circle cx="83" cy="28" r="5"/></g>
+  </symbol>
+  <symbol id="banner" viewBox="0 0 96 96">
+    <path d="M29 12v73" stroke="#dfbc69" stroke-width="6" stroke-linecap="round"/>
+    <path d="M33 18c19-12 26 12 46 0v39c-20 12-27-12-46 0Z" fill="#f2e7c9" stroke="#c8a056" stroke-width="3"/>
+    <circle cx="29" cy="10" r="5" fill="#f4d891"/>
+  </symbol>
+  <symbol id="tower" viewBox="0 0 96 96">
+    <path d="M18 11h13v13h11V11h13v13h11V11h13v28H18Z" fill="#e1c581" stroke="#a57a32" stroke-width="3"/>
+    <path d="M25 39h48v42H25Z" fill="#c8af77" stroke="#a57a32" stroke-width="3"/>
+    <path d="m51 40-8 12 10 7-9 15" fill="none" stroke="#684a27" stroke-width="4"/>
+    <path d="M18 84h61" stroke="#efd699" stroke-width="7" stroke-linecap="round"/>
+  </symbol>
+</svg>

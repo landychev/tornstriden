@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="match.css">
   <script type="module" src="matchvy.js"></script>
   <link rel="stylesheet" href="grafik.css">
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="masthead">
@@ -50,17 +51,25 @@
         <div id="hand-actions" class="actions"></div>
       </div>
       <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
-      <dialog id="result-dialog" class="result-dialog" aria-labelledby="result-title">
+      <dialog id="result-dialog" class="result-dialog game-popup" aria-labelledby="result-title">
+        <button type="button" class="popup-close" data-close-dialog="result-dialog" aria-label="Stäng resultatet" autofocus>×</button>
         <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
         <div id="dialog-actions" class="actions"></div>
       </dialog>
       <!-- Spelförklaring: öppnas när sidan laddas och via knappen Så spelar du. -->
-      <dialog id="intro-dialog" class="help-dialog" aria-labelledby="intro-title">
-        <div class="help-head">
-          <img src="assets/torn/torn-rod.png" alt="" width="86" height="98">
-          <div><span class="eyebrow">SÅ SPELAR DU</span><h3 id="intro-title">Välkommen till Tornstriden</h3><p>Två torn, tre liv var – fäll motståndarens torn först.</p></div>
+      <dialog id="intro-dialog" class="help-dialog game-popup" aria-labelledby="intro-title">
+        <button type="button" class="popup-close" data-close-dialog="intro-dialog" aria-label="Stäng spelförklaringen" autofocus>×</button>
+        <div class="popup-hero" aria-hidden="true"><img src="assets/popup/valkommen.jpg" alt="" width="1440" height="480"></div>
+        <div class="popup-welcome-title">
+          <span class="eyebrow">VÄLKOMMEN TILL</span><h3 id="intro-title">Tornstriden</h3><p>Två torn. Tre liv. En vinnare.</p>
         </div>
         <div class="help-body">
+          <ol class="popup-steps" aria-label="Spelets tre grundsteg">
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#cards"></use></svg><strong>Välj kort</strong><small>Tio kort på handen</small></li>
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#swords"></use></svg><strong>Anfall</strong><small>Slå mot tornet</small></li>
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#shield"></use></svg><strong>Försvara</strong><small>Skydda dina liv</small></li>
+          </ol>
+          <details class="popup-rules"><summary>Så går en match till – läs spelreglerna</summary>
           <ol class="help-steps">
             <li><span class="step-no" aria-hidden="true">1</span><div><strong>Målet.</strong> Båda tornen har tre liv <span class="help-hearts" aria-hidden="true">♥♥♥</span>. Den som först tar motståndarens tre liv vinner matchen.</div></li>
             <li><span class="step-no" aria-hidden="true">2</span><div><strong>Korten.</strong> Du har tio kort på handen. <span class="chip attack">Röda</span> anfaller, <span class="chip defence">blå</span> försvarar, <span class="chip hybrid">gröna</span> kan göra båda och <span class="chip magic">lila</span> är magi med en specialeffekt. Siffran är kortets styrka.</div></li>
@@ -68,29 +77,37 @@
             <li><span class="step-no" aria-hidden="true">4</span><div><strong>Striderna.</strong> Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.</div></li>
             <li><span class="step-no" aria-hidden="true">5</span><div><strong>Bra att veta.</strong> Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</div></li>
           </ol>
+          </details>
           <p class="help-note">Mot datorn spelar du Södra tornet. Knappen <strong>Så spelar du</strong> i menyn visar den här rutan igen.</p>
         </div>
         <div class="help-actions"><button type="button" class="primary" id="intro-close">Börja spela</button></div>
       </dialog>
       <!-- Bytesförklaring: öppnas en gång per spelare och match när startbytena börjar. -->
-      <dialog id="swap-dialog" class="help-dialog" aria-labelledby="swap-title">
-        <div class="help-head">
-          <div class="swap-art" aria-hidden="true">
-            <div class="art-cards"><span class="art-card"><i>Byts</i></span><span class="art-card"></span><span class="art-card"><i>Byts</i></span></div>
-            <span class="art-arrow">→</span>
-            <span class="art-pile">30</span>
-          </div>
-          <div><span class="eyebrow">STARTBYTEN</span><h3 id="swap-title">Dags att byta kort</h3><p id="swap-who"></p></div>
+      <dialog id="swap-dialog" class="help-dialog game-popup" aria-labelledby="swap-title">
+        <button type="button" class="popup-close" data-close-dialog="swap-dialog" aria-label="Stäng bytesförklaringen" autofocus>×</button>
+        <header class="popup-heading"><span class="eyebrow">STARTBYTEN</span><h3 id="swap-title">Dags att byta kort</h3></header>
+        <div class="popup-card-exchange" aria-hidden="true">
+          <div class="popup-card-fan"><span class="popup-sample-card"><img src="assets/kort/stormning.jpg" alt="" width="600" height="900"></span><span class="popup-sample-card"><img src="assets/kort/bagskytt.jpg" alt="" width="600" height="900"></span><span class="popup-sample-card"><img src="assets/kort/tornvakt.jpg" alt="" width="600" height="900"></span></div>
+          <span class="popup-exchange-arrow">⇄</span>
+          <span class="popup-deck"><svg class="popup-icon" viewBox="0 0 96 96"><use href="assets/popup/emblem.svg#cards"></use></svg></span>
         </div>
         <div class="help-body">
+          <p class="swap-instruction">Byt upp till två kort.</p>
           <ol class="help-steps">
             <li><span class="step-no" aria-hidden="true">1</span><div>Titta på din hand. Tryck på upp till <strong>två kort</strong> du vill bli av med – de får märket <span class="art-badge">Byts</span>. Tryck igen för att ångra.</div></li>
             <li><span class="step-no" aria-hidden="true">2</span><div>Tryck på den stora knappen <strong>Byt kort</strong> ovanför handen. Du får lika många nya kort från draghögen.</div></li>
             <li><span class="step-no" aria-hidden="true">3</span><div>Vill du behålla alla dina kort? Tryck på <strong>Behåll handen</strong>.</div></li>
           </ol>
+          <p class="help-note" id="swap-who"></p>
           <p class="help-note">Det blir två bytesomgångar. Bortbytta kort blandas tillbaka i draghögen först när båda spelarna är klara.</p>
         </div>
-        <div class="help-actions"><button type="button" class="primary" id="swap-close">Okej, visa mina kort</button></div>
+        <div class="help-actions"><button type="button" class="primary" id="swap-close">Visa mina kort</button></div>
+      </dialog>
+      <dialog id="confirm-dialog" class="confirm-dialog game-popup" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <button type="button" class="popup-close" data-close-dialog="confirm-dialog" aria-label="Avbryt och stäng">×</button>
+        <header class="popup-heading"><span class="eyebrow">DITT BESLUT</span><h3 id="confirm-title"></h3></header>
+        <div class="popup-confirm-body"><span id="confirm-emblem" aria-hidden="true"></span><p id="confirm-message"></p></div>
+        <div class="actions" id="confirm-actions"></div>
       </dialog>
       <details class="log"><summary>Matchlogg</summary><ol id="log"></ol></details>
       <details class="dev-panel" id="dev-panel"><summary>Utvecklingsläge</summary>

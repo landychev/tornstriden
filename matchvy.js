@@ -9,6 +9,7 @@
 import { MAX_LIFE } from './kort.js';
 import { USAGE, canAttack, canDefend } from './matchregler.js';
 import { cardFace, towerAppearance } from './grafik.js';
+import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { newMatch, process, playerView, allowedActions, cardType, PHASE, ACTION, STATUS, END } from './match.js';
 import { decide, packAction, DecisionError, STRATEGIES, STRATEGY } from './dator.js';
 
@@ -186,13 +187,7 @@ function renderActions() {
   let actions = '';
   let where = 'battle';   // knapparna ligger på stridsplatsen – utom bytesknappen, som ligger vid handen
 
-  if (ui.confirm === 'surrender') {
-    actions = `<div class="confirm-panel"><p>Vill du ge upp matchen för ${nameOf(ui.viewer)}? ${nameOf(opponentOf(ui.viewer))} vinner då direkt.</p>${button('confirm-surrender', 'Ja, ge upp')}${button('cancel', 'Avbryt', { kind: 'secondary' })}</div>`;
-    info = '<h3>Ge upp?</h3><p>Liv och kort ändras inte. Att bara stänga frågan ändrar ingenting.</p>';
-  } else if (ui.confirm === 'new') {
-    actions = `<div class="confirm-panel"><p>Vill du kasta den pågående matchen och starta en ny? Inget resultat sparas.</p>${button('confirm-new', 'Ja, ny match')}${button('cancel', 'Avbryt', { kind: 'secondary' })}</div>`;
-    info = '<h3>Ny match?</h3><p>Den nya matchen får en helt ny utdelning.</p>';
-  } else if (ui.decisionError) {
+  if (ui.decisionError) {
     info = `<h3>Datorn kunde inte välja ett drag</h3><p>${html(ui.decisionError.reason)} Matchen är oförändrad: inga kort, liv eller faser har ändrats.</p>`;
     actions = button('retry', 'Försök igen', { kind: 'secondary', id: 'retry-computer' }) + button('new', 'Ny match', { id: 'confirm-new-match' });
   } else if (ui.thinking) {
@@ -240,34 +235,76 @@ function renderActions() {
   $('new-match').disabled = Boolean(ui.confirm);
 }
 
+/* Bekräftelser är riktiga dialoger. Datorns presentationspaus stoppas medan
+   frågan visas; ett avbrott återupptar samma tur utan att ändra matchen. */
+function openConfirmation(kind) {
+  cancelComputerJob();
+  ui.confirm = kind;
+  ui.focus = null;
+  render();
+}
+
+function closeConfirmation() {
+  if (!ui.confirm) return;
+  ui.focus = ui.confirm === 'new' ? 'new-match' : 'surrender';
+  ui.confirm = null;
+  syncComputerTurn();
+  render();
+}
+
+function renderConfirmation() {
+  const dialog = $('confirm-dialog');
+  if (!ui.confirm) { if (dialog.open) dialog.close(); return; }
+  const surrender = ui.confirm === 'surrender';
+  $('confirm-title').textContent = surrender ? 'Ge upp matchen?' : 'Börja en ny match?';
+  $('confirm-message').textContent = surrender
+    ? `${nameOf(opponentOf(ui.viewer))} vinner om du ger upp. Du kan också stänga rutan och fortsätta spela.`
+    : 'Den pågående matchen avslutas och du får en ny hand. Vill du börja om?';
+  $('confirm-emblem').innerHTML = popupIcon(surrender ? 'banner' : 'cards');
+  $('confirm-actions').innerHTML = button('cancel', 'Fortsätt spela', { kind: 'secondary', id: 'confirm-cancel' }) + button(surrender ? 'confirm-surrender' : 'confirm-new', surrender ? 'Ja, ge upp' : 'Ja, ny match');
+  if (!dialog.open) { dialog.showModal(); $('confirm-cancel').focus(); }
+}
+
 /* ---- Stridsresultatet visas i en dialogruta. Den öppnas en gång per avgjord strid
    (och vid matchslut), efter att eventuell kortflygning landat, och stängs när
    matchen går vidare. Stängs den med Escape finns Fortsätt kvar på stridsplatsen. ---- */
 let resultKey = null;
+let pendingResultKey = null;
+function openPendingResult() {
+  if (!pendingResultKey || pendingResultKey !== resultKey) return;
+  if (['intro-dialog', 'swap-dialog', 'confirm-dialog'].some(id => $(id).open)) return;
+  pendingResultKey = null;
+  if (!$('result-dialog').open) {
+    $('result-dialog').showModal();
+  }
+}
 function renderResult() {
   const r = match.lastResult;
   const dialog = $('result-dialog');
   const over = match.phase === PHASE.over;
   if (!over && !(match.phase === PHASE.result && r)) {
     resultKey = null;
+    pendingResultKey = null;
     if (dialog.open) dialog.close();
     return;
   }
   const lines = [];
   if (r && (!over || match.endReason === END.fallen)) {
     const fallen = match.players.filter(p => p.life === 0);
-    lines.push(`<p>${html(r.attack.name)} (${r.attackStrength}) mot ${r.defence ? `${html(r.defence.name)} (${r.defenceStrength})` : 'inget försvar'}.</p>`, `<ul>${r.events.map(e => `<li>${html(e)}</li>`).join('')}</ul>`, `<p>${nameOf('A')} har ${r.life.A} liv. ${nameOf('B')} har ${r.life.B} liv. Alla spelade kort slängs.${fallen.length ? ' Det fallna tornets kvarvarande handkort slängs också.' : ''}</p>`);
+    lines.push(battleSummary(r), `<ul>${r.events.map(e => `<li>${html(e)}</li>`).join('')}</ul>`, `<p>${nameOf('A')} har ${r.life.A} liv. ${nameOf('B')} har ${r.life.B} liv. Alla spelade kort slängs.${fallen.length ? ' Det fallna tornets kvarvarande handkort slängs också.' : ''}</p>`);
   } else if (over) {
     lines.push(`<p>${nameOf(opponentOf(match.winner))} gav upp matchen.</p>`);
   }
   if (over) lines.push(`<p class="winner"><strong>${ui.mode === 'computer' && match.winner === HUMAN ? 'Du vinner matchen.' : `${nameOf(match.winner)} vinner matchen.`}</strong></p>`);
-  $('result').innerHTML = `<h3 id="result-title">${phaseText().title}</h3>${lines.join('')}`;
+  const kind = over ? (ui.mode === 'computer' && match.winner !== HUMAN ? 'defeat' : 'victory') : r.defended ? 'held' : 'hit';
+  dialog.dataset.outcome = kind;
+  $('result').innerHTML = `${resultHeader(kind, phaseText().title, over)}<div class="popup-result-body">${lines.join('')}</div>`;
   $('dialog-actions').innerHTML = over ? button('new', 'Spela igen', { id: 'dialog-new' }) : button('next', 'Fortsätt <span aria-hidden="true">→</span>', { id: 'dialog-next' });
   const key = `${match.id}|${match.revision}|${match.phase}`;
   if (key === resultKey) return;
   resultKey = key;
   // Vänta ett varv: en flygning som startas direkt efter render() ska hinna registreras i `flying`.
-  setTimeout(() => flying.then(() => { if (resultKey === key && !dialog.open) dialog.showModal(); }), 0);
+  setTimeout(() => flying.then(() => { if (resultKey === key) { pendingResultKey = key; openPendingResult(); } }), 0);
 }
 
 /* ---- Hjälprutor. Spelförklaringen öppnas när sidan laddas (och via knappen Så spelar du).
@@ -341,6 +378,7 @@ function render() {
   $('usage-simple').setAttribute('aria-pressed', String(ui.usage === USAGE.simple));
   renderHand();
   renderActions();
+  renderConfirmation();
   renderResult();
   renderSwapHelp();
   renderDev();
@@ -516,11 +554,11 @@ const actionHandlers = {
   'confirm-new': () => startNewMatch(),
   'confirm-surrender': () => send(ACTION.surrender, { playerId: ui.viewer }),
   retry: () => retryComputer(),
-  cancel: () => { ui.confirm = null; render(); }
+  cancel: closeConfirmation
 };
 
 $('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !el.disabled) choose(el.dataset.instance); });
-/* Knapparna finns på tre ställen: stridsplatsen, handens bytesrad och resultatrutan. */
+/* Samma handlingar används på spelbordet och i dialogrutorna. */
 function onAction(event) {
   const el = event.target.closest('[data-action]');
   if (!el || el.disabled) return;
@@ -528,11 +566,11 @@ function onAction(event) {
   el.disabled = true;   // spärr mot dubbelklick tills handlingen behandlats
   actionHandlers[el.dataset.action]?.();
 }
-for (const id of ['actions', 'hand-actions', 'dialog-actions']) $(id).addEventListener('click', onAction);
+for (const id of ['actions', 'hand-actions', 'dialog-actions', 'confirm-actions']) $(id).addEventListener('click', onAction);
 $('usage-normal').addEventListener('click', () => { ui.usage = USAGE.normal; render(); });
 $('usage-simple').addEventListener('click', () => { ui.usage = USAGE.simple; render(); });
-$('surrender').addEventListener('click', () => { if (!$('surrender').disabled) { ui.confirm = 'surrender'; ui.focus = 'actions'; render(); } });
-$('new-match').addEventListener('click', () => { if ([PHASE.over, PHASE.error].includes(match.phase)) startNewMatch(); else { ui.confirm = 'new'; ui.focus = 'actions'; render(); } });
+$('surrender').addEventListener('click', () => { if (!$('surrender').disabled) openConfirmation('surrender'); });
+$('new-match').addEventListener('click', () => { if ([PHASE.over, PHASE.error].includes(match.phase)) startNewMatch(); else openConfirmation('new'); });
 $('mode').addEventListener('change', () => setMode($('mode').value));
 $('strategy').addEventListener('change', () => { ui.strategy = $('strategy').value === STRATEGIES.random ? STRATEGIES.random : STRATEGIES.smart; render(); });
 $('show-both').addEventListener('change', renderDev);
@@ -543,6 +581,12 @@ $('intro-close').addEventListener('click', () => $('intro-dialog').close());
 $('swap-close').addEventListener('click', () => $('swap-dialog').close());
 $('intro-dialog').addEventListener('close', renderSwapHelp);
 $('swap-dialog').addEventListener('close', () => $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true }));
+for (const id of ['intro-dialog', 'swap-dialog', 'confirm-dialog']) $(id).addEventListener('close', openPendingResult);
+$('confirm-dialog').addEventListener('cancel', event => { event.preventDefault(); closeConfirmation(); });
+document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => {
+  if (button.dataset.closeDialog === 'confirm-dialog') closeConfirmation();
+  else $(button.dataset.closeDialog).close();
+}));
 window.addEventListener('beforeunload', event => { if (![PHASE.over, PHASE.error].includes(match.phase) && match.revision > 0) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pagehide', cancelComputerJob);
 $('intro-dialog').showModal();   // före första render(): bytesförklaringen väntar tills den stängts

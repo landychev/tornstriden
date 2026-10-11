@@ -1,0 +1,6 @@
+{
+  "tool": "imagegen (built-in)",
+  "reference": "design/popup-smaragd-guld.png",
+  "output": "assets/popup/valkommen.jpg",
+  "prompt": "Use case: stylized-concept. Production decorative header illustration for the approved Smaragd & guld popup UI in Tornstriden. Input image is STYLE AND SUBJECT REFERENCE ONLY. Generate a single panoramic landscape painting, approximately 3:1 wide, NO user interface, NO typography, NO letters, NO buttons, NO frame. A painterly noble bearded medieval knight in blue and steel with a heraldic shield in the left quarter, beside two impressive stylized sculpted stone keeps at center and right, one blue-bannered and one red-bannered, matching the supplied towers. Lush mountain valley, warm torchlight on cool stone, restrained emerald-green tree silhouettes framing upper corners, hopeful afternoon light. Keep both tower crowns and banners inside the composition, architectural details legible. Knight and fortress forms large and iconic, broad shapes readable when the entire image is displayed 600 by 200 pixels. Strong and elegant fantasy, naturally proportioned painterly face, coherent with reference. Landscape runs edge to edge. No white parchment, no baked in text, no ornate borders. This is an image asset behind real HTML dialog content, so do not reproduce the reference's popup or labels."
+}

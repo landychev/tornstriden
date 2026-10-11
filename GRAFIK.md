@@ -21,3 +21,17 @@ Bilderna skapades med det inbyggda verktyget **imagegen**, med konceptbilden som
 Kortkatalogen visar hela regeltexten och laddar bilderna först när de närmar sig skärmen. Matchen visar kortets effekt när det väljs. Bilderna är dekorativa för skärmläsare; namn, typ, styrka och liv finns fortsatt som text.
 
 `deploy.sh` inkluderar grafikmodulen, stilmallen och alla bilder vid nästa vanliga publicering. De tidigare hjälprutorna, kortbytena och kortanimationerna finns kvar.
+
+## Popup-rutor: Smaragd & guld
+
+Välkomst-, bytes-, resultat- och bekräftelserutorna har gemensamma smaragdgröna rubriker, ljusa textytor, guldramar och tydliga knappar. Fullständiga spelregler går att fälla ut i välkomstrutan. Resultatet visar de slutliga attack- och försvarsstyrkorna från matchmotorn, inklusive specialeffekter.
+
+- `popup.css` ger samtliga dialoger samma utseende och anpassar dem till små och låga skärmar.
+- `popup.js` skapar resultatets emblem och styrkeuppställning.
+- `assets/popup/valkommen.jpg` är borgillustrationen, skapad med det inbyggda **imagegen**-verktyget. Prompten finns i `popup-prompter.json` och den valda stilreferensen i `design/popup-smaragd-guld.png`.
+- `assets/popup/emblem.svg` innehåller skalbara symboler för kort, svärd, försvar, tornskada, seger och kapitulation.
+- `popup-forhandsvisning.jpg` visar den implementerade välkomstrutan.
+
+Dialogerna fungerar med tangentbord och Escape. Datorns tur pausas under bekräftelse av ny match eller kapitulation och återupptas om frågan avbryts. Stridsresultat väntar tills en öppen hjälpruta har stängts, så att dialoger inte staplas.
+
+Kontrollerat i webbläsare vid 1366 × 1000, 390 × 844, 320 × 640 och 844 × 390, inklusive ljust/mörkt systemläge, fokus, Escape, avbryt, nya matcher samt verkliga strider med försvar, träff, seger och nederlag. De 56 befintliga regeltesterna passerar.

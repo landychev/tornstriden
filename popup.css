@@ -1,0 +1,147 @@
+/* Smaragd & guld: samma material, knappar och fokusmarkeringar i alla dialoger. */
+.game-popup {
+  --popup-green: #0d4937;
+  --popup-ink: #173d30;
+  --popup-gold: #c7a359;
+  --popup-paper: #fbf3df;
+  color-scheme: light;
+  color: var(--popup-ink);
+  background: linear-gradient(135deg, #fffaf0, #f4e8cd);
+  border: 1px solid var(--popup-gold);
+  border-radius: 22px;
+  padding: 0;
+  width: min(620px, calc(100vw - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 28px);
+  overflow: auto;
+  box-shadow: 0 0 0 3px #144131, 0 0 0 4px #d5b97680, 0 26px 90px #061b14b3;
+}
+.game-popup::backdrop { background: #071f19b8; backdrop-filter: blur(5px); }
+.game-popup[open] { animation: popup-arrive .24s ease-out; }
+.popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: #fff0c7;
+  background: #0c372ce8;
+  border: 1px solid #d3b46a;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px #0004;
+  font: 30px/1 system-ui, sans-serif;
+}
+.game-popup button:focus-visible, .game-popup summary:focus-visible { outline: 3px solid #aa7225; outline-offset: 4px; }
+.game-popup .popup-close:focus-visible { outline-color: #ffe4a1; outline-offset: -5px; }
+.game-popup .primary, .game-popup .secondary {
+  min-height: 50px;
+  padding: 12px 24px;
+  border-radius: 11px;
+  border: 1px solid #c6a45b;
+  font: 700 18px/1.2 Georgia, serif;
+  transition: background .15s, box-shadow .15s;
+}
+.game-popup .primary {
+  color: #fff4d6;
+  background: linear-gradient(#165a43, #093a2c);
+  box-shadow: inset 0 0 0 2px #134735, inset 0 0 0 3px #d7b66b73, 0 5px 12px #17372c26;
+}
+.game-popup .primary:hover { background: #1b6349; }
+.game-popup .secondary { background: #fff9eccc; color: #254e3c; box-shadow: none; }
+.game-popup .secondary:hover { background: #f0e3c6; }
+.game-popup .help-actions, .game-popup > .actions { margin: 0; padding: 18px 28px 24px; gap: 12px; }
+.game-popup .help-actions .primary, .game-popup > .actions .primary { width: 100%; }
+.game-popup .eyebrow { color: #d9bf7f; font-size: 10px; letter-spacing: .16em; }
+.popup-hero { height: 196px; overflow: hidden; background: #214b38; }
+.popup-hero img { width: 100%; height: 100%; object-fit: cover; display: block; object-position: center 45%; }
+.popup-welcome-title { position: relative; padding: 12px 28px 0; text-align: center; }
+.popup-welcome-title::before { content: ''; position: absolute; top: -17px; left: 0; right: 0; height: 20px; border-radius: 50% 50% 0 0; background: #fbf3df; }
+.popup-welcome-title .eyebrow { color: #86632c; }
+.popup-welcome-title h3 { margin: 5px 0 9px; color: #123c2d; font: 700 34px/1.06 Georgia, serif; text-wrap: balance; }
+.popup-welcome-title p { margin: 0; font: 17px/1.4 Georgia, serif; }
+.game-popup .help-body { padding: 18px 28px 0; font-size: 14px; }
+.popup-steps { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; margin: 0 0 18px; padding: 0 0 18px; border-bottom: 1px solid #c4a36280; gap: 10px; text-align: center; }
+.popup-steps li { min-width: 0; }
+.popup-icon { display: block; width: 72px; height: 72px; flex: 0 0 auto; filter: drop-shadow(0 3px 3px #392d192b); }
+.popup-steps .popup-icon { margin: 0 auto 6px; width: 50px; height: 50px; }
+.popup-steps strong { display: block; font: 700 18px/1.2 Georgia, serif; }
+.popup-steps small { color: #66634d; font-size: 11px; }
+.popup-rules { padding: 0; border-bottom: 1px solid #c4a36260; }
+.popup-rules summary { min-height: 44px; cursor: pointer; padding: 8px 0; font-size: 13px; font-weight: 600; }
+.popup-rules .help-steps { padding-top: 12px; }
+.game-popup .help-steps { font-size: 13px; }
+.game-popup .step-no, .game-popup .art-badge { background: #15503c; color: #fff4d6; }
+.game-popup .help-note { color: #5c644f; font-size: 12px; margin-top: 12px; }
+.game-popup .chip { color: #fff8eb; }
+.game-popup .chip.attack { background: #923d30; }
+.game-popup .chip.defence { background: #315e82; }
+.game-popup .chip.hybrid { background: #3d6846; }
+.game-popup .chip.magic { background: #714a87; }
+.popup-heading { padding: 22px 64px 20px 28px; text-align: center; background: linear-gradient(130deg, #15543f, #092e24); border-bottom: 1px solid #c9a65b; }
+.popup-heading h3 { font: 700 30px/1.12 Georgia, serif; color: #fff2d0; margin: 5px 0 0; text-wrap: balance; }
+.popup-card-exchange { display: flex; justify-content: center; align-items: center; height: 180px; gap: 25px; overflow: hidden; background: linear-gradient(#0c362ecc, #163f32c2), url('assets/popup/valkommen.jpg') center 42% / cover; }
+.popup-card-fan { display: flex; align-items: center; padding-left: 18px; }
+.popup-sample-card { position: relative; display: block; width: 81px; height: 120px; margin-left: -16px; padding: 3px; border: 1px solid #e2c487; border-radius: 7px; background: #923d30; box-shadow: 0 6px 13px #071e1973; transform: rotate(-10deg); }
+.popup-sample-card img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+.popup-sample-card:nth-child(2) { background: #3d6846; transform: translateY(-7px); z-index: 1; }
+.popup-sample-card:nth-child(3) { background: #315e82; transform: rotate(10deg); }
+.popup-exchange-arrow { font: 54px/1 Georgia, serif; color: #e3c475; }
+.popup-deck { display: grid; place-items: center; width: 65px; height: 93px; background: repeating-linear-gradient(45deg, #d4b87118 0 1px, transparent 1px 7px), #154e3b; border: 2px solid #ddbd70; border-radius: 7px; box-shadow: 4px 4px #6e714b, 8px 8px #a79563; }
+.popup-deck .popup-icon { width: 45px; height: 45px; }
+.swap-instruction { margin: 0 0 15px; text-align: center; font: 700 20px/1.3 Georgia, serif; }
+.game-popup .result { padding: 0; border: 0; margin: 0; background: none; }
+.popup-result-head { padding: 24px 55px 0; text-align: center; background: linear-gradient(#073627ed, #163f3299), url('assets/popup/valkommen.jpg') center 45% / cover; border-bottom: 1px solid #c6a45b; }
+.game-popup .popup-result-head h3 { color: #fff3d5; font: 700 31px/1.14 Georgia, serif; margin: 7px 0 13px; text-wrap: balance; }
+.popup-medallion { display: grid; place-items: center; width: 100px; height: 100px; margin: 0 auto -21px; position: relative; border-radius: 50%; background: radial-gradient(circle, #f8dfa68c, #e8bb4a18 65%, transparent 70%); }
+.popup-medallion .popup-icon { width: 90px; height: 90px; }
+.popup-result-body { padding: 33px 28px 0; }
+.result-score { display: grid; grid-template-columns: 1fr 42px 1fr; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #c9a96770; text-align: center; }
+.result-score > .popup-icon { width: 42px; height: 42px; }
+.score-side span { display: block; font: 700 16px/1.2 Georgia, serif; }
+.score-side strong { display: grid; place-items: center; width: 48px; min-height: 54px; margin: 6px auto; border: 2px solid #cfac61; border-radius: 8px 8px 18px 18px; color: #fff5dc; background: #923d30; font: 32px/1 Georgia, serif; box-shadow: 0 3px 6px #4c371c30; }
+.score-defence strong { background: #315e82; }
+.score-side small { display: block; font-size: 12px; color: #5c604d; overflow-wrap: anywhere; }
+.game-popup .result p, .game-popup .result li { font-size: 13px; line-height: 1.5; }
+.game-popup .result ul { padding-left: 19px; margin: 10px 0; }
+.game-popup .result .winner { text-align: center; font: 19px/1.4 Georgia, serif; color: #164c36; margin: 14px 0 0; }
+.game-popup[data-outcome='defeat'] .popup-medallion { background: radial-gradient(circle, #ad87653d, transparent 70%); }
+.game-popup[data-outcome='victory'] .popup-medallion { background: radial-gradient(circle, #ffe09be6, #edc06230 58%, transparent 70%); }
+.confirm-dialog { width: min(470px, calc(100vw - 28px)); }
+.popup-confirm-body { padding: 22px 30px 0; text-align: center; }
+.popup-confirm-body .popup-icon { margin: 0 auto 14px; }
+.popup-confirm-body p { margin: 8px 0; font-size: 14px; }
+.game-popup.confirm-dialog > .actions { flex-wrap: nowrap; }
+.game-popup.confirm-dialog > .actions > button { width: auto; flex: 1; font-size: 16px; }
+@keyframes popup-arrive { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) {
+  .game-popup { border-radius: 17px; }
+  .popup-hero { height: 145px; }
+  .popup-welcome-title { padding-inline: 20px; }
+  .popup-welcome-title h3 { font-size: 29px; }
+  .popup-welcome-title p { font-size: 15px; }
+  .game-popup .help-body { padding: 16px 20px 0; }
+  .popup-steps { gap: 5px; margin-bottom: 10px; padding-bottom: 14px; }
+  .popup-steps strong { font-size: 16px; }
+  .popup-steps small { font-size: 10px; }
+  .game-popup .help-actions, .game-popup > .actions { padding: 16px 20px 20px; }
+  .popup-heading { padding: 23px 53px 18px 19px; }
+  .popup-heading h3 { font-size: 26px; }
+  .popup-card-exchange { height: 151px; gap: 17px; }
+  .popup-sample-card { width: 66px; height: 99px; }
+  .popup-exchange-arrow { font-size: 37px; }
+  .popup-deck { width: 47px; height: 71px; }
+  .popup-deck .popup-icon { width: 32px; height: 32px; }
+  .popup-result-head { padding-inline: 46px; }
+  .game-popup .popup-result-head h3 { font-size: 27px; }
+  .popup-result-body { padding-inline: 20px; }
+  .popup-confirm-body { padding-inline: 22px; }
+}
+@media (max-height: 650px) {
+  .popup-hero { height: 105px; }
+  .popup-card-exchange { height: 125px; }
+}
+@media (prefers-reduced-motion: reduce) { .game-popup[open] { animation: none; } .game-popup button { transition: none; } }
