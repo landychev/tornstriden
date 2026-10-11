@@ -7,7 +7,7 @@ const PORT = 8766;
 const server = spawn(process.execPath, ['server.js'], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
 await new Promise(resolve => setTimeout(resolve, 700));
 const shots = [
-  { page: 'match.html', file: 'match-forhandsvisning.jpg', width: 1366, height: 1200 },
+  { page: 'match.html', file: 'match-forhandsvisning.jpg', width: 1366, height: 900 },
   { page: 'spelbord.html', file: 'spelbord-forhandsvisning.jpg', width: 1366, height: 1225 },
   { page: 'effekter.html', file: 'bildeffekter-forhandsvisning.jpg', width: 1280, height: 1250 },
   { page: 'textkort.html', file: 'tjugo-kort-forhandsvisning.jpg', width: 1366, height: 1285 }
@@ -15,7 +15,7 @@ const shots = [
 try {
   const browser = await chromium.launch();
   for (const { page: path, file, width, height } of shots) {
-    const page = await browser.newPage({ viewport: { width, height }, colorScheme: 'light' });
+    const page = await browser.newPage({ viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce' });
     await page.goto(`http://127.0.0.1:${PORT}/${path}`);
     await page.waitForTimeout(600);
     // Stäng hjälprutorna (spelförklaring och bytesförklaring) så att bilden visar bordet.

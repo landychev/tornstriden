@@ -20,7 +20,7 @@ source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 files=(
   spelbord.html match.html textkort.html effekter.html
   spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css popup.css
-  spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js
+  spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js ljud.js
   LICENSE
 )
 for file in "${files[@]}"; do
@@ -43,7 +43,7 @@ while IFS= read -r -d '' asset; do
   relative="${asset#"$source_dir/"}"
   mkdir -p -- "$target/$(dirname -- "$relative")"
   install -m 644 -- "$asset" "$target/$relative"
-done < <(find "$source_dir/assets" -type f ! -name '.DS_Store' -print0)
+done < <(find "$source_dir/assets" -type f ! -name '.DS_Store' ! -name '*.md' -print0)
 
 # Gör matchen till startsida även när webbservern använder index.html.
 install -m 644 -- "$source_dir/match.html" "$target/index.html"

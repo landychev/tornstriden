@@ -7,11 +7,14 @@ Detta repository är projektets huvudsakliga arbetskatalog. Nya filer och framti
 ## Nuvarande version
 
 - En komplett lokal duell i `match.html` (startsidan): startbyten, anfall, försvar, enkel attack, påfyllning vid tom hand, omblandning, vinst och Ge upp.
+- Kompakt matchvy med tornen bredvid varandra och handen i samma skärmbild som striden. Startbyten ger korten extra utrymme; på smala skärmar bläddras handen i sidled. Ett valt kort kan öppnas förstorat med hela effekttexten. På mycket låga skärmar eller vid kraftig zoom får sidan växa för att hålla innehållet åtkomligt.
+- Lugnare kortanimationer, startmeddelande om vem som anfaller först och visuella signaler för anfall/försvar.
+- Dramatisk bakgrundsmusik och separata ljud för vanliga anfall, magiska anfall och spelade försvarskort. Knappen **Ljud** vid handen öppnar av/på och separata volymer. Inställningarna sparas lokalt, ljudet aktiveras efter första klicket och pausas när fliken lämnas. Musiken stannar vid matchslut. Spelet fungerar även om ljudstöd eller ljudfiler saknas.
 - En datormotståndare (`dator.js`, strategi `dator-v1`) som spelar Norra tornet med samma regelkontroll som människan och bara ser sin egen hand och det öppna bordet. Läget Två spelare vid samma skärm finns också.
 - Beslutade duellregler (`duell-v1`) och en låst kortlek på 50 kort (`duell-50-v1`) i `matchregler.js`.
 - 30 korttyper, inklusive tio kort med specialeffekter, och en stridsberäkning för duellresultat, specialeffekter, läkning och livförlust.
 - Ett testbord (`spelbord.html`) för fristående teststrider, en kortkatalog och sex transparenta bildlager med en verkstad.
-- 56 automatiska tester för kort, strid, regler, matchmotor och dator.
+- Automatiska tester för kort, strid, regler, matchmotor, dator och ljudets uppspelning/inställningar.
 
 Matchen sparas inte – om sidan laddas om försvinner den. Datorn följer en enkel grundstrategi (fasta försvarsexempel vid anfall, exakt beräkning vid försvar) och kan göra svaga val mot specialkort som Spegelsköld eller Törnesköld; vikterna ligger i `STRATEGY` i `dator.js`. Det finns ingen server för onlinespel. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
 
@@ -149,6 +152,7 @@ npm run preview
 | `match.html`, `matchvy.js`, `match.css` | Matchvyn: visningsläge, `render()` från spelarvyn, handlingar som bara går genom `process()`, samt datorns avbrytbara paus och beslutsfel. |
 | `dator.js` | Datormotståndaren: giltiga val ur spelarvyn, slump- och grundstrategi, strategivikter (`STRATEGY`). Ändrar aldrig matchen. |
 | `dator.test.js` | Tester för datorns beslut och hela seedade matcher dator mot dator. |
+| `ljud.js`, `ljud.test.js`, `assets/ljud/` | Musik, händelsestyrda effekter, ljudreglage och tester av uppspelningens livscykel. Ljudkällan finns i `scripts/skapa-ljud.py`. |
 | `spelbord.html`, `spelbord.css`, `spelbord.js` | Spelbordet: ett `state`-objekt, en `render()` som målar allt, och handlingar som bara ändrar state. |
 | `tokens.css` | Gemensamma färgtokens för ljust och mörkt läge. |
 | `server.js`, `preview.js` | Lokal webbserver och skript som återskapar förhandsvisningsbilderna. |

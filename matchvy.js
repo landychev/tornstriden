@@ -3,8 +3,8 @@
    går genom process(); rendera ändrar aldrig matchdata.
    Standardläget är människa (Södra tornet, A) mot datorn (Norra tornet, B).
    Läget "två spelare" visar handen för den som står på tur.
-   Presentation: ett valt kort dras upp till sin ruta på stridsplatsen (sidan
-   scrollar med), knapparna för anfall/försvar ligger på stridsplatsen, bortbytta
+   Presentation: ett valt kort dras upp till sin ruta på stridsplatsen,
+   knapparna för anfall/försvar ligger på stridsplatsen, bortbytta
    kort flyger till draghögen och stridsresultatet visas i en dialogruta. */
 import { MAX_LIFE } from './kort.js';
 import { USAGE, canAttack, canDefend } from './matchregler.js';
@@ -12,14 +12,18 @@ import { cardFace, towerAppearance } from './grafik.js';
 import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { newMatch, process, playerView, allowedActions, cardType, PHASE, ACTION, STATUS, END } from './match.js';
 import { decide, packAction, DecisionError, STRATEGIES, STRATEGY } from './dator.js';
+import { GameAudio, bindAudioControls } from './ljud.js';
+
+const sound = new GameAudio();
+bindAudioControls(sound);
 
 const $ = id => document.getElementById(id);
 const HEART = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 20.6S3.4 15.3 3.4 9.4A4.6 4.6 0 0 1 12 6.9a4.6 4.6 0 0 1 8.6 2.5c0 5.9-8.6 11.2-8.6 11.2z"/></svg>';
 const html = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const HUMAN = 'A';
 const COMPUTER = 'B';
-const THINK_MS = 600;            // presentationspaus innan datorn spelar
-const FLY_MS = 520;              // ett kort flyger mellan hand, stridsplats och högar
+const THINK_MS = 1400;           // låt korten landa innan datorn gör nästa drag
+const FLY_MS = 850;              // ett kort flyger mellan hand, stridsplats och högar
 const DECISION_PHASES = [PHASE.swap, PHASE.attack, PHASE.defence];
 const PLAY_PHASES = [PHASE.attack, PHASE.defence];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -35,6 +39,7 @@ const ui = {
   notice: null,         // { text, kind }
   focus: null,          // element-ID som ska få fokus efter nästa render
   thinking: false,      // datorn väntar på att spela
+  startPending: null,   // första anfallaren visas innan någon får spela
   decisionError: null,  // { matchId, revision, reason } – datorn kunde inte välja
   computerLog: []       // datorns beslut och skäl (visas i utvecklingsläget)
 };
@@ -76,6 +81,20 @@ function slot(id, content, label, extraClass = '') {
 /* ---- Kortflygningar: en kopia animeras i dokumentets koordinater, matchdata rörs inte ---- */
 const docRect = el => { const r = el.getBoundingClientRect(); return { left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height }; };
 
+/* Bevara utseendet även när källkortet tas bort från handen vid ett byte. */
+function styledCardCopy(template) {
+  const ghost = template.cloneNode(true);
+  if (!template.isConnected) return ghost;
+  const sourceParts = [template, ...template.querySelectorAll('*')];
+  const ghostParts = [ghost, ...ghost.querySelectorAll('*')];
+  const cardStyle = ['padding', 'margin', 'border', 'border-radius', 'background', 'color', 'font', 'text-align', 'min-height', 'min-width', 'max-width', 'display', 'flex', 'height', 'width', 'aspect-ratio', 'position', 'top', 'left', 'right', 'bottom', 'overflow'];
+  sourceParts.forEach((source, index) => {
+    const style = getComputedStyle(source);
+    cardStyle.forEach(property => ghostParts[index].style.setProperty(property, style.getPropertyValue(property)));
+  });
+  return ghost;
+}
+
 /* Lägger en kopia av `template` i dokumentet och låter den glida från `from` till `to`.
    Kopian sätts i sin naturliga storlek (`layout`: 'to' för kort som landar i en ruta,
    'from' för kort som lämnar handen) och skalas till den andra änden. */
@@ -83,13 +102,13 @@ function flyGhost(template, from, to, { delay = 0, fade = false, layout = 'to' }
   if (reduceMotion.matches || !from?.width || !to?.width) return Promise.resolve();
   const base = layout === 'from' ? from : to;
   const at = r => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width}, ${r.height / base.height})`;
-  const ghost = template.cloneNode(true);
+  const ghost = styledCardCopy(template);
   ghost.classList.add('fly-card');
   ghost.classList.remove('dealt');
   ghost.removeAttribute('id');
   ghost.removeAttribute('aria-pressed');
   ghost.setAttribute('aria-hidden', 'true');
-  Object.assign(ghost.style, { left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px`, visibility: 'visible' });
+  Object.assign(ghost.style, { position: 'absolute', margin: '0', left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px`, visibility: 'visible' });
   document.body.append(ghost);
   const frames = [{ transform: at(from), opacity: 1 }, { transform: at(to), opacity: fade ? 0 : 1 }];
   // Kort som landar bromsar in; kort som lämnar handen lyfter mjukt och drar sedan iväg.
@@ -104,12 +123,6 @@ function flyIntoSlot(slotId, from) {
   if (!target || !from?.width) return;
   target.style.visibility = 'hidden';
   flying = flyGhost(target, from, docRect(target)).then(() => { target.style.visibility = ''; });
-}
-
-/* Kameran följer med: scrolla upp så att stridsplatsen syns om den ligger ovanför synfältet. */
-function scrollToBattle() {
-  const top = Math.max(0, $('battle').getBoundingClientRect().top + scrollY - 12);
-  if (top < scrollY) window.scrollTo({ top, behavior: reduceMotion.matches ? 'auto' : 'smooth' });
 }
 
 /* Dit bortbytta kort flyger: draghögen, eller stridsplatsens mitt när högarna är dolda (smal skärm). */
@@ -141,7 +154,7 @@ function phaseText() {
   const waiting = ui.thinking ? ' Datorn väljer kort…' : '';
   switch (match.phase) {
     case PHASE.swap: return { title: `Startbyten – omgång ${match.swapRound} av ${match.rules.swapRounds}`, text: ui.thinking ? 'Datorn väljer sina byten…' : `${active}: markera upp till ${match.rules.maxCardsPerSwap} kort i handen nedanför och tryck Byt kort – eller Behåll handen. Bortbytta kort blandas tillbaka först när bytena är klara.` };
-    case PHASE.attack: return { title: `${active} anfaller`, text: ui.thinking ? `Strid ${match.battleNumber}.${waiting}` : `Strid ${match.battleNumber}. Välj ett kort ur handen. Vilket kort som helst kan spelas som enkel attack 1.` };
+    case PHASE.attack: return { title: `${active} anfaller`, text: ui.thinking ? `Strid ${match.battleNumber}.${waiting}` : `Strid ${match.battleNumber}. Välj ett kort eller använd enkel attack 1.` };
     case PHASE.defence: { const a = v.battle.attack; const type = cardType(a.cardId); return { title: `${active} försvarar`, text: `${nameOf(v.battle.attacker)} anfaller med ${a.usage === USAGE.simple ? `${type.name} som enkel attack 1` : `${type.name} (${type.value})`}.${ui.thinking ? waiting : ' Välj ett försvarskort eller avstå.'}` }; }
     case PHASE.result: { const r = match.lastResult; return { title: r.defended ? 'Försvaret håller' : `${nameOf(r.defender)} träffas`, text: `Attack ${r.attackStrength} mot försvar ${r.defenceStrength}. Läs resultatet och tryck Fortsätt.` }; }
     case PHASE.over: return { title: `${nameOf(match.winner)} vinner`, text: match.endReason === END.surrendered ? `${nameOf(opponentOf(match.winner))} gav upp matchen.` : `${nameOf(opponentOf(match.winner))} har fallit efter ${match.battleNumber} strider.` };
@@ -158,6 +171,7 @@ function renderHand() {
   const v = view();
   const key = `${ui.viewer}|${v.me.hand.map(c => c.instanceId).join(',')}|${match.phase}|${ui.usage}|${match.activePlayer}`;
   if (key !== handKey) {
+    const scrollLeft = handKey?.startsWith(`${ui.viewer}|`) ? $('hand').scrollLeft : 0;
     handKey = key;
     let dealt = 0;
     $('hand').innerHTML = v.me.hand.map(({ instanceId, cardId }) => {
@@ -165,12 +179,13 @@ function renderHand() {
       const usable = myTurn() && usableNow(type);
       const why = !myTurn() ? '' : match.phase === PHASE.attack ? ', kan spelas som enkel attack 1' : match.phase === PHASE.defence ? ', används vid attack' : '';
       const fresh = !shownIds.has(instanceId);
-      return `<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 45}ms"` : ''} data-instance="${instanceId}" aria-pressed="false"${usable ? '' : ' aria-disabled="true"'} aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${usable ? '' : why}">${cardHTML(type)}<span class="swap-mark" hidden>Byts</span></button>`;
+      return `<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 80}ms"` : ''} data-instance="${instanceId}" aria-pressed="false"${usable ? '' : ' aria-disabled="true"'} aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${usable ? '' : why}">${cardHTML(type)}<span class="swap-mark" hidden>Byts</span></button>`;
     }).join('');
+    $('hand').scrollLeft = scrollLeft;
     shownIds = new Set(v.me.hand.map(c => c.instanceId));
   }
   $('hand').classList.toggle('placing', myTurn() && PLAY_PHASES.includes(match.phase));
-  const interactive = myTurn() && DECISION_PHASES.includes(match.phase);
+  const interactive = !ui.startPending && myTurn() && DECISION_PHASES.includes(match.phase);
   for (const el of $('hand').querySelectorAll('button')) {
     const chosen = ui.selected.includes(el.dataset.instance);
     el.setAttribute('aria-pressed', String(chosen));
@@ -185,9 +200,11 @@ function renderActions() {
   const type = pick ? cardType(pick.cardId) : null;
   let info = '';
   let actions = '';
-  let where = 'battle';   // knapparna ligger på stridsplatsen – utom bytesknappen, som ligger vid handen
+  let where = match.phase === PHASE.swap ? 'hand' : 'battle';
 
-  if (ui.decisionError) {
+  if (ui.startPending) {
+    info = `<h3>${html(startTitle())}</h3><p>Startbytena är klara. Dags för första striden.</p>`;
+  } else if (ui.decisionError) {
     info = `<h3>Datorn kunde inte välja ett drag</h3><p>${html(ui.decisionError.reason)} Matchen är oförändrad: inga kort, liv eller faser har ändrats.</p>`;
     actions = button('retry', 'Försök igen', { kind: 'secondary', id: 'retry-computer' }) + button('new', 'Ny match', { id: 'confirm-new-match' });
   } else if (ui.thinking) {
@@ -197,19 +214,17 @@ function renderActions() {
     const n = ui.selected.length;
     const max = match.rules.maxCardsPerSwap;
     const round = `Omgång ${match.swapRound} av ${match.rules.swapRounds}.`;
-    info = n === 0
-      ? `<h3>Markera kort att byta – eller behåll handen</h3><p>${round} Tryck på upp till ${max} kort som du vill byta mot nya. Tryck sedan på <strong>Byt kort</strong>. Vill du inte byta något trycker du på <strong>Behåll handen</strong>.</p>`
-      : `<h3>${n} av ${max} kort markerade</h3><p>${round} ${type ? `${html(type.effect)} ` : ''}Tryck på <strong>Byt ${n} kort</strong> för att få nya från draghögen, eller tryck på ett markerat kort för att ångra.</p>`;
+    info = `<h3>Välj upp till ${max} kort · ${n}/${max} valda</h3><p>${round} ${type ? html(type.effect) : 'Tryck på ett kort för att markera. Tryck igen för att ångra.'}</p>`;
     actions = button('keep', 'Behåll handen', { kind: 'secondary', id: 'keep-hand' }) + button('swap', n === 0 ? 'Byt kort' : `Byt ${n} kort`, { disabled: n === 0, id: 'confirm-swap' });
   } else if (match.phase === PHASE.attack && allowed.includes(ACTION.attack)) {
     const ok = type && canAttack(type, ui.usage);
-    const hint = type && !ok ? `<p class="invalid">${html(type.name)} har ingen attackstyrka. Välj ”Enkel attack 1” för att anfalla med kortet ändå.</p>` : '';
-    info = type ? `<h3>${html(type.name)}</h3><p>${ui.usage === USAGE.simple ? 'Spelas som enkel attack 1: vanlig attack utan specialeffekt och utan magisk typ.' : html(type.effect)}</p>${hint}` : '<h3>Välj ditt attackkort</h3><p>Tryck på ett kort för att läsa effekten. Kortets siffra visar grundstyrkan; specialeffekten räknas när striden avgörs.</p>';
+    const hint = type && !ok ? `<p class="invalid">Välj ”Enkel attack 1” för att anfalla med detta kort.</p>` : '';
+    info = type ? `<h3>${html(type.name)}</h3>${hint || `<p>${ui.usage === USAGE.simple ? 'Vanlig attack 1, utan specialeffekt.' : html(type.effect)}</p>`}` : '<h3>Välj ditt attackkort</h3><p>Tryck på ett kort för att läsa effekten.</p>';
     actions = button('attack', ok ? `Anfall med ${html(type.name)}${ui.usage === USAGE.simple ? ' (attack 1)' : ''}` : 'Anfall', { disabled: !ok, id: 'confirm-attack' });
   } else if (match.phase === PHASE.defence && allowed.includes(ACTION.defend)) {
     const ok = type && canDefend(type);
-    const hint = type && !ok ? `<p class="invalid">${html(type.name)} kan inte användas som försvar. Välj ett annat kort eller avstå.</p>` : '';
-    info = type ? `<h3>${html(type.name)}</h3><p>${html(type.effect)}</p>${hint}` : '<h3>Välj ditt försvarskort</h3><p>Lika hög eller högre försvarsstyrka stoppar attacken. Att avstå sparar hela handen men kostar ett liv om attacken går igenom.</p>';
+    const hint = type && !ok ? `<p class="invalid">Kortet kan inte försvara. Välj ett annat eller avstå.</p>` : '';
+    info = type ? `<h3>${html(type.name)}</h3>${hint || `<p>${html(type.effect)}</p>`}` : '<h3>Välj ditt försvarskort</h3><p>Lika hög eller högre försvarsstyrka stoppar attacken. Att avstå sparar hela handen men kostar ett liv om attacken går igenom.</p>';
     actions = button('pass', 'Avstå försvar', { kind: 'secondary', id: 'confirm-pass' }) + button('defend', ok ? `Försvara med ${html(type.name)}` : 'Försvara', { disabled: !ok, id: 'confirm-defend' });
   } else if (match.phase === PHASE.result) {
     info = `<h3>Strid ${match.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${nameOf(opponentOf(match.lastResult.attacker))}.${match.players.some(p => p.life > 0 && !p.hand.length) ? ' En tom hand får upp till fem nya kort.' : ''}</p>`;
@@ -224,6 +239,7 @@ function renderActions() {
   } else {
     info = `<h3>${nameOf(match.activePlayer ?? ui.viewer)} står på tur</h3><p>Vänta på motståndarens drag.</p>`;
   }
+  if (type) info += '<button type="button" class="read-card" data-action="inspect" data-revision="' + match.revision + '">Läs kortet förstorat ↗</button>';
   const onBattle = where === 'battle';
   $('selection-info').innerHTML = onBattle ? info : '';
   $('actions').innerHTML = onBattle ? actions : '';
@@ -272,7 +288,7 @@ let resultKey = null;
 let pendingResultKey = null;
 function openPendingResult() {
   if (!pendingResultKey || pendingResultKey !== resultKey) return;
-  if (['intro-dialog', 'swap-dialog', 'confirm-dialog'].some(id => $(id).open)) return;
+  if (['intro-dialog', 'swap-dialog', 'confirm-dialog', 'start-dialog'].some(id => $(id).open)) return;
   pendingResultKey = null;
   if (!$('result-dialog').open) {
     $('result-dialog').showModal();
@@ -311,6 +327,65 @@ function renderResult() {
    Bytesförklaringen öppnas en gång per spelare och match när det är dags att byta,
    men väntar tills spelförklaringen är stängd så att rutorna inte staplas. ---- */
 const swapHelpShown = new Set();   // "match-ID|spelare" som redan fått bytesförklaringen
+function startTitle() {
+  if (ui.mode === 'computer') return ui.startPending?.playerId === HUMAN ? 'Du börjar!' : 'Datorn börjar!';
+  return `${nameOf(ui.startPending.playerId)} börjar!`;
+}
+
+function renderStart() {
+  const pending = ui.startPending;
+  if (!pending) { if ($('start-dialog').open) $('start-dialog').close(); return; }
+  $('start-title').textContent = startTitle();
+  $('start-message').textContent = `${nameOf(pending.playerId)} har lottats till att anfalla först. ${ui.mode === 'computer' ? (pending.playerId === HUMAN ? 'Välj ditt första attackkort när du är redo.' : 'Du försvarar först. Datorn väntar tills du trycker på Börja striden.') : 'Den andra spelaren försvarar.'}`;
+  // Ett sista byte kan fortfarande animeras. Visa meddelandet när korten landat.
+  setTimeout(() => Promise.all([flying, ...$('hand').getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))]).then(() => {
+    if (ui.startPending === pending && !$('start-dialog').open) $('start-dialog').showModal();
+  }), 0);
+}
+
+function beginFirstBattle() {
+  if (!ui.startPending) return;
+  ui.startPending = null;
+  $('start-dialog').close();
+  ui.focus = 'phase-title';
+  syncComputerTurn();
+  render();
+}
+
+/* Kort återkoppling per tur, aldrig vid ommarkering av ett kort. */
+let feedbackKey = null;
+let feedbackTimer = null;
+let feedbackAnimations = [];
+function renderTurnFeedback() {
+  const banner = $('turn-feedback');
+  const active = PLAY_PHASES.includes(match.phase) && !ui.startPending;
+  const key = active ? `${match.id}|${match.battleNumber}|${match.phase}|${match.activePlayer}|${ui.mode}` : null;
+  if (key === feedbackKey) return;
+  feedbackKey = key;
+  clearTimeout(feedbackTimer);
+  feedbackAnimations.forEach(animation => animation.cancel());
+  feedbackAnimations = [];
+  banner.hidden = true;
+  if (!active) return;
+  const defending = match.phase === PHASE.defence && myTurn();
+  const tone = defending ? 'defence' : 'attack';
+  const label = ui.mode === 'computer'
+    ? myTurn() ? (defending ? 'Du blir anfallen!' : 'Din tur att anfalla!')
+      : (match.phase === PHASE.attack ? 'Datorn förbereder sitt anfall' : 'Ditt anfall – datorn försvarar')
+    : `${nameOf(ui.viewer)} ${defending ? 'försvarar' : 'anfaller'}!`;
+  banner.dataset.tone = tone;
+  banner.innerHTML = `<small>${match.phase === PHASE.attack ? `STRID ${match.battleNumber} BÖRJAR` : `STRID ${match.battleNumber}`}</small>${html(label)}`;
+  banner.hidden = false;
+  if (!reduceMotion.matches) {
+    const glow = defending ? '#78b8f0' : '#e9b95e';
+    feedbackAnimations = [
+      banner.animate([{ opacity: 0, translate: '0 -6px' }, { opacity: 1, translate: '0 0', offset: .15 }, { opacity: 1, offset: .8 }, { opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' }),
+      document.querySelector('.table').animate([{ boxShadow: `inset 0 0 0 2px ${glow}00` }, { boxShadow: `inset 0 0 32px 2px ${glow}90`, offset: .25 }, { boxShadow: `inset 0 0 0 2px ${glow}00` }], { duration: 1300, easing: 'ease-out' })
+    ];
+  }
+  feedbackTimer = setTimeout(() => { banner.hidden = true; }, 1800);
+}
+
 function renderSwapHelp() {
   const dialog = $('swap-dialog');
   const due = match.phase === PHASE.swap && myTurn() && !ui.thinking && !ui.confirm && !ui.decisionError;
@@ -331,10 +406,12 @@ function renderDev() {
 }
 
 function render() {
+  sound.setPlaying(![PHASE.over, PHASE.error].includes(match.phase));
   if (ui.mode === 'computer') ui.viewer = HUMAN;
   else if (match.activePlayer) ui.viewer = match.activePlayer;
   const v = view();
   const { title, text } = phaseText();
+  document.body.classList.toggle('swapping', match.phase === PHASE.swap);
 
   // Torn, liv, högar
   tower('A'); tower('B');
@@ -373,7 +450,7 @@ function render() {
   $('hand-owner').textContent = ui.mode === 'computer' ? 'DINA KORT · SÖDRA TORNET' : `${nameOf(ui.viewer).toUpperCase()}S KORT`;
   $('hand-heading').textContent = !myTurn() && DECISION_PHASES.includes(match.phase) ? 'Motståndarens tur' : match.phase === PHASE.swap ? 'Välj kort att byta' : match.phase === PHASE.attack ? 'Välj ditt anfall' : match.phase === PHASE.defence ? 'Försvara ditt torn' : match.phase === PHASE.result ? 'Kvarvarande kort' : 'Matchen är slut';
   $('hand-count').textContent = `${v.me.hand.length} kort`;
-  $('usage').hidden = !(match.phase === PHASE.attack && myTurn());
+  $('usage').hidden = Boolean(ui.startPending) || !(match.phase === PHASE.attack && myTurn());
   $('usage-normal').setAttribute('aria-pressed', String(ui.usage === USAGE.normal));
   $('usage-simple').setAttribute('aria-pressed', String(ui.usage === USAGE.simple));
   renderHand();
@@ -381,6 +458,8 @@ function render() {
   renderConfirmation();
   renderResult();
   renderSwapHelp();
+  renderStart();
+  renderTurnFeedback();
   renderDev();
 
   // Meddelanden och fokus
@@ -402,6 +481,7 @@ function cancelComputerJob() {
 
 /* Anropas efter matchstart och varje godkänd handling – aldrig från render(). */
 function syncComputerTurn() {
+  if (ui.startPending) { cancelComputerJob(); return; }
   const key = stateKey();
   if (ui.decisionError) {
     if (ui.decisionError.matchId === match.id && ui.decisionError.revision === match.revision) return;
@@ -434,10 +514,11 @@ function runComputerJob(job) {
   const type = decision.choice.type;
   const reply = send(type, packAction(decision.choice, computerView), { fromComputer: true });
   if (reply.status === STATUS.rejected && match.id === computerView.matchId && match.revision === computerView.revision) pauseComputer(computerView, reply.message);
-  // Datorns kort flyger in från dess dolda hand till rutan (bara när den dolda handen syns).
+  // På det kompakta bordet flyger datorns kort från tornet när handen är dold.
   if (reply.status === STATUS.ok && (type === ACTION.attack || type === ACTION.defend)) {
     const back = $('hidden-B').lastElementChild;
-    if (back) flyIntoSlot(type === ACTION.attack ? 'attack-slot' : 'defence-slot', docRect(back));
+    const from = back && docRect(back).width ? docRect(back) : docRect($('tower-B'));
+    flyIntoSlot(type === ACTION.attack ? 'attack-slot' : 'defence-slot', from);
   }
 }
 
@@ -461,11 +542,19 @@ function retryComputer() {
 
 /* ---- Handlingar: gränssnittet skickar, process() avgör ---- */
 function send(type, extra = {}, { fromComputer = false } = {}) {
+  const previousPhase = match.phase;
   const reply = process(match, { matchId: match.id, revision: match.revision, type, ...extra });
+  if (reply.status === STATUS.ok) {
+    if (type === ACTION.attack) sound.playEffect(extra.usage !== USAGE.simple && typeOf(extra.card).type === 'magic' ? 'magic' : 'attack');
+    if (type === ACTION.defend) sound.playEffect('defence');
+  }
   if (reply.status === STATUS.rejected) {
     if (!fromComputer) ui.notice = { text: reply.message, kind: 'error' };
   } else {
     match = reply.match;
+    if (previousPhase === PHASE.swap && match.phase === PHASE.attack) {
+      ui.startPending = { matchId: match.id, playerId: match.activePlayer };
+    }
     ui.selected = [];
     ui.usage = USAGE.normal;
     ui.confirm = null;
@@ -486,6 +575,8 @@ function send(type, extra = {}, { fromComputer = false } = {}) {
 
 function startNewMatch() {
   cancelComputerJob();
+  ui.startPending = null;
+  $('start-dialog').close();
   match = newMatch();
   Object.assign(ui, { viewer: HUMAN, selected: [], usage: USAGE.normal, confirm: null, decisionError: null, computerLog: [], notice: { text: 'Ny match: ny utdelning och tre liv var. Matchen sparas inte vid omladdning.', kind: 'info' }, focus: 'phase-title' });
   handKey = null;
@@ -494,10 +585,9 @@ function startNewMatch() {
   render();
 }
 
-/* Markera ett kort. Vid anfall och försvar dras kortet upp till sin ruta på
-   stridsplatsen och sidan scrollar med så att man ser det landa. */
+/* Markera ett kort. Stridsplats och hand stannar i samma vy. */
 function choose(instanceId) {
-  if (!myTurn() || !cardInHand(instanceId)) return;
+  if (ui.startPending || !myTurn() || !cardInHand(instanceId)) return;
   ui.notice = null;
   if (match.phase === PHASE.swap) {
     if (ui.selected.includes(instanceId)) ui.selected = ui.selected.filter(id => id !== instanceId);
@@ -512,23 +602,22 @@ function choose(instanceId) {
     render();
     if (!picked) return;
     flyIntoSlot(match.phase === PHASE.attack ? 'attack-slot' : 'defence-slot', from);
-    scrollToBattle();
   }
 }
 
 /* Bekräfta bytet: de markerade korten flyger till draghögen och de nya delas ut i handen.
    Med `keep` behålls hela handen – eventuella markeringar ignoreras. */
 function swapCards({ keep = false } = {}) {
-  const marked = keep ? [] : [...$('hand').querySelectorAll('[aria-pressed="true"]')].map(el => [el, docRect(el)]);
+  const marked = keep ? [] : [...$('hand').querySelectorAll('[aria-pressed="true"]')].map(el => [styledCardCopy(el), docRect(el)]);
   const reply = send(ACTION.swap, { playerId: ui.viewer, cards: keep ? [] : [...ui.selected] });
   if (reply.status !== STATUS.ok) return;
   const pile = pileRect();
-  marked.forEach(([el, from], i) => {
+  flying = Promise.all(marked.map(([el, from], i) => {
     // Krymp med bibehållna proportioner in mot högens mitt.
     const height = pile.width * from.height / from.width;
     const to = { left: pile.left, top: pile.top + (pile.height - height) / 2, width: pile.width, height };
-    flyGhost(el, from, to, { delay: i * 70, fade: true, layout: 'from' });
-  });
+    return flyGhost(el, from, to, { delay: i * 120, fade: true, layout: 'from' });
+  }));
 }
 
 function setMode(mode) {
@@ -544,6 +633,13 @@ function setMode(mode) {
 }
 
 const actionHandlers = {
+  inspect: () => {
+    const pick = selectedOne();
+    if (!pick) return;
+    const type = cardType(pick.cardId);
+    $('card-detail').innerHTML = `<div class="mini-card ${type.type}">${cardHTML(type)}</div><h2 id="card-title">${html(type.name)}</h2><p>${html(type.effect)}</p>`;
+    $('card-dialog').showModal();
+  },
   swap: () => swapCards(),
   keep: () => swapCards({ keep: true }),
   attack: () => send(ACTION.attack, { playerId: ui.viewer, card: ui.selected[0], usage: ui.usage }),
@@ -565,8 +661,9 @@ function onAction(event) {
   if (el.dataset.revision !== String(match.revision)) { ui.notice = { text: 'Matchläget har ändrats – försök igen.', kind: 'error' }; render(); return; }
   el.disabled = true;   // spärr mot dubbelklick tills handlingen behandlats
   actionHandlers[el.dataset.action]?.();
+  if (el.dataset.action === 'inspect') el.disabled = false;
 }
-for (const id of ['actions', 'hand-actions', 'dialog-actions', 'confirm-actions']) $(id).addEventListener('click', onAction);
+for (const id of ['actions', 'hand-actions', 'dialog-actions', 'confirm-actions', 'selection-info', 'hand-info']) $(id).addEventListener('click', onAction);
 $('usage-normal').addEventListener('click', () => { ui.usage = USAGE.normal; render(); });
 $('usage-simple').addEventListener('click', () => { ui.usage = USAGE.simple; render(); });
 $('surrender').addEventListener('click', () => { if (!$('surrender').disabled) openConfirmation('surrender'); });
@@ -579,6 +676,8 @@ $('show-both').addEventListener('change', renderDev);
 $('show-help').addEventListener('click', () => $('intro-dialog').showModal());
 $('intro-close').addEventListener('click', () => $('intro-dialog').close());
 $('swap-close').addEventListener('click', () => $('swap-dialog').close());
+$('start-play').addEventListener('click', beginFirstBattle);
+$('start-dialog').addEventListener('cancel', event => { event.preventDefault(); beginFirstBattle(); });
 $('intro-dialog').addEventListener('close', renderSwapHelp);
 $('swap-dialog').addEventListener('close', () => $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true }));
 for (const id of ['intro-dialog', 'swap-dialog', 'confirm-dialog']) $(id).addEventListener('close', openPendingResult);
