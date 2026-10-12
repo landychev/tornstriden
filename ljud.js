@@ -3,7 +3,7 @@ import { PHASE } from './match.js';
 
 export const SOUND_FILES = Object.freeze({
   music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3',
-  shuffle: 'kortblandning.mp3?v=3', card: 'kortlaggning.mp3',
+  shuffle: 'kortblandning.mp3', card: 'kortlaggning.mp3',
   lifeLost: 'forlorat-liv.mp3', battleWon: 'vunnen-strid.mp3',
   matchLost: 'forlorad-match.mp3', matchWon: 'vunnen-match.mp3'
 });

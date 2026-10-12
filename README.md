@@ -46,7 +46,9 @@ Webbservern behöver redan vara inställd att visa statiska filer därifrån.
 
 Skriptet hittar källfilerna utifrån sin egen plats. Det kopierar spelets HTML,
 CSS, JavaScript, bildresurser och licens samt skapar `index.html` från
-matchen (`match.html`). Befintliga filer med samma namn skrivs över, inklusive `index.html`.
+matchen (`match.html`). I de kopierade html-, css- och js-filerna får varje referens
+till skript, stilmallar, moduler och assets tillägget `?v=<Git-hash>` (se
+avsnittet om cachning); källfilerna i Git rörs inte. Befintliga filer med samma namn skrivs över, inklusive `index.html`.
 Andra filer i målkatalogen lämnas kvar. Uppdateringen sker fil för fil.
 Git-historik, lokala inställningar och utvecklingsverktyg kopieras inte.
 
@@ -105,12 +107,19 @@ installationsmetodens förnyelseschema.
 
 ### Cachning av spelets filer
 
-Utan egna cachningsregler kan webbläsare återanvända gamla `.js`- och `.css`-filer
-i timmar efter en deploy och blanda dem med nya. `apache/tornstriden-cache.conf`
-gör att sidor, skript och stilmallar alltid valideras mot servern (oförändrade filer
-svarar med 304); bilder och ljud cachas som vanligt. Filen är fristående från de
-virtuella värdarna, gäller både HTTP och Certbots HTTPS-värd och rör inte deras
-inställningar. Installera en gång som root:
+Utan egna cachningsregler kan webbläsare återanvända gamla `.js`-, `.css`-, bild- och
+ljudfiler i timmar efter en deploy (en vanlig omladdning kontrollerar bara själva
+HTML-sidan mot servern) och blanda dem med nya. Två saker samverkar:
+
+- `deploy.sh` versionsstämplar alla referenser i de kopierade filerna med `?v=<Git-hash>`
+  (klockslag läggs till om utcheckningen har osparade ändringar). Varje deploy ger därmed
+  nya adresser för skript, moduler, stilmallar, bilder och ljud, så webbläsaren hämtar
+  dem på nytt utan hård omladdning och kan inte blanda ny HTML med gamla moduler.
+- `apache/tornstriden-cache.conf` gör att HTML-sidorna (liksom skript och stilmallar)
+  alltid valideras mot servern (oförändrade filer svarar med 304), så att den nya
+  sidan med de nya adresserna visas direkt. Filen är fristående från de
+  virtuella värdarna, gäller både HTTP och Certbots HTTPS-värd och rör inte deras
+  inställningar. Installera en gång som root:
 
 ```sh
 install -m 644 apache/tornstriden-cache.conf /etc/apache2/conf-available/tornstriden-cache.conf
