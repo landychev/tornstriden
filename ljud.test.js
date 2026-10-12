@@ -35,6 +35,9 @@ test('Ljud startar efter aktivering; upprepade renderingar skapar bara en musiks
   assert.equal(sources.length, 3);
   assert.equal(sources[1].buffer, sound.buffers.get('attack'));
   assert.equal(sources[2].buffer, sound.buffers.get('defence'));
+  sound.playEffect('shuffle');
+  assert.equal(sources.length, 4);
+  assert.equal(sources[3].buffer, sound.buffers.get('shuffle'));
 });
 
 test('Tyst läge stoppar pågående ljud och sparas; volymerna är oberoende', async () => {
@@ -43,7 +46,7 @@ test('Tyst läge stoppar pågående ljud och sparas; volymerna är oberoende', a
   sound.setVolume('music', .12); sound.setVolume('effects', .8);
   sound.setEnabled(false);
   assert.ok(sources.every(source => source.stopped));
-  sound.playEffect('defence'); sound.setPlaying(true);
+  sound.playEffect('defence'); sound.playEffect('shuffle'); sound.setPlaying(true);
   assert.equal(sources.length, 2);
   const saved = JSON.parse(storage.value);
   assert.deepEqual(saved, { enabled: false, musicVolume: .12, effectsVolume: .8 });

@@ -101,3 +101,18 @@ for name,signal in [('anfall.mp3',attack(True)),('magi.mp3',attack(True,True)),(
     track=room(track,.23)
     track*=np.minimum(np.arange(len(track))[::-1]/(.15*SR),1)[:,None]
     save(name,track)
+
+# Torrt pappersprassel: två korta riffningar och ett mjukt slag när leken samlas.
+shuffle_rng=np.random.default_rng(128)
+track=np.zeros((int(1.15*SR),2))
+for group_start in [.03,.42]:
+    for n in range(13):
+        t=timeline(.065)
+        noise=shuffle_rng.normal(0,1,len(t))
+        paper=filt(noise,6500)-filt(noise,850)
+        pulse=paper*np.exp(-t*75)*np.minimum(t/.0015,1)
+        add(track,pulse,group_start+n*.021,.14+shuffle_rng.uniform(0,.07),(-1)**n*.25)
+t=timeline(.22)
+tap=(np.sin(2*np.pi*180*t)*.18+filt(shuffle_rng.normal(0,1,len(t)),1600)*.3)*np.exp(-t*35)*np.minimum(t/.002,1)
+add(track,tap,.82,.8)
+save('kortblandning.mp3',track)

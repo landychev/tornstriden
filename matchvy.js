@@ -45,6 +45,13 @@ const ui = {
 };
 let pendingJob = null;  // högst ett väntande datorjobb
 let flying = Promise.resolve();  // senaste kortflygningen; resultatrutan väntar in den
+let dealtSoundMatch = null;
+
+function playDealSound() {
+  if (dealtSoundMatch === match.id) return;
+  dealtSoundMatch = match.id;
+  sound.playEffect('shuffle');
+}
 
 /* ---- Härledningar ---- */
 const view = () => playerView(match, ui.viewer);
@@ -551,6 +558,8 @@ function send(type, extra = {}, { fromComputer = false } = {}) {
   if (reply.status === STATUS.ok) {
     if (type === ACTION.attack) sound.playEffect(extra.usage !== USAGE.simple && typeOf(extra.card).type === 'magic' ? 'magic' : 'attack');
     if (type === ACTION.defend) sound.playEffect('defence');
+    const refilled = reply.match.players.some((player, index) => player.hand.length > match.players[index].hand.length);
+    if ((type === ACTION.swap && extra.cards?.length) || refilled) sound.playEffect('shuffle');
   }
   if (reply.status === STATUS.rejected) {
     if (!fromComputer) ui.notice = { text: reply.message, kind: 'error' };
@@ -587,6 +596,7 @@ function startNewMatch() {
   shownIds = new Set();   // hela handen delas ut på nytt
   syncComputerTurn();
   render();
+  playDealSound();
 }
 
 /* Markera ett kort. Stridsplats och hand stannar i samma vy. */
@@ -683,7 +693,10 @@ $('swap-close').addEventListener('click', () => $('swap-dialog').close());
 $('start-play').addEventListener('click', beginFirstBattle);
 $('start-dialog').addEventListener('cancel', event => { event.preventDefault(); beginFirstBattle(); });
 $('intro-dialog').addEventListener('close', renderSwapHelp);
-$('swap-dialog').addEventListener('close', () => $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true }));
+$('swap-dialog').addEventListener('close', () => {
+  $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+  if (match.phase === PHASE.swap) playDealSound();
+});
 for (const id of ['intro-dialog', 'swap-dialog', 'confirm-dialog']) $(id).addEventListener('close', openPendingResult);
 $('confirm-dialog').addEventListener('cancel', event => { event.preventDefault(); closeConfirmation(); });
 document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => {

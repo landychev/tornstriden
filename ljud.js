@@ -1,5 +1,5 @@
 /* Ljud är presentation: inga ljudhändelser ändrar matchens regler eller turer. */
-export const SOUND_FILES = Object.freeze({ music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3' });
+export const SOUND_FILES = Object.freeze({ music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3', shuffle: 'kortblandning.mp3' });
 const STORAGE_KEY = 'tornstriden-ljud-v1';
 const volume = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 
