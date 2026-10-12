@@ -6,6 +6,6 @@ Originala syntetiska ljud framtagna för spelet, utan externa samplingar.
 - `anfall.mp3`: svep, metall och dov trumma.
 - `magi.mp3`: magiskt anfall med stigande klang och trumma.
 - `forsvar.mp3`: sköldklang när ett försvarskort spelas.
-- `kortblandning.mp3`: kort pappersprassel och ett mjukt slag när kortleken samlas. Spelas vid första utdelningen, ny match, faktiska kortbyten och påfyllning av tom hand. Att behålla handen ger inget blandningsljud.
+- `kortblandning.mp3`: 2,05 sekunders kortblandning med skrapande korthalvor, tydliga enskilda kortsläpp och två mjuka knack när leken samlas. Spelas vid första utdelningen, ny match, faktiska kortbyten och påfyllning av tom hand. Att behålla handen ger inget blandningsljud. En ny blandning ersätter den föregående om korten byts snabbt.
 
 Ljuden följer projektets licens. Källan är `scripts/skapa-ljud.py` (Python med NumPy och FFmpeg behövs bara för att återskapa filerna). Spelet laddar färdiga MP3-filer och behöver inga externa ljudtjänster.

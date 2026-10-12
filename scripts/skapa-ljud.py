@@ -102,17 +102,40 @@ for name,signal in [('anfall.mp3',attack(True)),('magi.mp3',attack(True,True)),(
     track*=np.minimum(np.arange(len(track))[::-1]/(.15*SR),1)[:,None]
     save(name,track)
 
-# Torrt pappersprassel: två korta riffningar och ett mjukt slag när leken samlas.
+# Långsammare fysisk kortblandning: dra isär, släpp korten, samla leken.
 shuffle_rng=np.random.default_rng(128)
-track=np.zeros((int(1.15*SR),2))
-for group_start in [.03,.42]:
-    for n in range(13):
-        t=timeline(.065)
-        noise=shuffle_rng.normal(0,1,len(t))
-        paper=filt(noise,6500)-filt(noise,850)
-        pulse=paper*np.exp(-t*75)*np.minimum(t/.0015,1)
-        add(track,pulse,group_start+n*.021,.14+shuffle_rng.uniform(0,.07),(-1)**n*.25)
-t=timeline(.22)
-tap=(np.sin(2*np.pi*180*t)*.18+filt(shuffle_rng.normal(0,1,len(t)),1600)*.3)*np.exp(-t*35)*np.minimum(t/.002,1)
-add(track,tap,.82,.8)
+track=np.zeros((int(2.05*SR),2))
+
+def card_flick():
+    t=timeline(.105)
+    noise=shuffle_rng.normal(0,1,len(t))
+    paper=filt(noise,5100)-filt(noise,600)
+    # Kortets torra flapp har en kropp och ett kort, strävt anslag.
+    flex=(np.sin(2*np.pi*shuffle_rng.uniform(430,620)*t)*.5
+          +np.sin(2*np.pi*shuffle_rng.uniform(1050,1450)*t)*.2)*np.exp(-t*85)
+    return (paper*np.exp(-t*55)*.75+flex)*np.minimum(t/.001,1)
+
+# Två skrapningar när korthalvorna dras ut och trycks ihop.
+for start,duration,pan in [(.02,.23,-.25),(.94,.3,.25)]:
+    t=timeline(duration)
+    noise=shuffle_rng.normal(0,1,len(t))
+    paper=filt(noise,3800)-filt(noise,450)
+    grain=.45+.55*np.sin(2*np.pi*38*t)**2
+    scrape=paper*grain*np.sin(np.pi*t/duration)**2
+    add(track,scrape,start,.065,pan)
+
+# Ojämna, separata kortsläpp gör att blandningen inte låter som ett jämnt brus.
+for start,intervals in [(.21,[.048,.052,.041,.055,.046,.06,.051,.044,.057,.05]),
+                        (1.03,[.055,.048,.046,.042,.04,.036,.033,.032,.03,.03,.033,.038])]:
+    at=start
+    for n,gap in enumerate(intervals):
+        add(track,card_flick(),at,shuffle_rng.uniform(.24,.36),(-1)**n*.2)
+        at+=gap
+
+# Ett par mjuka, torra knack när kortkanterna jämnas till mot bordet.
+for at,amp in [(1.71,.6),(1.86,.38)]:
+    t=timeline(.16)
+    noise=filt(shuffle_rng.normal(0,1,len(t)),2600)
+    tap=(np.sin(2*np.pi*155*t)*.2+noise*.38)*np.exp(-t*48)*np.minimum(t/.0015,1)
+    add(track,tap,at,amp)
 save('kortblandning.mp3',track)

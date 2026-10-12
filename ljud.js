@@ -1,5 +1,5 @@
 /* Ljud är presentation: inga ljudhändelser ändrar matchens regler eller turer. */
-export const SOUND_FILES = Object.freeze({ music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3', shuffle: 'kortblandning.mp3' });
+export const SOUND_FILES = Object.freeze({ music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3', shuffle: 'kortblandning.mp3?v=2' });
 const STORAGE_KEY = 'tornstriden-ljud-v1';
 const volume = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 
@@ -95,6 +95,15 @@ export class GameAudio {
   playEffect(name) {
     // Ljud som ännu inte laddats köas inte: ett gammalt anfall får inte höras senare.
     if (!this.audible || !this.playing || !this.effectsVolume || !this.buffers.has(name)) return;
+    // Snabba byten ska inte stapla flera långa kortblandningar ovanpå varandra.
+    if (name === 'shuffle') {
+      for (const previous of this.effects) {
+        if (previous.buffer !== this.buffers.get('shuffle')) continue;
+        previous.stop();
+        previous.disconnect();
+        this.effects.delete(previous);
+      }
+    }
     const source = this.context.createBufferSource();
     source.buffer = this.buffers.get(name);
     source.connect(this.effectsGain);

@@ -55,6 +55,18 @@ test('Tyst läge stoppar pågående ljud och sparas; volymerna är oberoende', a
   assert.equal(restored.created(), 0);
 });
 
+test('Snabba kortbyten ersätter förra blandningen utan att avbryta andra effekter', async () => {
+  const { sound, sources } = setup();
+  await sound.unlock();
+  sound.playEffect('attack');
+  sound.playEffect('shuffle');
+  sound.playEffect('shuffle');
+  assert.equal(sources[1].stopped, undefined);
+  assert.equal(sources[2].stopped, true);
+  assert.equal(sources[3].started, true);
+  assert.equal(sound.effects.size, 2);
+});
+
 test('Byte av flik pausar ljud; musiken återupptas från rätt plats utan gamla effekter', async () => {
   const { sound, context, sources } = setup();
   await sound.unlock(); context.currentTime = 17; sound.playEffect('attack');
