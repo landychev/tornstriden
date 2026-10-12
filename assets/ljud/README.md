@@ -6,7 +6,7 @@ Originala syntetiska ljud framtagna för spelet, utan externa samplingar.
 - `anfall.mp3`: svep, metall och dov trumma.
 - `magi.mp3`: magiskt anfall med stigande klang och trumma.
 - `forsvar.mp3`: sköldklang när ett försvarskort spelas.
-- `kortlaggning.mp3`: 0,28 sekunders papperssvep och torrt flapp när ett kort spelas i anfall eller försvar, även av datorn. Hörs tillsammans med stridseffekten. Kortval, avstått försvar och ogiltiga drag ger inget kortläggningsljud.
+- `kortlaggning.mp3`: 0,48 sekunders mjukt, jämnt glid över bordet (godkänt ljudprov 2, version 3) när ett kort spelas i anfall eller försvar, även av datorn. Hörs tillsammans med stridseffekten. Kortval, avstått försvar och ogiltiga drag ger inget kortläggningsljud.
 - `kortblandning.mp3`: 1,9 sekunders sammanhängande blandning av en stor kortlek: täta, överlappande kortkanter och ett avslutande pappersprassel när leken skjuts ihop. Spelas vid första utdelningen, ny match, faktiska kortbyten och påfyllning av tom hand. Att behålla handen ger inget blandningsljud. En ny blandning ersätter den föregående om korten byts snabbt.
 
 - `forlorat-liv.mp3`: 0,9 sekunders dov träff med fallande ton när det egna tornet tappar ett liv, även vid motstöt.

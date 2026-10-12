@@ -80,16 +80,17 @@ def room(src,wet):
         shift=int(delay*SR);src[shift:]+=dry[:-shift,::-1 if k%2 else 1]*wet*(.68**k)
     return src
 
-def save(name,samples):
-    samples=np.tanh(samples*1.25)
-    samples*=.85/max(np.max(np.abs(samples)),1e-6)
+def save(name,samples,*,sample_rate=SR,normalize=True,bitrate='160k'):
+    if normalize:
+        samples=np.tanh(samples*1.25)
+        samples*=.85/max(np.max(np.abs(samples)),1e-6)
     with tempfile.TemporaryDirectory() as folder:
         wav=Path(folder)/'source.wav'
         with wave.open(str(wav),'w') as w:
-            w.setnchannels(2);w.setsampwidth(2);w.setframerate(SR)
+            w.setnchannels(2);w.setsampwidth(2);w.setframerate(sample_rate)
             w.writeframes((samples*32767).astype('<i2').tobytes())
-        subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(wav),'-codec:a','libmp3lame','-b:a','160k',str(OUT/name)],check=True)
-    print(name,round(len(samples)/SR,2),'sekunder')
+        subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(wav),'-codec:a','libmp3lame','-b:a',bitrate,str(OUT/name)],check=True)
+    print(name,round(len(samples)/sample_rate,2),'sekunder')
 
 music=room(music,.31)
 loop=music[:72*SR].copy()
@@ -146,20 +147,21 @@ add(track,paper*np.sin(np.pi*t/.24)**2,1.62,.13)
 track*=np.minimum(np.arange(len(track))[::-1]/(.045*SR),1)[:,None]
 save('kortblandning.mp3',track)
 
-# Ett enda kort: kort papperssvep följt av ett torrt flapp mot bordet.
-card_rng=np.random.default_rng(729)
-track=np.zeros((int(.28*SR),2))
-t=timeline(.1)
+# Godkänt ljudprov 2, version 3: ett enda kort som glider jämnt över bordet.
+# Behåll provets samplingsfrekvens, nivå och kodning så filen blir identisk.
+card_sr=44100
+card_rng=np.random.default_rng(1328)
+t=np.arange(round(card_sr*.48))/card_sr
 noise=card_rng.normal(0,1,len(t))
-paper=filt(noise,4800)-filt(noise,650)
-add(track,paper*np.sin(np.pi*t/.1)**2,0,.1)
-t=timeline(.18)
-noise=card_rng.normal(0,1,len(t))
-paper=filt(noise,5200)-filt(noise,550)
-flex=(.5*np.sin(2*np.pi*480*t)+.2*np.sin(2*np.pi*1170*t))*np.exp(-t*65)
-flap=(paper*.6*np.exp(-t*55)+flex)*np.minimum(t/.001,1)
-add(track,flap,.075,.65)
-save('kortlaggning.mp3',track)
+f=np.fft.rfftfreq(len(t),1/card_sr)
+band=(1-np.exp(-(f/480)**4))/(1+(f/2600)**8)
+band*=.45+.55*np.exp(-.5*((f-1350)/700)**2)
+glide=np.fft.irfft(np.fft.rfft(noise)*band,n=len(t))
+env=np.minimum(t/.055,1)*np.minimum(np.maximum(.43-t,0)/.115,1)
+glide*=env**1.2
+glide*=.48/max(np.max(np.abs(glide)),1e-8)
+save('kortlaggning.mp3',np.repeat(glide[:,None],2,axis=1),
+     sample_rate=card_sr,normalize=False,bitrate='192k')
 
 # Resultatljud: kort återkoppling i strid, längre fraser när matchen avgörs.
 # Egen slumpsekvens håller ljuden reproducerbara oberoende av tidigare effekter.
