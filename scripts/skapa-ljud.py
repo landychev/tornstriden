@@ -139,3 +139,18 @@ for at,amp in [(1.71,.6),(1.86,.38)]:
     tap=(np.sin(2*np.pi*155*t)*.2+noise*.38)*np.exp(-t*48)*np.minimum(t/.0015,1)
     add(track,tap,at,amp)
 save('kortblandning.mp3',track)
+
+# Ett enda kort: kort papperssvep följt av ett torrt flapp mot bordet.
+card_rng=np.random.default_rng(729)
+track=np.zeros((int(.28*SR),2))
+t=timeline(.1)
+noise=card_rng.normal(0,1,len(t))
+paper=filt(noise,4800)-filt(noise,650)
+add(track,paper*np.sin(np.pi*t/.1)**2,0,.1)
+t=timeline(.18)
+noise=card_rng.normal(0,1,len(t))
+paper=filt(noise,5200)-filt(noise,550)
+flex=(.5*np.sin(2*np.pi*480*t)+.2*np.sin(2*np.pi*1170*t))*np.exp(-t*65)
+flap=(paper*.6*np.exp(-t*55)+flex)*np.minimum(t/.001,1)
+add(track,flap,.075,.65)
+save('kortlaggning.mp3',track)

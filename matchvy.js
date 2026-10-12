@@ -556,6 +556,7 @@ function send(type, extra = {}, { fromComputer = false } = {}) {
   const previousPhase = match.phase;
   const reply = process(match, { matchId: match.id, revision: match.revision, type, ...extra });
   if (reply.status === STATUS.ok) {
+    if (type === ACTION.attack || type === ACTION.defend) sound.playEffect('card');
     if (type === ACTION.attack) sound.playEffect(extra.usage !== USAGE.simple && typeOf(extra.card).type === 'magic' ? 'magic' : 'attack');
     if (type === ACTION.defend) sound.playEffect('defence');
     const refilled = reply.match.players.some((player, index) => player.hand.length > match.players[index].hand.length);
