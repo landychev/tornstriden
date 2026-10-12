@@ -1,5 +1,21 @@
 /* Ljud är presentation: inga ljudhändelser ändrar matchens regler eller turer. */
-export const SOUND_FILES = Object.freeze({ music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3', shuffle: 'kortblandning.mp3?v=3', card: 'kortlaggning.mp3' });
+import { PHASE } from './match.js';
+
+export const SOUND_FILES = Object.freeze({
+  music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3',
+  shuffle: 'kortblandning.mp3?v=3', card: 'kortlaggning.mp3',
+  lifeLost: 'forlorat-liv.mp3', battleWon: 'vunnen-strid.mp3',
+  matchLost: 'forlorad-match.mp3', matchWon: 'vunnen-match.mp3'
+});
+
+export function resultEffect(match, playerId) {
+  if (match.phase === PHASE.over && match.winner) return match.winner === playerId ? 'matchWon' : 'matchLost';
+  const r = match.lastResult;
+  if (match.phase !== PHASE.result || !r) return null;
+  if (r.life[playerId] < r.startLife[playerId]) return 'lifeLost';
+  const winner = r.defended ? r.defender : r.attacker;
+  return winner === playerId ? 'battleWon' : null;
+}
 const STORAGE_KEY = 'tornstriden-ljud-v1';
 const volume = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 
@@ -94,7 +110,8 @@ export class GameAudio {
 
   playEffect(name) {
     // Ljud som ännu inte laddats köas inte: ett gammalt anfall får inte höras senare.
-    if (!this.audible || !this.playing || !this.effectsVolume || !this.buffers.has(name)) return;
+    const finale = name === 'matchWon' || name === 'matchLost';
+    if (!this.audible || (!this.playing && !finale) || !this.effectsVolume || !this.buffers.has(name)) return;
     // Snabba byten ska inte stapla flera långa kortblandningar ovanpå varandra.
     if (name === 'shuffle') {
       for (const previous of this.effects) {

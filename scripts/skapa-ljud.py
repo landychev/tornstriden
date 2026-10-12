@@ -160,3 +160,39 @@ flex=(.5*np.sin(2*np.pi*480*t)+.2*np.sin(2*np.pi*1170*t))*np.exp(-t*65)
 flap=(paper*.6*np.exp(-t*55)+flex)*np.minimum(t/.001,1)
 add(track,flap,.075,.65)
 save('kortlaggning.mp3',track)
+
+# Resultatljud: kort återkoppling i strid, längre fraser när matchen avgörs.
+# Egen slumpsekvens håller ljuden reproducerbara oberoende av tidigare effekter.
+rng=np.random.default_rng(942)
+track=np.zeros((int(.9*SR),2))
+add(track,drum(True),0,.45)
+t=timeline(.7)
+phase=2*np.pi*(230*t-65*t*t)
+fall=(np.sin(phase)+.22*np.sin(phase*2.03))*np.exp(-t*7)*np.minimum(t/.004,1)
+add(track,fall,.04,.32)
+track*=np.minimum(np.arange(len(track))[::-1]/(.12*SR),1)[:,None]
+save('forlorat-liv.mp3',track)
+
+track=np.zeros((int(1.2*SR),2))
+for m,at in [(74,0),(78,.13),(81,.27)]:
+    add(track,pluck(m,.8),at,.28)
+save('vunnen-strid.mp3',room(track,.12))
+
+track=np.zeros((int(2.7*SR),2))
+for m,at in [(62,0),(60,.36),(57,.72),(50,1.1)]:
+    add(track,strings(m,1.4,soft=True),at,.25)
+add(track,drum(True),.05,.2)
+track=room(track,.17)
+track*=np.minimum(np.arange(len(track))[::-1]/(.3*SR),1)[:,None]
+save('forlorad-match.mp3',track)
+
+track=np.zeros((int(3.2*SR),2))
+for m,at in [(62,0),(66,.22),(69,.44),(74,.76)]:
+    add(track,strings(m,1.3),at,.3)
+    add(track,pluck(m+12,1),at,.13)
+for m,pan in [(62,-.25),(66,0),(69,.25),(74,.1)]:
+    add(track,strings(m,1.8),1.15,.15,pan)
+add(track,drum(True),1.15,.18)
+track=room(track,.2)
+track*=np.minimum(np.arange(len(track))[::-1]/(.3*SR),1)[:,None]
+save('vunnen-match.mp3',track)

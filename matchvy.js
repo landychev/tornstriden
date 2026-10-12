@@ -12,7 +12,7 @@ import { cardFace, towerAppearance } from './grafik.js';
 import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { newMatch, process, playerView, allowedActions, cardType, PHASE, ACTION, STATUS, END } from './match.js';
 import { decide, packAction, DecisionError, STRATEGIES, STRATEGY } from './dator.js';
-import { GameAudio, bindAudioControls } from './ljud.js';
+import { GameAudio, bindAudioControls, resultEffect } from './ljud.js';
 
 const sound = new GameAudio();
 bindAudioControls(sound);
@@ -297,10 +297,16 @@ function renderConfirmation() {
    matchen går vidare. Stängs den med Escape finns Fortsätt kvar på stridsplatsen. ---- */
 let resultKey = null;
 let pendingResultKey = null;
+let pendingResultEffect = null;
 function openPendingResult() {
   if (!pendingResultKey || pendingResultKey !== resultKey) return;
   if (['intro-dialog', 'swap-dialog', 'confirm-dialog', 'start-dialog'].some(id => $(id).open)) return;
   pendingResultKey = null;
+  if (pendingResultEffect) {
+    sound.stopEffects();
+    sound.playEffect(pendingResultEffect);
+    pendingResultEffect = null;
+  }
   if (!$('result-dialog').open) {
     $('result-dialog').showModal();
   }
@@ -312,6 +318,7 @@ function renderResult() {
   if (!over && !(match.phase === PHASE.result && r)) {
     resultKey = null;
     pendingResultKey = null;
+    pendingResultEffect = null;
     if (dialog.open) dialog.close();
     return;
   }
@@ -330,6 +337,8 @@ function renderResult() {
   const key = `${match.id}|${match.revision}|${match.phase}`;
   if (key === resultKey) return;
   resultKey = key;
+  // I tvåspelarläget gäller ljudet spelaren vars hand visas vid resultatet.
+  pendingResultEffect = resultEffect(match, ui.mode === 'computer' ? HUMAN : ui.viewer);
   // Vänta ett varv: en flygning som startas direkt efter render() ska hinna registreras i `flying`.
   setTimeout(() => flying.then(() => { if (resultKey === key) { pendingResultKey = key; openPendingResult(); } }), 0);
 }
@@ -589,6 +598,7 @@ function send(type, extra = {}, { fromComputer = false } = {}) {
 
 function startNewMatch() {
   cancelComputerJob();
+  sound.stopEffects();
   ui.startPending = null;
   $('start-dialog').close();
   match = newMatch();

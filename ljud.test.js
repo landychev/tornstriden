@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GameAudio } from './ljud.js';
+import { GameAudio, resultEffect } from './ljud.js';
+import { PHASE } from './match.js';
 
 function setup({ saved = null, fetchAsset } = {}) {
   const storage = { value: saved, getItem() { return this.value; }, setItem(key, value) { this.value = value; } };
@@ -111,4 +112,62 @@ test('Saknade ljud, trasiga inställningar och otillgänglig lagring stoppar int
   const unavailable = new GameAudio({ storage: {}, createContext() { throw new Error('Inget ljudstöd'); } });
   await unavailable.unlock();
   assert.equal(unavailable.failed, true);
+});
+
+
+test('Resultatljud skiljer på träff, lyckat försvar, stoppat anfall och motstöt', () => {
+  const match = { phase: PHASE.result, lastResult: {
+    attacker: 'A', defender: 'B', defended: false,
+    startLife: { A: 3, B: 3 }, life: { A: 3, B: 2 }
+  } };
+  assert.equal(resultEffect(match, 'A'), 'battleWon');
+  assert.equal(resultEffect(match, 'B'), 'lifeLost');
+  match.lastResult.defended = true;
+  match.lastResult.life.B = 3;
+  assert.equal(resultEffect(match, 'A'), null);
+  assert.equal(resultEffect(match, 'B'), 'battleWon');
+  match.lastResult.life.A = 2;
+  assert.equal(resultEffect(match, 'A'), 'lifeLost');
+  assert.equal(resultEffect(match, 'B'), 'battleWon');
+  match.phase = PHASE.attack;
+  assert.equal(resultEffect(match, 'A'), null);
+});
+
+test('Matchslut ersätter stridsljudet, även vid uppgiven match med äldre stridsresultat', () => {
+  const match = { phase: PHASE.over, winner: 'A', lastResult: {
+    attacker: 'A', defender: 'B', defended: false,
+    startLife: { A: 3, B: 1 }, life: { A: 3, B: 0 }
+  } };
+  assert.equal(resultEffect(match, 'A'), 'matchWon');
+  assert.equal(resultEffect(match, 'B'), 'matchLost');
+  match.winner = 'B';
+  assert.equal(resultEffect(match, 'A'), 'matchLost');
+  assert.equal(resultEffect(match, 'B'), 'matchWon');
+});
+
+test('Slutljud fungerar efter att musiken stannat och följer av/på, volym och flikbyte', async () => {
+  const { sound, sources } = setup();
+  await sound.unlock();
+  sound.setPlaying(false);
+  assert.equal(sources[0].stopped, true);
+  sound.playEffect('matchWon');
+  sound.playEffect('matchLost');
+  assert.equal(sources[1].buffer, sound.buffers.get('matchWon'));
+  assert.equal(sources[2].buffer, sound.buffers.get('matchLost'));
+  sound.playEffect('battleWon');
+  sound.playEffect('lifeLost');
+  assert.equal(sources.length, 3);
+  sound.setVolume('effects', 0);
+  sound.playEffect('matchWon');
+  assert.equal(sources.length, 3);
+  sound.setVolume('effects', .65);
+  await sound.setVisible(false);
+  sound.playEffect('matchLost');
+  assert.equal(sources.length, 3);
+  assert.ok(sources.every(source => source.stopped));
+  await sound.setVisible(true);
+  assert.equal(sources.length, 3);
+  sound.setEnabled(false);
+  sound.playEffect('matchWon');
+  assert.equal(sources.length, 3);
 });
