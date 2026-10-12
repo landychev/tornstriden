@@ -53,10 +53,13 @@
         <div id="hand-actions" class="actions"></div>
       </div>
       <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
-      <p class="hand-hint"><span class="hand-help">Välj ett kort för att läsa effekten.</span> <span class="swipe-hint">Svep i sidled för fler kort.</span></p>
-      <dialog id="card-dialog" class="card-dialog" aria-labelledby="card-title">
-        <button type="button" class="secondary" data-close-dialog="card-dialog" autofocus>Stäng</button>
-        <div id="card-detail"></div>
+      <p class="hand-hint"><span class="hand-help">Tryck på ett kort för att välja det.</span> <span class="hold-hint">Håll in ett kort för att läsa hur det fungerar.</span> <span class="swipe-hint">Svep i sidled för fler kort.</span></p>
+      <!-- Kortet förstorat: öppnas med ett långt tryck på ett kort i handen eller på stridsplatsen. -->
+      <dialog id="card-dialog" class="card-dialog game-popup" aria-labelledby="card-title">
+        <div class="card-sheet">
+          <button type="button" class="popup-close" data-close-dialog="card-dialog" aria-label="Stäng kortet" autofocus>×</button>
+          <div id="card-detail" class="card-detail"></div>
+        </div>
       </dialog>
       <dialog id="sound-dialog" class="sound-dialog game-popup confirm-dialog" aria-labelledby="sound-title">
         <button type="button" id="sound-close" class="popup-close" aria-label="Stäng ljudinställningar" autofocus>×</button>
@@ -94,7 +97,7 @@
             <li><span class="step-no" aria-hidden="true">2</span><div><strong>Korten.</strong> Du har tio kort på handen. <span class="chip attack">Röda</span> anfaller, <span class="chip defence">blå</span> försvarar, <span class="chip hybrid">gröna</span> kan göra båda och <span class="chip magic">lila</span> är magi med en specialeffekt. Siffran är kortets styrka.</div></li>
             <li><span class="step-no" aria-hidden="true">3</span><div><strong>Startbyten.</strong> Innan striderna börjar får du i två omgångar byta upp till två kort mot nya från draghögen.</div></li>
             <li><span class="step-no" aria-hidden="true">4</span><div><strong>Striderna.</strong> Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.</div></li>
-            <li><span class="step-no" aria-hidden="true">5</span><div><strong>Bra att veta.</strong> Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</div></li>
+            <li><span class="step-no" aria-hidden="true">5</span><div><strong>Bra att veta.</strong> Håll in ett kort en stund för att läsa hur det fungerar. Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</div></li>
           </ol>
           </details>
           <p class="help-note">Mot datorn spelar du Södra tornet. Knappen <strong>Så spelar du</strong> i menyn visar den här rutan igen.</p>

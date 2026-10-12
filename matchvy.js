@@ -5,7 +5,8 @@
    Läget "två spelare" visar handen för den som står på tur.
    Presentation: ett valt kort dras upp till sin ruta på stridsplatsen,
    knapparna för anfall/försvar ligger på stridsplatsen, bortbytta
-   kort flyger till draghögen och stridsresultatet visas i en dialogruta. */
+   kort flyger till draghögen och stridsresultatet visas i en dialogruta.
+   Ett långt tryck på ett kort (hand eller stridsplats) öppnar kortet förstorat. */
 import { MAX_LIFE } from './kort.js';
 import { USAGE, canAttack, canDefend } from './matchregler.js';
 import { cardFace, towerAppearance } from './grafik.js';
@@ -24,6 +25,9 @@ const HUMAN = 'A';
 const COMPUTER = 'B';
 const THINK_MS = 1400;           // låt korten landa innan datorn gör nästa drag
 const FLY_MS = 850;              // ett kort flyger mellan hand, stridsplats och högar
+const HOLD_MS = 450;             // så länge ett kort hålls in innan det öppnas förstorat
+const HOLD_SLACK = 10;           // px som fingret får glida under ett långtryck
+const ZOOM_MS = 360;             // kortet flyger från sin plats in i kortrutan
 const DECISION_PHASES = [PHASE.swap, PHASE.attack, PHASE.defence];
 const PLAY_PHASES = [PHASE.attack, PHASE.defence];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -68,6 +72,7 @@ const usableNow = type => {
   return false;
 };
 const myTurn = () => match.activePlayer === ui.viewer;
+const canChoose = () => !ui.startPending && myTurn() && DECISION_PHASES.includes(match.phase);   // kort i handen går att markera
 const stateKey = () => `${match.id}|${match.revision}|${match.phase}|${match.activePlayer}`;
 
 /* ---- Små ritfunktioner ---- */
@@ -82,7 +87,7 @@ function hearts(id, count, previous = count) {
 
 function slot(id, content, label, extraClass = '') {
   $(id).setAttribute('aria-label', label);
-  $(id).innerHTML = content ? `<div class="mini-card ${content.type}${extraClass ? ` ${extraClass}` : ''}" aria-label="${label}: ${html(content.name)}">${content.simple ? simpleHTML(content) : cardHTML(content)}</div>` : `<div class="empty"><span aria-hidden="true">+</span>${label}</div>`;
+  $(id).innerHTML = content ? `<div class="mini-card ${content.type}${extraClass ? ` ${extraClass}` : ''}" data-card="${content.id}"${content.simple ? ' data-simple="true"' : ''} aria-label="${label}: ${html(content.name)}">${content.simple ? simpleHTML(content) : cardHTML(content)}</div>` : `<div class="empty"><span aria-hidden="true">+</span>${label}</div>`;
 }
 
 /* ---- Kortflygningar: en kopia animeras i dokumentets koordinater, matchdata rörs inte ---- */
@@ -104,23 +109,25 @@ function styledCardCopy(template) {
 
 /* Lägger en kopia av `template` i dokumentet och låter den glida från `from` till `to`.
    Kopian sätts i sin naturliga storlek (`layout`: 'to' för kort som landar i en ruta,
-   'from' för kort som lämnar handen) och skalas till den andra änden. */
-function flyGhost(template, from, to, { delay = 0, fade = false, layout = 'to' } = {}) {
+   'from' för kort som lämnar handen) och skalas till den andra änden.
+   Med `inside` läggs kopian fast positionerad i det elementet (en öppen dialogruta ligger
+   i det översta lagret, ovanför allt i body); `from` och `to` ges då i fönsterkoordinater. */
+function flyGhost(template, from, to, { delay = 0, fade = false, layout = 'to', duration = FLY_MS, inside = null } = {}) {
   if (reduceMotion.matches || !from?.width || !to?.width) return Promise.resolve();
   const base = layout === 'from' ? from : to;
   const at = r => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width}, ${r.height / base.height})`;
   const ghost = styledCardCopy(template);
   ghost.classList.add('fly-card');
-  ghost.classList.remove('dealt');
+  ghost.classList.remove('dealt', 'holding');
   ghost.removeAttribute('id');
   ghost.removeAttribute('aria-pressed');
   ghost.setAttribute('aria-hidden', 'true');
-  Object.assign(ghost.style, { position: 'absolute', margin: '0', left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px`, visibility: 'visible' });
-  document.body.append(ghost);
+  Object.assign(ghost.style, { position: inside ? 'fixed' : 'absolute', margin: '0', left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px`, visibility: 'visible' });
+  (inside ?? document.body).append(ghost);
   const frames = [{ transform: at(from), opacity: 1 }, { transform: at(to), opacity: fade ? 0 : 1 }];
   // Kort som landar bromsar in; kort som lämnar handen lyfter mjukt och drar sedan iväg.
   const leaving = layout === 'from';
-  const animation = ghost.animate(frames, { duration: leaving ? FLY_MS + 220 : FLY_MS, delay, easing: leaving ? 'cubic-bezier(.45, 0, .85, .45)' : 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
+  const animation = ghost.animate(frames, { duration: leaving ? duration + 220 : duration, delay, easing: leaving ? 'cubic-bezier(.45, 0, .85, .45)' : 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
   return animation.finished.catch(() => {}).then(() => ghost.remove());
 }
 
@@ -186,17 +193,19 @@ function renderHand() {
       const usable = myTurn() && usableNow(type);
       const why = !myTurn() ? '' : match.phase === PHASE.attack ? ', kan spelas som enkel attack 1' : match.phase === PHASE.defence ? ', används vid attack' : '';
       const fresh = !shownIds.has(instanceId);
-      return `<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 80}ms"` : ''} data-instance="${instanceId}" aria-pressed="false"${usable ? '' : ' aria-disabled="true"'} aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${usable ? '' : why}">${cardHTML(type)}<span class="swap-mark" hidden>Byts</span></button>`;
+      return `<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 80}ms"` : ''} data-instance="${instanceId}" data-card="${type.id}" aria-pressed="false" aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${usable ? '' : why}">${cardHTML(type)}<span class="swap-mark" hidden>Byts</span></button>`;
     }).join('');
     $('hand').scrollLeft = scrollLeft;
     shownIds = new Set(v.me.hand.map(c => c.instanceId));
   }
   $('hand').classList.toggle('placing', myTurn() && PLAY_PHASES.includes(match.phase));
-  const interactive = !ui.startPending && myTurn() && DECISION_PHASES.includes(match.phase);
+  // Korten spärras aldrig med `disabled`: ett långt tryck ska kunna öppna dem även under motståndarens tur.
+  const interactive = canChoose();
   for (const el of $('hand').querySelectorAll('button')) {
     const chosen = ui.selected.includes(el.dataset.instance);
     el.setAttribute('aria-pressed', String(chosen));
-    el.disabled = !interactive;
+    el.classList.toggle('inactive', !interactive);
+    el.setAttribute('aria-disabled', String(!interactive || el.classList.contains('unusable')));
     el.querySelector('.swap-mark').hidden = !(chosen && match.phase === PHASE.swap);
   }
 }
@@ -215,7 +224,7 @@ function renderActions() {
     info = `<h3>Datorn kunde inte välja ett drag</h3><p>${html(ui.decisionError.reason)} Matchen är oförändrad: inga kort, liv eller faser har ändrats.</p>`;
     actions = button('retry', 'Försök igen', { kind: 'secondary', id: 'retry-computer' }) + button('new', 'Ny match', { id: 'confirm-new-match' });
   } else if (ui.thinking) {
-    info = `<h3 class="thinking">Motståndaren väljer kort</h3><p>${nameOf(match.activePlayer)} spelar enligt samma regler som du. Du kan läsa dina kort under tiden.</p>`;
+    info = `<h3 class="thinking">Motståndaren väljer kort</h3><p>${nameOf(match.activePlayer)} spelar enligt samma regler som du. Håll in ett kort om du vill läsa det under tiden.</p>`;
   } else if (match.phase === PHASE.swap && allowed.includes(ACTION.swap)) {
     where = 'hand';
     const n = ui.selected.length;
@@ -250,7 +259,6 @@ function renderActions() {
   } else {
     info = `<h3>${nameOf(match.activePlayer ?? ui.viewer)} står på tur</h3><p>Vänta på motståndarens drag.</p>`;
   }
-  if (type) info += '<button type="button" class="read-card" data-action="inspect" data-revision="' + match.revision + '">Läs kortet förstorat ↗</button>';
   const onBattle = where === 'battle';
   $('selection-info').innerHTML = onBattle ? info : '';
   $('actions').innerHTML = onBattle ? actions : '';
@@ -300,7 +308,7 @@ let pendingResultKey = null;
 let pendingResultEffect = null;
 function openPendingResult() {
   if (!pendingResultKey || pendingResultKey !== resultKey) return;
-  if (['intro-dialog', 'swap-dialog', 'confirm-dialog', 'start-dialog'].some(id => $(id).open)) return;
+  if (['intro-dialog', 'swap-dialog', 'confirm-dialog', 'start-dialog', 'card-dialog'].some(id => $(id).open)) return;
   pendingResultKey = null;
   if (pendingResultEffect) {
     sound.stopEffects();
@@ -612,7 +620,7 @@ function startNewMatch() {
 
 /* Markera ett kort. Stridsplats och hand stannar i samma vy. */
 function choose(instanceId) {
-  if (ui.startPending || !myTurn() || !cardInHand(instanceId)) return;
+  if (!canChoose() || !cardInHand(instanceId)) return;
   ui.notice = null;
   if (match.phase === PHASE.swap) {
     if (ui.selected.includes(instanceId)) ui.selected = ui.selected.filter(id => id !== instanceId);
@@ -657,14 +665,57 @@ function setMode(mode) {
   render();
 }
 
+/* ---- Kortet förstorat: ett långt tryck på ett kort i handen eller på stridsplatsen
+   öppnar en ruta med hela regeltexten. Kortet flyger från sin plats in i rutan.
+   Ett kort tryck markerar kortet som förut; klicket som följer på ett långtryck sväljs. ---- */
+let hold = null;              // pågående tryck: { el, x, y, pointer, fired, timer }
+let swallowClicksUntil = 0;   // tidpunkt (performance.now) före vilken klick ignoreras
+const swallowed = () => performance.now() < swallowClicksUntil;
+const cardAt = target => target instanceof Element ? target.closest('[data-card]') : null;
+
+function cardUse(type) {
+  const uses = [canAttack(type) && 'anfaller', canDefend(type) && 'försvarar'].filter(Boolean);
+  return `Spelas när du ${uses.join(' eller ')}.`;
+}
+
+function openCardDetail(source) {
+  const type = cardType(source.dataset.card);
+  const simple = source.dataset.simple === 'true';
+  const dialog = $('card-dialog');
+  $('card-detail').className = `card-detail ${type.type}`;
+  $('card-detail').innerHTML = `<div class="card-detail-art"><div class="mini-card ${type.type}">${simple ? simpleHTML(type) : cardHTML(type)}</div></div>
+    <div class="card-detail-text">
+      <span class="eyebrow">${simple ? 'ENKEL ATTACK' : html(type.label).toUpperCase()}</span>
+      <h3 id="card-title">${html(type.name)}</h3>
+      <p class="card-detail-power"><strong>${simple ? '1' : html(type.value)}</strong><span>${simple ? 'Attackstyrka' : html(type.valueLabel)}</span></p>
+      <p class="card-detail-use">${simple ? 'Spelas den här striden som enkel attack 1, utan specialeffekt.' : cardUse(type)}</p>
+      <h4>${simple ? 'Kortets vanliga effekt' : 'Så fungerar kortet'}</h4>
+      <p>${html(type.effect)}</p>
+      <p class="help-note">Kortet slängs efter striden. Vilket kort som helst kan spelas som enkel attack 1, utan specialeffekt.</p>
+    </div>`;
+  const target = $('card-detail').querySelector('.mini-card');
+  target.style.visibility = 'hidden';
+  const from = source.getBoundingClientRect();
+  dialog.showModal();
+  flyGhost(target, from, target.getBoundingClientRect(), { duration: ZOOM_MS, inside: dialog }).then(() => { target.style.visibility = ''; });
+}
+
+function startHold(el, { x = 0, y = 0, pointer = false } = {}) {
+  if (hold) { clearTimeout(hold.timer); hold.el.classList.remove('holding'); }
+  hold = { el, x, y, pointer, fired: false, timer: setTimeout(() => { hold.fired = true; openCardDetail(el); el.classList.remove('holding'); }, HOLD_MS) };
+  el.classList.add('holding');
+}
+
+/* Kortet släpps: ett tryck som hann öppna rutan får inte också räknas som ett klick. */
+function cancelHold() {
+  if (!hold) return;
+  clearTimeout(hold.timer);
+  hold.el.classList.remove('holding');
+  if (hold.fired) swallowClicksUntil = performance.now() + 400;
+  hold = null;
+}
+
 const actionHandlers = {
-  inspect: () => {
-    const pick = selectedOne();
-    if (!pick) return;
-    const type = cardType(pick.cardId);
-    $('card-detail').innerHTML = `<div class="mini-card ${type.type}">${cardHTML(type)}</div><h2 id="card-title">${html(type.name)}</h2><p>${html(type.effect)}</p>`;
-    $('card-dialog').showModal();
-  },
   swap: () => swapCards(),
   keep: () => swapCards({ keep: true }),
   attack: () => send(ACTION.attack, { playerId: ui.viewer, card: ui.selected[0], usage: ui.usage }),
@@ -678,7 +729,27 @@ const actionHandlers = {
   cancel: closeConfirmation
 };
 
-$('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !el.disabled) choose(el.dataset.instance); });
+$('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !swallowed()) choose(el.dataset.instance); });
+/* Långtryck med finger, mus eller penna, samt mellanslag som hålls in på ett fokuserat kort.
+   Glider fingret (bläddring i handen) eller släpps kortet i tid avbryts trycket. */
+for (const id of ['hand', 'battle']) {
+  $(id).addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const el = cardAt(event.target);
+    if (el) startHold(el, { x: event.clientX, y: event.clientY, pointer: true });
+  });
+  $(id).addEventListener('keydown', event => { const el = cardAt(event.target); if (el && event.key === ' ' && !event.repeat) startHold(el); });
+  $(id).addEventListener('focusout', () => { if (hold && !hold.pointer) cancelHold(); });
+  $(id).addEventListener('dragstart', event => event.preventDefault());
+}
+document.addEventListener('pointermove', event => { if (hold?.pointer && !hold.fired && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > HOLD_SLACK) cancelHold(); });
+document.addEventListener('pointerup', () => { if (hold?.pointer) cancelHold(); });
+document.addEventListener('pointercancel', () => { if (hold?.pointer) cancelHold(); });
+document.addEventListener('keyup', event => { if (hold && !hold.pointer && event.key === ' ') cancelHold(); });
+document.addEventListener('contextmenu', event => { if (hold) event.preventDefault(); });   // pekskärmens egen meny under ett långtryck
+window.addEventListener('blur', cancelHold);
+/* Kortrutan stängs med knappen, Escape eller ett tryck utanför rutan. */
+$('card-dialog').addEventListener('click', event => { if (swallowed()) { event.stopPropagation(); event.preventDefault(); } else if (event.target === event.currentTarget) event.currentTarget.close(); }, true);
 /* Samma handlingar används på spelbordet och i dialogrutorna. */
 function onAction(event) {
   const el = event.target.closest('[data-action]');
@@ -686,7 +757,6 @@ function onAction(event) {
   if (el.dataset.revision !== String(match.revision)) { ui.notice = { text: 'Matchläget har ändrats – försök igen.', kind: 'error' }; render(); return; }
   el.disabled = true;   // spärr mot dubbelklick tills handlingen behandlats
   actionHandlers[el.dataset.action]?.();
-  if (el.dataset.action === 'inspect') el.disabled = false;
 }
 for (const id of ['actions', 'hand-actions', 'dialog-actions', 'confirm-actions', 'selection-info', 'hand-info']) $(id).addEventListener('click', onAction);
 $('usage-normal').addEventListener('click', () => { ui.usage = USAGE.normal; render(); });
@@ -705,10 +775,10 @@ $('start-play').addEventListener('click', beginFirstBattle);
 $('start-dialog').addEventListener('cancel', event => { event.preventDefault(); beginFirstBattle(); });
 $('intro-dialog').addEventListener('close', renderSwapHelp);
 $('swap-dialog').addEventListener('close', () => {
-  $('hand').querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+  $('hand').querySelector('button:not(.inactive)')?.focus({ preventScroll: true });
   if (match.phase === PHASE.swap) playDealSound();
 });
-for (const id of ['intro-dialog', 'swap-dialog', 'confirm-dialog']) $(id).addEventListener('close', openPendingResult);
+for (const id of ['intro-dialog', 'swap-dialog', 'confirm-dialog', 'card-dialog']) $(id).addEventListener('close', openPendingResult);
 $('confirm-dialog').addEventListener('cancel', event => { event.preventDefault(); closeConfirmation(); });
 document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => {
   if (button.dataset.closeDialog === 'confirm-dialog') closeConfirmation();
