@@ -2,11 +2,62 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
 import { PROTOCOL_VERSION, RECEIPT, ADAPTER_MODE, MATCH_COMMAND, assertAdapter } from './kontrakt.js';
+import { styrdKlocka } from './teststod.js';
 
 const vy = (extra = {}) => ({ protocolVersion: PROTOCOL_VERSION, matchId: 'm1', revision: 0, lastEventId: 0, rulesVersion: 'duell-v1', deckVersion: 'duell-50-v1', viewer: 'A', mySeat: 'A', teamId: 'A', phase: 'KORTBYTE', me: { id: 'A', name: 'Anna', life: 3, hand: [] }, players: [], allowed: [], pending: null, deadline: null, confirm: null, ...extra });
 const svar = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => JSON.stringify(body) });
 const kommando = (revision = 0, commandId = 'c1') => ({ protocolVersion: PROTOCOL_VERSION, commandId, type: MATCH_COMMAND.swap, matchId: 'm1', revision, payload: { cards: [] } });
 const ok = (commandId, revision) => ({ commandId, status: RECEIPT.ok, message: null, revision, roomRevision: null, eventId: revision, fingerprint: 'ff' });
+
+for (const hangs of ['fetch', 'body']) test(`Tidsgräns för ${hangs}: kontrollera samma kommando utan extra drag eller sen effekt`, async () => {
+  const klocka = styrdKlocka();
+  const calls = [];
+  let release;
+  const hanging = new Promise(resolve => { release = resolve; });
+  const adapter = skapaOnlineMatch({
+    initial: { view: vy() }, klocka, timeoutMs: 100, vanta: async () => {},
+    fetchFn: async (path, init) => {
+      calls.push({ path, ...init });
+      if (calls.length === 1) return hangs === 'fetch' ? hanging : { status: 200, ok: true, text: () => hanging };
+      assert.match(path, /\/api\/status\?commandId=c1&scope=match%3Am1/);
+      return svar(200, ok('c1', 0));
+    }
+  });
+  const sending = adapter.send(kommando());
+  await new Promise(setImmediate);
+  klocka.advance(100);
+  assert.equal((await sending).status, RECEIPT.ok);
+  assert.equal(calls.length, 2);
+  assert.ok(calls[0].signal.aborted);
+  assert.equal(adapter.view().pending, null);
+  assert.equal(klocka.pending(), 0);
+  const notifications = [];
+  adapter.pa(status => notifications.push(status));
+  release(hangs === 'fetch' ? svar(401, {}) : JSON.stringify(ok('c1', 99)));
+  await new Promise(setImmediate);
+  assert.equal(adapter.view().revision, 0, 'sent svar får ingen effekt');
+  assert.deepEqual(notifications, []);
+});
+
+test('Även fastnade status- och uppdateringsanrop har tidsgräns och lämnar vänteläget', async () => {
+  const klocka = styrdKlocka();
+  const calls = [];
+  const adapter = skapaOnlineMatch({
+    initial: { view: vy() }, klocka, timeoutMs: 100, vanta: async () => {}, maxForsok: 2,
+    fetchFn: (path, init) => { calls.push({ path, ...init }); return new Promise(() => {}); }
+  });
+  const sending = adapter.send(kommando());
+  for (let i = 0; i < 3; i++) { klocka.advance(100); await new Promise(setImmediate); }
+  assert.equal((await sending).status, RECEIPT.error);
+  assert.equal(calls.length, 3);
+  assert.equal(calls.filter(c => c.method === 'POST').length, 1);
+  assert.equal(adapter.view().pending, null);
+  const refresh = adapter.refresh();
+  klocka.advance(100);
+  await refresh;
+  assert.ok(calls.every(c => c.signal.aborted));
+  assert.equal(klocka.pending(), 0);
+});
 
 /* En fejkad server: en lista med svar per anrop (i ordning) och en logg över vad som anropades. */
 function fejk(svaren) {

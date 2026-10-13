@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startaServer, PULS_MS } from './server.js';
@@ -23,16 +23,31 @@ test('Hälsokontrollen svarar och serverkod, tester och databas kan inte hämtas
   assert.equal(halsa.tjanst, 'tornstriden-online');
   assert.equal(halsa.protocolVersion, PROTOCOL_VERSION);
   assert.equal(halsa.matchtrafik.oppen, true);
-  for (const path of ['/online/server.js', '/online/lagring.js', '/online/tjanst.test.js', '/teststod.js', '/kontrakt.test.js', '/package.json', '/deploy.sh', '/scripts/skapa-ljud.py', '/.git/HEAD', '/online/../online/lagring.js']) {
+  for (const path of ['/online/server.js', '/online/lagring.js', '/online/tjanst.test.js', '/teststod.js', '/kontrakt.test.js', '/package.json', '/deploy.sh', '/scripts/skapa-ljud.py', '/.git/HEAD', '/online/../online/lagring.js', '/x%2f..%2fonline/server.js', '/x%2f..%2f.git/HEAD', '/%2f%2fonline/server.js', '/server.js', '/package-lock.json']) {
     assert.equal((await fetch(url(path))).status, 404, path);
   }
-  for (const path of ['/match.html', '/kontrakt.js', '/match.js']) assert.equal((await fetch(url(path))).status, 200, path);
+  assert.equal((await fetch(url('/%zz'))).status, 400);
+  assert.equal((await fetch(url('/favicon.ico'))).status, 204);
+  for (const path of ['/match.html', '/kontrakt.js', '/match.js', '/lobby.html', '/x%2f..%2fmatch.html']) assert.equal((await fetch(url(path))).status, 200, path);
   assert.equal((await fetch(url('/api/okand'))).status, 404);
+}));
+
+test('Statiska filer får inte länka till serverkod eller utanför webbroten', () => medServer(async ({ url }) => {
+  const outside = mkdtempSync(join(tmpdir(), 'tornstriden-static-'));
+  const links = mkdtempSync(join(ROOT, 'assets', 'static-test-'));
+  try {
+    writeFileSync(join(outside, 'privat.png'), 'privat');
+    symlinkSync(join(outside, 'privat.png'), join(links, 'outside.png'));
+    symlinkSync(join(ROOT, 'online', 'server.js'), join(links, 'server.png'));
+    for (const file of ['outside.png', 'server.png']) {
+      assert.equal((await fetch(url('/assets/' + links.split('/').at(-1) + '/' + file))).status, 404);
+    }
+  } finally { rmSync(links, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true }); }
 }));
 
 test('Den statiska utvecklingsservern spärrar samma vägar', () => {
   for (const path of ['/online', '/online/lagring.js', '/node_modules/x.js', '/.git/config', '/match.test.js', '/teststod.js']) assert.ok(isBlocked(path), path);
-  for (const path of ['/match.html', '/kontrakt.js', '/assets/kort/drakeld.jpg', '/online-hjalp.html']) assert.ok(!isBlocked(path), path);
+  for (const path of ['/match.html', '/kontrakt.js', '/assets/kort/drakeld.jpg', '/lobby.html']) assert.ok(!isBlocked(path), path);
 });
 
 test('Kommandon kräver rätt ursprung, en session och JSON av rimlig storlek', () => medServer(async ({ url }) => {
@@ -55,6 +70,48 @@ test('Kommandon kräver rätt ursprung, en session och JSON av rimlig storlek', 
   assert.equal((await fetch(url('/api/kommando'))).status, 404, 'GET på kommando är ingen adress');
 }));
 
+function lasSseBlock(reader, timeoutMs = 2000) {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  return async () => {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => { reject(new Error('SSE-händelsen uteblev')); void reader.cancel(); }, timeoutMs);
+    });
+    try {
+      return await Promise.race([(async () => {
+        while (!buffer.includes('\n\n')) {
+          const { value, done } = await reader.read();
+          if (done) throw new Error('Strömmen stängdes före en komplett SSE-händelse');
+          buffer += decoder.decode(value, { stream: true });
+        }
+        const index = buffer.indexOf('\n\n');
+        const block = buffer.slice(0, index);
+        buffer = buffer.slice(index + 2);
+        return block;
+      })(), timeout]);
+    } finally { clearTimeout(timer); }
+  };
+}
+
+test('SSE-provet läser hela händelser oavsett paketgränser och delade UTF-8-tecken', async () => {
+  const blocks = ['event: halsa\ndata: {}', 'event: lobby\ndata: {"nick":"Åsa"}', ': puls'];
+  const bytes = new TextEncoder().encode(blocks.join('\n\n') + '\n\n');
+  for (const chunks of [[bytes], [...bytes].map(b => Uint8Array.of(b)), blocks.map(b => new TextEncoder().encode(b + '\n\n'))]) {
+    const reader = new ReadableStream({ start(c) { chunks.forEach(chunk => c.enqueue(chunk)); c.close(); } }).getReader();
+    const read = lasSseBlock(reader);
+    try { for (const block of blocks) assert.equal(await read(), block); }
+    finally { await reader.cancel(); }
+  }
+});
+
+test('SSE-provet avbryter och städar en ström som aldrig ger en hel händelse', async () => {
+  let cancelled = false;
+  const reader = new ReadableStream({ cancel() { cancelled = true; } }).getReader();
+  await assert.rejects(lasSseBlock(reader, 10)(), /uteblev/);
+  assert.ok(cancelled);
+});
+
 test('Händelseströmmen öppnas med hälsa, slår puls via den injicerade klockan och stängs med servern', () => medServer(async ({ app, url, klocka }) => {
   assert.equal((await fetch(url('/api/handelser'))).status, 401, 'strömmen kräver session');
   const cookie = (await fetch(url('/api/session'), { method: 'POST', headers: { 'content-type': 'application/json', origin: url('') }, body: JSON.stringify({ nick: 'Anna' }) })).headers.get('set-cookie').split(';')[0];
@@ -62,17 +119,16 @@ test('Händelseströmmen öppnas med hälsa, slår puls via den injicerade klock
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /text\/event-stream/);
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const read = async () => decoder.decode((await reader.read()).value);
-  const first = await read();
-  assert.match(first, /^retry: 3000\nevent: halsa\ndata: \{.*"protocolVersion":1/);
-  assert.match(first, /event: lobby\ndata: \{"me":\{"playerId":"p-[0-9a-f]+","nick":"Anna","activity":"LEDIG","connection":"ANSLUTEN"\}/);
-  assert.equal(app.strommar.size, 1);
-  klocka.advance(PULS_MS);
-  assert.match(await read(), /^: puls/);
-  klocka.advance(PULS_MS);
-  assert.match(await read(), /^: puls/);
-  await reader.cancel();
+  const read = lasSseBlock(reader);
+  try {
+    assert.match(await read(), /^retry: 3000\nevent: halsa\ndata: \{.*"protocolVersion":1/);
+    assert.match(await read(), /event: lobby\ndata: \{"me":\{"playerId":"p-[0-9a-f]+","nick":"Anna","activity":"LEDIG","connection":"ANSLUTEN"\}/);
+    assert.equal(app.strommar.size, 1);
+    klocka.advance(PULS_MS);
+    assert.match(await read(), /^: puls/);
+    klocka.advance(PULS_MS);
+    assert.match(await read(), /^: puls/);
+  } finally { await reader.cancel(); }
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(app.strommar.size, 0, 'stängd anslutning städas bort');
   assert.equal(klocka.pending(), 1, 'ingen pulstimer kvar – bara den periodiska städningen');
@@ -124,7 +180,7 @@ async function strom(url, cookie) {
     for (;;) {
       const { value, done } = await reader.read();
       if (done) return;
-      buffer += decoder.decode(value);
+      buffer += decoder.decode(value, { stream: true });
       let index;
       while ((index = buffer.indexOf('\n\n')) !== -1) {
         const block = buffer.slice(0, index); buffer = buffer.slice(index + 2);

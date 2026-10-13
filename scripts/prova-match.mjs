@@ -16,7 +16,7 @@ await new Promise(r => setTimeout(r, 800));
 
 const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? 'OK ' : 'FEL'} ${name}${extra ? ' – ' + extra : ''}`); };
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const consoleErrors = [];
 const missing = [];
@@ -109,11 +109,37 @@ try {
   const owner = await page.locator('#hand-owner').textContent();
   check('tvåspelarläget visar nästa spelares hand', /NORRA/.test(owner), owner);
 
+  for (let i = 0; i < 3; i++) {
+    if (await visible('#swap-close')) await page.click('#swap-close');
+    await page.click('#keep-hand');
+  }
+  await page.locator('#start-dialog[open]').waitFor();
+  await page.click('#start-play');
+  let localBattles = 0;
+  for (let i = 0; i < 10; i++) {
+    await page.click('#usage-simple');
+    await page.locator('#hand button.mini-card:not(.inactive)').first().click();
+    await page.click('#confirm-attack');
+    await page.click('#confirm-pass');
+    await page.locator('#result-dialog[open]').waitFor();
+    localBattles++;
+    if (await visible('#dialog-new')) break;
+    await page.click('#dialog-next');
+  }
+  check('tvåspelarläget klarar resultat, Fortsätt och matchslut', localBattles >= 2 && await visible('#dialog-new'), `${localBattles} strider`);
+  await page.click('#dialog-new');
+  if (await visible('#swap-close')) await page.click('#swap-close');
+  check('ny match fungerar efter tvåspelarmatch', await visible('#keep-hand') && await page.locator('#hand button.mini-card').count() === 10);
+
   check('inga konsolfel (ljudfiler undantagna)', consoleErrors.length === 0, consoleErrors.slice(0, 3).join(' | '));
   const other404 = [...new Set(missing)].filter(p => !/\.(jpg|mp3)$/.test(p));
   check('saknade filer är bara bilder/ljud som inte följde med provkopian', other404.length === 0, other404.join(' '));
 } catch (error) {
   console.error('AVBRUTET:', error);
+  console.log('Klickläge:', await page.evaluate(() => {
+    const el = document.getElementById('usage-simple'), r = el.getBoundingClientRect();
+    return { button: r.toJSON(), hits: document.elementsFromPoint(r.x + r.width / 2, r.y + r.height / 2).map(e => `${e.tagName}.${e.className}`), dialogs: [...document.querySelectorAll('dialog[open]')].map(e => e.id) };
+  }));
   results.push({ name: 'körning', ok: false });
   await page.screenshot({ path: join(OUT, 'fel.png') }).catch(() => {});
 } finally {

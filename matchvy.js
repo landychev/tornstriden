@@ -110,7 +110,7 @@ function hearts(id, count, previous = count) {
 
 function slot(id, content, label, extraClass = '') {
   $(id).setAttribute('aria-label', label);
-  $(id).innerHTML = content ? `<div class="mini-card ${content.type}${extraClass ? ` ${extraClass}` : ''}" data-card="${content.id}"${content.simple ? ' data-simple="true"' : ''} aria-label="${label}: ${html(content.name)}">${content.simple ? simpleHTML(content) : cardHTML(content)}</div>` : `<div class="empty"><span aria-hidden="true">+</span>${label}</div>`;
+  $(id).innerHTML = content ? `<div class="mini-card ${content.type}${extraClass ? ` ${extraClass}` : ''}" data-card="${content.id}"${content.simple ? ' data-simple="true"' : ''} aria-label="${html(label)}: ${html(content.name)}">${content.simple ? simpleHTML(content) : cardHTML(content)}</div>` : `<div class="empty"><span aria-hidden="true">+</span>${html(label)}</div>`;
 }
 
 /* ---- Kortflygningar: en kopia animeras i dokumentets koordinater, matchdata rörs inte ---- */
@@ -245,7 +245,7 @@ function renderActions() {
     info = `<h3>Datorn kunde inte välja ett drag</h3><p>${html(ui.decisionError.reason)} Matchen är oförändrad: inga kort, liv eller faser har ändrats.</p>`;
     actions = button('retry', 'Försök igen', { kind: 'secondary', id: 'retry-computer' }) + button('new', 'Ny match', { id: 'confirm-new-match' });
   } else if (ui.thinking) {
-    info = `<h3 class="thinking">Motståndaren väljer kort</h3><p>${nameOf(v.activePlayer)} spelar enligt samma regler som du. Håll in ett kort om du vill läsa det under tiden.</p>`;
+    info = `<h3 class="thinking">Motståndaren väljer kort</h3><p>${html(nameOf(v.activePlayer))} spelar enligt samma regler som du. Håll in ett kort om du vill läsa det under tiden.</p>`;
   } else if (v.phase === PHASE.swap && allowed.includes(ACTION.swap)) {
     where = 'hand';
     const n = ui.selected.length;
@@ -269,7 +269,7 @@ function renderActions() {
     actions = button('pass', 'Avstå försvar', { kind: 'secondary', id: 'confirm-pass' }) + button('defend', ok ? `Försvara med ${html(type.name)}` : 'Försvara', { disabled: !ok, id: 'confirm-defend' });
   } else if (v.phase === PHASE.result) {
     const waiting = ONLINE && Boolean(v.confirm?.mine);
-    info = `<h3>Strid ${v.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${nameOf(opponentOf(v.lastResult.attacker))}.${v.players.some(p => p.life > 0 && !p.cardCount) ? ' En tom hand får upp till fem nya kort.' : ''}${waiting ? ` Väntar på att ${html(opponentName())} trycker Fortsätt.` : ''}</p>`;
+    info = `<h3>Strid ${v.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${html(nameOf(opponentOf(v.lastResult.attacker)))}.${v.players.some(p => p.life > 0 && !p.cardCount) ? ' En tom hand får upp till fem nya kort.' : ''}${waiting ? ` Väntar på att ${html(opponentName())} trycker Fortsätt.` : ''}</p>`;
     actions = button('next', waiting ? 'Väntar …' : 'Fortsätt <span aria-hidden="true">→</span>', { id: 'confirm-next', disabled: waiting });
   } else if (v.phase === PHASE.over) {
     const youWon = personal() && v.winner === ui.viewer;
@@ -279,7 +279,7 @@ function renderActions() {
     info = `<h3>Matchen har stoppats</h3><p>${html(v.error)}</p>`;
     actions = ONLINE ? button('lobby', 'Till lobbyn', { id: 'confirm-new-match' }) : button('new', 'Ny match', { id: 'confirm-new-match' });
   } else {
-    info = `<h3>${nameOf(v.activePlayer ?? ui.viewer)} står på tur</h3><p>Vänta på motståndarens drag.</p>`;
+    info = `<h3>${html(nameOf(v.activePlayer ?? ui.viewer))} står på tur</h3><p>Vänta på motståndarens drag.</p>`;
   }
   const onBattle = where === 'battle';
   $('selection-info').innerHTML = onBattle ? info : '';
@@ -355,9 +355,9 @@ function renderResult() {
   const lines = [];
   if (r && (!over || v.endReason === END.fallen)) {
     const fallen = v.players.filter(p => p.life === 0);
-    lines.push(battleSummary(r), `<ul>${r.events.map(e => `<li>${html(e)}</li>`).join('')}</ul>`, `<p>${nameOf('A')} har ${r.life.A} liv. ${nameOf('B')} har ${r.life.B} liv. Alla spelade kort slängs.${fallen.length ? ' Det fallna tornets kvarvarande handkort slängs också.' : ''}</p>`);
+    lines.push(battleSummary(r), `<ul>${r.events.map(e => `<li>${html(e)}</li>`).join('')}</ul>`, `<p>${html(nameOf('A'))} har ${r.life.A} liv. ${html(nameOf('B'))} har ${r.life.B} liv. Alla spelade kort slängs.${fallen.length ? ' Det fallna tornets kvarvarande handkort slängs också.' : ''}</p>`);
   } else if (over) {
-    lines.push(`<p>${nameOf(opponentOf(v.winner))} gav upp matchen.</p>`);
+    lines.push(`<p>${html(nameOf(opponentOf(v.winner)))} gav upp matchen.</p>`);
   }
   if (over) lines.push(`<p class="winner"><strong>${personal() && v.winner === ui.viewer ? 'Du vinner matchen.' : `${html(nameOf(v.winner))} vinner matchen.`}</strong></p>`);
   const kind = over ? (personal() && v.winner !== ui.viewer ? 'defeat' : 'victory') : r.defended ? 'held' : 'hit';
@@ -473,7 +473,7 @@ function renderDev() {
 /* Vems hand som visas: alltid A mot datorn; i tvåspelarläget den som står på tur (bara lokalt). */
 function syncViewer() {
   if (!adapter.local) { ui.viewer = adapter.viewer(); return; }   // online: fast identitet från servern
-  const wanted = ui.mode === 'computer' ? HUMAN : adapter.local.activePlayer();
+  const wanted = ui.mode === 'computer' ? HUMAN : (adapter.local.activePlayer() ?? adapter.viewer());
   if (adapter.local && wanted !== adapter.viewer()) { adapter.local.setViewer(wanted); v = adapter.view(); }
   ui.viewer = adapter.viewer();
 }

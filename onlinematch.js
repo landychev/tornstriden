@@ -9,7 +9,7 @@ import { ADAPTER_MODE, RECEIPT } from './kontrakt.js';
 export const PENDING = Object.freeze({ sending: 'SKICKAR', checking: 'KONTROLLERAR' });
 const tomKvittens = (commandId, status, message) => ({ commandId, status, message, revision: null, roomRevision: null, eventId: null, fingerprint: null });
 
-export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args), vanta = ms => new Promise(r => setTimeout(r, ms)), maxForsok = 5, forsokMs = 1500 } = {}) {
+export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args), vanta = ms => new Promise(r => setTimeout(r, ms)), maxForsok = 5, forsokMs = 1500, timeoutMs = 10000, klocka = globalThis } = {}) {
   let view = initial.view;
   let matchStatus = initial.status;
   let pending = null;
@@ -33,8 +33,25 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
   }
 
   async function api(path, body) {
-    const response = await fetchFn(path, { method: body ? 'POST' : 'GET', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
-    const text = await response.text();
+    const controller = new AbortController();
+    let timer;
+    // Tidsgränsen omfattar både svarshuvuden och hela svarskroppen.
+    const timeout = new Promise((_, reject) => {
+      timer = klocka.setTimeout(() => {
+        reject(new Error('Serverns svar dröjde för länge. Kontrollera anslutningen och försök igen.'));
+        controller.abort();
+      }, timeoutMs);
+    });
+    let response, text;
+    try {
+      ({ response, text } = await Promise.race([
+        (async () => {
+          const response = await fetchFn(path, { method: body ? 'POST' : 'GET', headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin', signal: controller.signal });
+          return { response, text: await response.text() };
+        })(),
+        timeout
+      ]));
+    } finally { klocka.clearTimeout(timer); }
     const data = text ? JSON.parse(text) : null;
     if (response.status === 401) { onStatus('utloggad'); throw Object.assign(new Error('Din session har gått ut. Gå till lobbyn och välj nick igen.'), { status: 401, final: true }); }
     if (response.status === 400) throw Object.assign(new Error(data?.message ?? 'Servern avvisade kommandot.'), { status: 400, final: true });

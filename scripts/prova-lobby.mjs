@@ -22,13 +22,13 @@ await new Promise(r => setTimeout(r, 1200));
 const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok, extra }); console.log(`${ok ? 'OK ' : 'FEL'} ${name}${extra ? ' – ' + extra : ''}`); };
 const url = `http://127.0.0.1:${PORT}/lobby.html`;
-const browser = await chromium.launch();
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 const consoleErrors = [];
 
 async function gast(namn, options = {}) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
-  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(`${namn}: ${m.text()}`); });
+  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(`${namn}: ${m.text()} (${m.location().url})`); });
   page.on('pageerror', e => consoleErrors.push(`${namn}: ${e.message}`));
   await page.goto(url);
   await page.getByLabel('Ditt nick').fill(namn);

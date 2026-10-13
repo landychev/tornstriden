@@ -98,7 +98,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
   const sandAlla = () => { sandLobby(); sandMatch(); };
   rum.pa(sandAlla);
   let stadning = klocka.setTimeout(function stada() {
-    try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
+    try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda || r.raderade) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
   }, STADNING_MS);
   function stangStrom(strom) {

@@ -323,7 +323,14 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
         room.players = []; room.status = ROOM.closed; sparaRum(ops, room, { roster: true }); stangda += 1;
       }
       let raderade = 0;
-      for (const room of ops.listaRum(ROOM.closed, now() - STADNING_ALDER_MS)) { ops.raderaRum(room.id); raderade += 1; }
+      for (const room of ops.listaRum(ROOM.closed, now() - STADNING_ALDER_MS)) {
+        // Frigör bara medlemskapet som hör till detta avslutade rum.
+        for (const p of room.players) {
+          const session = ops.hamtaSession(p.playerId);
+          if (session?.roomId === room.id && session.matchId === room.matchId) sattLedig(ops, session);
+        }
+        ops.raderaRum(room.id); raderade += 1;
+      }
       for (const status of [INVITATION.accepted, INVITATION.declined, INVITATION.expired, INVITATION.revoked]) ops.raderaInbjudningar(status, now() - STADNING_ALDER_MS);
       return { utgangna: markeraUtgangna(ops), stangda, raderade };
     });

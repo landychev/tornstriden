@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L09 klara 2026-10-13 – etapp 1 och 2 är klara: två personer kan spela en hel duell via servern från lobbyn. L10 (lagkortlek) är nästa.
+Status: L00–L09 klara och granskningsfelen R01–R06 rättade lokalt 2026-10-13 – etapp 1 och 2 är klara: två personer kan spela en hel duell via servern från lobbyn. L10 (lagkortlek) är nästa.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -584,3 +584,20 @@ Tekniska val och eventuella användarsvar:
 Beroenden som nu är klara: L00–L09 (etapp 1 och 2).
 Rekommenderad nästa uppgift: L10 – Lagkortlek och kortbokföring (etapp 3, ren regelkod utan server).
 Commit: ingen.
+
+
+### Rättning av granskningsfynd R01–R06 – 2026-10-13
+
+Uppgift: rätta de sex bekräftade felen från granskningen av L00–L09.
+Status: rättat och verifierat i arbetskatalogen.
+
+- L02: statiska filer tillåts först efter normalisering och kontroll av upplöst sökväg. Serverkod, Git-data och filer utanför webbroten kan inte hämtas genom kodade sökvägar eller symboliska länkar.
+- L03/L07/L09: nick skyddas i matchsidan, inklusive kortetiketter och resultat. Inga HTML-element eller händelseattribut skapas av nick.
+- L07: lokalt tvåspelarläge behåller giltig betraktare vid resultat och matchslut.
+- L04/L08/L09: städning av avslutade rum frigör kvarvarande deltagare atomärt, bevarar nya medlemskap och uppdaterar lobbyn.
+- L09: HTTP-anrop och svarsläsning har tio sekunders tidsgräns; kvittenskontrollen använder fortsatt samma commandId.
+- L02/L03: SSE-testet läser hela händelser oberoende av nätverksblock och har testtidsgräns med uppstädning.
+
+Verifiering: `npm test` **155/155**, lobbyprov **24/24**, onlineduell **9/9**, lokalt matchprov **13/13**, samt nytt riktat `scripts/prova-regressioner.mjs` för nick och återgång efter rumsstädning. Webbläsarproven kördes i Chrome. `deploy.sh` provades mot temporär katalog med fungerande versionsstämpling. Se [granskning L00-L09.md](<granskning L00-L09.md>) för detaljer och den första lokala provkörningens klickstopp som inte återkom i det riktade provet eller omkörningen.
+
+Ingen commit, push eller publicering ingick. L10 är fortsatt nästa planerade implementation; L16–L18:s fullständiga avbrottshantering återstår enligt planen.

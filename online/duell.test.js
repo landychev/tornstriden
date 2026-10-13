@@ -9,6 +9,7 @@ import { PHASE, ACTION } from '../match.js';
 import { EVENT } from '../lokalmatch.js';
 import { ACTIVITY, LOBBY_COMMAND, MATCH_COMMAND, MATCH_STATUS, PROTOCOL_VERSION, RECEIPT, ROOM, validatePrivateView, assertNoSecrets } from '../kontrakt.js';
 import { styrdKlocka, styrdSlump } from '../teststod.js';
+import { STADNING_ALDER_MS } from './rum.js';
 
 /* Två testklienter: en lobby med rum, lag och start, sedan matchkommandon via tjänsten. */
 async function setup({ seed = 11 } = {}) {
@@ -37,6 +38,35 @@ async function setup({ seed = 11 } = {}) {
   const spela = (id, type, payload = {}, commandId) => cmd(id, type, { matchId, revision: view(id).revision, payload }, commandId);
   return { klocka, lagring, tjanst, sessioner, rum, duell, cmd, spela, view, anna, bo, roomId, matchId };
 }
+
+test('Städning frigör kvarvarande resultatspelare men lämnar nya medlemskap och historik intakta', async () => {
+  const { lagring, klocka, rum, duell, spela, anna, bo, roomId, matchId } = await setup();
+  try {
+    assert.equal((await spela(anna, MATCH_COMMAND.surrender)).status, RECEIPT.ok);
+    rum.lamna(bo, roomId);
+    // Bo ansluter till en ny match innan det gamla resultatet städas.
+    const ny = { ...lagring.hamtaSession(bo), activity: ACTIVITY.playing, roomId: 'nytt-rum', matchId: 'ny-match' };
+    lagring.sparaSession(ny);
+    klocka.advance(STADNING_ALDER_MS + 1);
+    await new Promise(setImmediate);
+    assert.equal(rum.stada().raderade, 1);
+    const a = lagring.hamtaSession(anna);
+    assert.equal(a.activity, ACTIVITY.idle);
+    assert.equal(a.roomId, null);
+    assert.equal(a.matchId, null);
+    assert.equal(duell.matchFor(anna), null);
+    assert.equal(rum.vyFor(anna).rum, null);
+    assert.deepEqual(lagring.hamtaSession(bo), ny);
+    assert.ok(lagring.hamtaMatch(matchId), 'matchhistoriken finns kvar');
+    const nyttRum = rum.skapa(anna);
+    assert.equal(lagring.hamtaSession(anna).roomId, nyttRum.id);
+    rum.lamna(anna, nyttRum.id);
+    lagring.sparaSession({ ...ny, activity: ACTIVITY.idle, roomId: null, matchId: null });
+    const bosRum = rum.skapa(bo);
+    rum.bjudIn(bo, bosRum.id, [anna]);
+    assert.equal(rum.vyFor(anna).inbjudningar.inkommande.length, 1);
+  } finally { lagring.stang(); }
+});
 
 test('Starten skapar en duell med platser från lagvalet; vyerna är privata och kontraktsenliga', async () => {
   const { lagring, view, anna, bo, matchId, duell } = await setup();
