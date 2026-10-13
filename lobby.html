@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Tornstriden – lobby</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="spelbord.css">
+  <link rel="stylesheet" href="lobby.css">
+  <script type="module" src="lobby.js"></script>
+</head>
+<body class="lobby-page">
+  <header class="masthead">
+    <a class="brand" href="match.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
+    <nav aria-label="Huvudmeny"><a href="match.html">Spela mot datorn</a><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="leave-lobby" type="button" hidden>Lämna lobbyn</button></nav>
+  </header>
+  <main>
+    <!-- Steg 1: nick. Visas tills servern har gett en gästsession. -->
+    <section id="nick-section" class="panel nick-panel" hidden>
+      <span class="eyebrow">SPELA ONLINE</span>
+      <h1>Välj ett nick</h1>
+      <p>Inget konto behövs. Nicket syns för de andra i lobbyn och gäller i den här webbläsaren i ett dygn.</p>
+      <form id="nick-form" novalidate>
+        <label for="nick">Ditt nick</label>
+        <div class="field-row">
+          <input id="nick" name="nick" type="text" minlength="2" maxlength="20" autocomplete="nickname" required>
+          <button type="submit" class="primary">Gå in i lobbyn</button>
+        </div>
+        <p id="nick-error" class="field-error" role="alert"></p>
+      </form>
+    </section>
+
+    <!-- Steg 2: lobby och rum. -->
+    <div id="lobby-section" class="lobby-grid" hidden>
+      <section class="panel" aria-labelledby="players-heading">
+        <div class="panel-head">
+          <div><span class="eyebrow">LOBBY</span><h1 id="players-heading">Spelare online</h1></div>
+          <p class="me">Ditt nick: <strong id="my-nick"></strong> <button id="change-nick" type="button" class="link">Ändra nick</button></p>
+        </div>
+        <form id="change-nick-form" class="field-row" hidden>
+          <label for="new-nick" class="visually-hidden">Nytt nick</label>
+          <input id="new-nick" type="text" minlength="2" maxlength="20" required>
+          <button type="submit" class="secondary">Byt</button>
+          <button type="button" id="cancel-nick" class="link">Avbryt</button>
+        </form>
+        <p id="notice" class="notice" role="status" aria-live="polite"></p>
+        <p id="error" class="error" role="alert"></p>
+        <div id="invitations" class="invitations"></div>
+        <p id="empty-lobby" class="muted" hidden>Du är först här. Vänta på fler spelare.</p>
+        <ul id="players" class="players" aria-label="Spelare i lobbyn"></ul>
+        <div class="actions-row">
+          <button id="invite" type="button" class="primary">Bjud in till mitt rum</button>
+          <button id="create-room" type="button" class="secondary">Skapa rum</button>
+        </div>
+      </section>
+
+      <section id="room" class="panel room" aria-labelledby="room-heading" hidden>
+        <div class="panel-head">
+          <div><span class="eyebrow">DITT RUM</span><h2 id="room-heading"></h2></div>
+          <p id="room-count" class="muted"></p>
+        </div>
+        <div class="teams">
+          <div class="team" data-team="A"><h3>Södra laget</h3><ul id="team-A" aria-label="Södra laget"></ul><button type="button" class="secondary pick-team" data-team="A" aria-pressed="false">Välj Södra laget</button></div>
+          <div class="team" data-team="B"><h3>Norra laget</h3><ul id="team-B" aria-label="Norra laget"></ul><button type="button" class="secondary pick-team" data-team="B" aria-pressed="false">Välj Norra laget</button></div>
+        </div>
+        <div id="no-team-wrap"><h3>Har inte valt lag</h3><ul id="team-none" aria-label="Deltagare utan lag"></ul></div>
+        <div class="actions-row">
+          <button id="ready" type="button" class="primary" aria-pressed="false">Redo</button>
+          <button id="leave-room" type="button" class="secondary">Lämna rummet</button>
+        </div>
+        <div id="start-box" class="start-box">
+          <p id="start-status"></p>
+          <button id="start" type="button" class="primary" hidden>Starta matchen</button>
+        </div>
+        <div id="outgoing" class="outgoing"></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="replaced" class="replaced-dialog" aria-labelledby="replaced-title">
+    <h2 id="replaced-title">Spelet är öppet i en annan flik</h2>
+    <p>Bara en flik åt gången kan styra din spelare. Stäng den här fliken, eller ta över här.</p>
+    <div class="actions-row"><button id="take-over" type="button" class="primary">Använd den här fliken</button></div>
+  </dialog>
+</body>
+</html>

@@ -340,8 +340,11 @@ export function playerView(match, playerId) {
     rules: { ...match.rules },
     phase: match.phase,
     activePlayer: match.activePlayer,
+    battleNumber: match.battleNumber,
     me: { id: me.id, name: me.name, life: me.life, hand: me.hand.map(instanceId => ({ instanceId, cardId: match.instances[instanceId] })) },
     opponent: { id: other.id, name: other.name, life: other.life, cardCount: other.hand.length },
+    /* Offentlig information om alla spelare i bordsordning – det vyn får rita utan att se några händer. */
+    players: match.players.map(p => ({ id: p.id, name: p.name, life: p.life, cardCount: p.hand.length })),
     swapRound: match.swapRound,
     swapsConfirmed: { ...match.swapsConfirmed },
     battle: battle ? {

@@ -245,7 +245,9 @@ test('Spelarvyn döljer motståndarens hand och draghögens ordning men visar li
   assert.deepEqual(view.opponent, { id: 'A', name: 'Södra tornet', life: 3, cardCount: 9 });
   assert.deepEqual(view.battle.attack, { cardId: 'katapult', usage: USAGE.normal });
   assert.equal(view.drawPileSize, 30);
-  assert.ok(!('drawPile' in view) && !('instances' in view) && !('players' in view));
+  assert.ok(!('drawPile' in view) && !('instances' in view));
+  assert.deepEqual(view.players, [{ id: 'A', name: 'Södra tornet', life: 3, cardCount: 9 }, { id: 'B', name: 'Norra tornet', life: 3, cardCount: 10 }], 'players är offentlig information utan händer');
+  assert.equal(view.battleNumber, 1);
   assert.ok(!JSON.stringify(view).includes('belagringstorn'), 'A:s handkort får inte synas i B:s vy');
   const actions = allowedActions(m, 'B');
   assert.deepEqual(actions.map(a => a.type), [ACTION.defend, ACTION.pass, ACTION.surrender]);

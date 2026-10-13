@@ -1,0 +1,125 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { skapaOnlineMatch, PENDING } from './onlinematch.js';
+import { PROTOCOL_VERSION, RECEIPT, ADAPTER_MODE, MATCH_COMMAND, assertAdapter } from './kontrakt.js';
+
+const vy = (extra = {}) => ({ protocolVersion: PROTOCOL_VERSION, matchId: 'm1', revision: 0, lastEventId: 0, rulesVersion: 'duell-v1', deckVersion: 'duell-50-v1', viewer: 'A', mySeat: 'A', teamId: 'A', phase: 'KORTBYTE', me: { id: 'A', name: 'Anna', life: 3, hand: [] }, players: [], allowed: [], pending: null, deadline: null, confirm: null, ...extra });
+const svar = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => JSON.stringify(body) });
+const kommando = (revision = 0, commandId = 'c1') => ({ protocolVersion: PROTOCOL_VERSION, commandId, type: MATCH_COMMAND.swap, matchId: 'm1', revision, payload: { cards: [] } });
+const ok = (commandId, revision) => ({ commandId, status: RECEIPT.ok, message: null, revision, roomRevision: null, eventId: revision, fingerprint: 'ff' });
+
+/* En fejkad server: en lista med svar per anrop (i ordning) och en logg över vad som anropades. */
+function fejk(svaren) {
+  const logg = [];
+  const fetchFn = async (path, init = {}) => {
+    logg.push(`${init.method ?? 'GET'} ${path.split('?')[0]}`);
+    const next = svaren.shift();
+    if (!next) throw new Error('inget svar förberett');
+    if (next instanceof Error) throw next;
+    return next;
+  };
+  return { fetchFn, logg };
+}
+
+test('Adaptern uppfyller gränssnittet, saknar local och avvisar gamla vyer', () => {
+  const adapter = assertAdapter(skapaOnlineMatch({ initial: { view: vy({ revision: 3, lastEventId: 7 }), events: [], status: 'PÅGÅR' } }));
+  assert.equal(adapter.mode, ADAPTER_MODE.online);
+  assert.equal(adapter.viewer(), 'A');
+  assert.ok(!('local' in adapter));
+  const seen = [];
+  adapter.subscribe((v, events) => seen.push({ revision: v.revision, events: events.map(e => e.eventId) }));
+  assert.equal(adapter.receive({ view: vy({ revision: 2, lastEventId: 5 }), events: [] }), false, 'gammal vy ignoreras');
+  assert.equal(adapter.receive({ view: vy({ matchId: 'annan', revision: 9, lastEventId: 9 }), events: [] }), false, 'annan match ignoreras');
+  assert.equal(adapter.receive({ view: vy({ revision: 4, lastEventId: 9 }), events: [{ eventId: 7 }, { eventId: 8 }, { eventId: 9 }] }), true);
+  assert.deepEqual(seen, [{ revision: 4, events: [8, 9] }], 'bara nya händelser levereras');
+  assert.equal(adapter.view().revision, 4);
+  assert.equal(adapter.receive({ view: vy({ revision: 4, lastEventId: 9 }), events: [] }), true);
+  assert.equal(seen.length, 1, 'oförändrad vy ger ingen ny notis');
+});
+
+test('Ett drag: väntande status under sändning, kvittens tillbaka, vyn hämtas om kvittensen är nyare', async () => {
+  const { fetchFn, logg } = fejk([svar(200, ok('c1', 1)), svar(200, { view: vy({ revision: 1, lastEventId: 2 }), events: [{ eventId: 1 }, { eventId: 2 }], status: 'PÅGÅR' })]);
+  const adapter = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn, vanta: async () => {} });
+  const pendings = [];
+  adapter.subscribe(v => pendings.push(v.pending?.status ?? null));
+  const receipt = await adapter.send(kommando());
+  assert.equal(receipt.status, RECEIPT.ok);
+  assert.deepEqual(logg, ['POST /api/kommando', 'GET /api/match']);
+  assert.equal(adapter.view().revision, 1);
+  assert.equal(pendings[0], PENDING.sending);
+  assert.equal(pendings.at(-1), null);
+  assert.equal(adapter.view().pending, null);
+});
+
+test('Tappad kvittens: statusfrågan hittar draget – inget extra drag skickas', async () => {
+  const { fetchFn, logg } = fejk([new Error('nätet dog'), svar(200, ok('c1', 1)), svar(200, { view: vy({ revision: 1, lastEventId: 1 }), events: [], status: 'PÅGÅR' })]);
+  const adapter = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn, vanta: async () => {} });
+  const lagen = [];
+  adapter.subscribe(v => lagen.push(v.pending?.status ?? null));
+  const receipt = await adapter.send(kommando());
+  assert.equal(receipt.status, RECEIPT.ok);
+  assert.deepEqual(logg, ['POST /api/kommando', 'GET /api/status', 'GET /api/match']);
+  assert.ok(lagen.includes(PENDING.checking));
+});
+
+test('Tappad kvittens: OKÄND på servern och oförändrad revision – samma kommando skickas om en gång', async () => {
+  const { fetchFn, logg } = fejk([
+    new Error('nätet dog'),
+    svar(200, { commandId: 'c1', status: RECEIPT.unknown, message: null, revision: null, roomRevision: null, eventId: null, fingerprint: null }),
+    svar(200, { view: vy(), events: [], status: 'PÅGÅR' }),
+    svar(200, ok('c1', 1)),
+    svar(200, { view: vy({ revision: 1, lastEventId: 1 }), events: [], status: 'PÅGÅR' })
+  ]);
+  const adapter = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn, vanta: async () => {} });
+  const receipt = await adapter.send(kommando());
+  assert.equal(receipt.status, RECEIPT.ok);
+  assert.deepEqual(logg, ['POST /api/kommando', 'GET /api/status', 'GET /api/match', 'POST /api/kommando', 'GET /api/match']);
+});
+
+test('Tappad kvittens: OKÄND men matchen har gått vidare – inget omsänt drag, spelaren får välja igen', async () => {
+  const { fetchFn, logg } = fejk([
+    new Error('nätet dog'),
+    svar(200, { commandId: 'c1', status: RECEIPT.unknown, message: null, revision: null, roomRevision: null, eventId: null, fingerprint: null }),
+    svar(200, { view: vy({ revision: 2, lastEventId: 3 }), events: [], status: 'PÅGÅR' })
+  ]);
+  const adapter = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn, vanta: async () => {} });
+  const receipt = await adapter.send(kommando());
+  assert.equal(receipt.status, RECEIPT.rejected);
+  assert.match(receipt.message, /ändrats/);
+  assert.deepEqual(logg, ['POST /api/kommando', 'GET /api/status', 'GET /api/match']);
+  assert.equal(adapter.view().revision, 2);
+});
+
+test('Servern nås inte alls: INTERNT_FEL med begripligt besked efter begränsat antal försök; 401 och 400 ger direkta svar', async () => {
+  const fel = Array.from({ length: 20 }, () => new Error('nätet dog'));
+  const { fetchFn, logg } = fejk(fel);
+  const adapter = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn, vanta: async () => {}, maxForsok: 2 });
+  const receipt = await adapter.send(kommando());
+  assert.equal(receipt.status, RECEIPT.error);
+  assert.match(receipt.message, /nätet dog|kontakt/);
+  assert.equal(logg.filter(l => l.startsWith('GET /api/status')).length, 2);
+  assert.equal(adapter.view().pending, null);
+  const { fetchFn: f401 } = fejk([svar(401, { message: 'Ingen session.' })]);
+  const utloggad = skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn: f401 });
+  const statusar = []; utloggad.pa(s => statusar.push(s));
+  const r401 = await utloggad.send(kommando());
+  assert.equal(r401.status, RECEIPT.rejected);
+  assert.match(r401.message, /session/i);
+  assert.deepEqual(statusar, ['utloggad']);
+  const { fetchFn: f400 } = fejk([svar(400, { message: 'command.revision: krävs.' })]);
+  const r400 = await skapaOnlineMatch({ initial: { view: vy(), status: 'PÅGÅR' }, fetchFn: f400 }).send(kommando());
+  assert.equal(r400.status, RECEIPT.rejected);
+  assert.match(r400.message, /revision/);
+});
+
+test('Två drag samtidigt: det andra avvisas lokalt tills kvittensen kommit', async () => {
+  let release;
+  const fetchFn = () => new Promise(resolve => { release = () => resolve(svar(200, ok('c1', 1))); });
+  const adapter = skapaOnlineMatch({ initial: { view: vy({ revision: 1, lastEventId: 1 }), status: 'PÅGÅR' }, fetchFn });
+  const first = adapter.send(kommando(1, 'c1'));
+  const second = await adapter.send(kommando(1, 'c2'));
+  assert.equal(second.status, RECEIPT.rejected);
+  assert.match(second.message, /förra drag/);
+  release();
+  assert.equal((await first).status, RECEIPT.ok);
+});

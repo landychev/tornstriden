@@ -28,6 +28,16 @@ npm start
 
 Öppna sedan [matchen](http://127.0.0.1:8765/match.html), [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html). Servern (`server.js`) har inga beroenden; en annan port väljs med `PORT=8080 npm start`. Den lokala förhandsvisningen är ingen publicering på internet.
 
+### Onlineserver under utveckling
+
+Onlinespelet (lobby och matcher via servern) byggs enligt `arbetsordning lobby.md` och är ännu inte spelbart. Dess server startas separat och kräver Node 22.5 eller nyare:
+
+```sh
+npm run online
+```
+
+Den lyssnar på <http://127.0.0.1:8766/>, serverar samma statiska filer lokalt och svarar på `/api/halsa`. Lobbyn finns på <http://127.0.0.1:8766/lobby.html> – öppna den i två webbläsare (eller privata fönster), bjud in, välj lag, tryck Redo och låt värden starta: en duell för två spelare spelas då via servern på `match.html?online=1`. Lagmatcher för 4/6/8 spelare är ännu inte tillgängliga, och tidsgränser/återanslutning saknas fortfarande. `node scripts/prova-lobby.mjs`, `scripts/prova-online.mjs` och `scripts/prova-match.mjs` kör flödena automatiskt med Playwright (`npm install` först). Databasen (SQLite, inbyggt i Node) skapas i `../tornstriden-data/` utanför Git-katalogen; `TORNSTRIDEN_DATA_DIR` väljer en annan plats. Serverkoden i `online/` och testfilerna kan inte hämtas via någon av servrarna och ingår inte i `deploy.sh`.
+
 ## Uppdatera spelet på servern
 
 Kör från Git-katalogen på servern efter att den senaste koden hämtats:

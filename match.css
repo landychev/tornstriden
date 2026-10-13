@@ -318,3 +318,9 @@
   .result-dialog .result { padding: 18px 18px 14px; }
   .result-dialog .actions { padding: 12px 18px 18px; }
 }
+
+/* ---- Onlineläge (L09): anslutningsstatus i sidhuvudet; namnen kan vara långa nick ---- */
+.connection { font-size: 12px; color: var(--muted); }
+.connection:empty { display: none; }
+.connection.warn { color: var(--invalid); font-weight: 600; }
+body.online .player-info h1, body.online .player-info h2 { overflow-wrap: anywhere; }

@@ -8,9 +8,13 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "preview": "node preview.js"
+    "preview": "node preview.js",
+    "online": "node --disable-warning=ExperimentalWarning online/server.js"
   },
   "devDependencies": {
     "playwright": "^1.50.0"
+  },
+  "engines": {
+    "node": ">=22.5"
   }
 }
