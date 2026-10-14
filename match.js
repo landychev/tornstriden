@@ -303,7 +303,7 @@ const handlers = {
 export function process(match, action, random = Math.random) {
   const rejected = message => ({ status: STATUS.rejected, match, message, events: [] });
   if (!action || action.matchId !== match.id || action.revision !== match.revision) return rejected('Matchläget har ändrats – försök igen.');
-  if (!handlers[action.type]) return rejected('Okänd handling.');
+  if (typeof action.type !== 'string' || !Object.hasOwn(handlers, action.type)) return rejected('Okänd handling.');   // aldrig prototypens namn (toString, __proto__ …)
   if (match.phase === PHASE.over || match.phase === PHASE.error) return rejected('Matchen är avslutad. Starta en ny match.');
   if (action.playerId !== undefined && !player(match, action.playerId)) return rejected('Okänd spelare.');
   const work = structuredClone(match);

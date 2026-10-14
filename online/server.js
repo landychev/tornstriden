@@ -9,7 +9,8 @@
 
    Miljövariabler: PORT (8766), HOST (127.0.0.1), TORNSTRIDEN_DATA_DIR (../tornstriden-data, utanför
    webbrot och Git), TORNSTRIDEN_STATIC=0 stänger av statiska filer, TORNSTRIDEN_SECURE=1 tvingar
-   Secure-kakor, TORNSTRIDEN_ORIGINS=https://tornstriden.landychev.se,... tillåtna ursprung. */
+   Secure-kakor, TORNSTRIDEN_ORIGINS=https://tornstriden.landychev.se,... tillåtna ursprung,
+   TORNSTRIDEN_LAGSPEL=0 stänger lagformaten 4/6/8 i lobbyn (öppna sedan lagvyn finns, L15). */
 import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -18,7 +19,7 @@ import { oppnaLagring } from './lagring.js';
 import { skapaTjanst, systemklocka } from './tjanst.js';
 import { skapaSessioner, SessionsFel, SESSION_TTL_MS } from './session.js';
 import { skapaRumshantering } from './rum.js';
-import { skapaDuell } from './duell.js';
+import { skapaMatcher } from './matcher.js';
 import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession } from '../kontrakt.js';
 
 export const TJANST = 'tornstriden-online';
@@ -28,7 +29,7 @@ export const KAKA = 'tornstriden_session';
 
 export function standardDataDir() { return resolve(ROOT, '..', 'tornstriden-data'); }
 
-export function startaServer({ port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), klocka = systemklocka, slump = Math.random, logg = console } = {}) {
+export function startaServer({ port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), lagspel = process.env.TORNSTRIDEN_LAGSPEL !== '0', klocka = systemklocka, slump = Math.random, logg = console } = {}) {
   const dbPath = dataDir === ':memory:' ? dataDir : join(resolve(dataDir), 'tornstriden.sqlite');
   if (dbPath !== ':memory:' && resolve(dbPath).startsWith(ROOT)) throw new Error(`Databasen får inte ligga i webbroten: ${dbPath}`);
   const lagring = oppnaLagring({ path: dbPath, klocka });
@@ -39,8 +40,8 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
   const rum = skapaRumshantering({ lagring, klocka, ko: tjanst.ko, logg });
   rum.registrera(tjanst);
   rum.aterstall();
-  const duell = skapaDuell({ lagring, klocka, rum });
-  duell.registrera(tjanst);   // matchmotor för 2 deltagare; 4/6/8 kommer i L14
+  const matcher = skapaMatcher({ lagring, klocka, rum, lagspel });
+  matcher.registrera(tjanst);   // duell för 2 deltagare, lagmatch för 4/6/8 (L14)
   const strommar = new Set();   // { res, puls, playerId, generation, lastEventId }
 
   const json = (res, status, body, headers = {}) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
@@ -87,7 +88,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
   /* Matchvy till varje deltagare som har en ström: egen privat vy + händelser sedan strömmens senaste. */
   function sandMatch() {
     for (const strom of strommar) {
-      const m = duell.matchFor(strom.playerId, { efterEventId: strom.lastEventId });
+      const m = matcher.matchFor(strom.playerId, { efterEventId: strom.lastEventId });
       if (!m) { strom.lastEventId = 0; continue; }
       if (strom.lastEventId === m.view.lastEventId && strom.matchId === m.view.matchId) continue;
       strom.matchId = m.view.matchId;
@@ -122,7 +123,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     strom.puls = klocka.setTimeout(slaPuls, PULS_MS);
     strommar.add(strom);
     sandLobby();   // även den nya strömmen får sin första lobbyvy här
-    const m = duell.matchFor(session.playerId);
+    const m = matcher.matchFor(session.playerId);
     if (m) { strom.matchId = m.view.matchId; strom.lastEventId = m.view.lastEventId; skicka(strom, 'match', { view: m.view, events: [], status: m.status }); }
     req.on('close', () => {
       const varAktiv = strommar.has(strom);
@@ -176,7 +177,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     if (pathname === '/api/match' && req.method === 'GET') {
       const { playerId } = kravSession();
       const efter = url.searchParams.get('efterEventId');
-      const m = duell.matchFor(playerId, { efterEventId: efter === null ? null : Number(efter) });
+      const m = matcher.matchFor(playerId, { efterEventId: efter === null ? null : Number(efter) });
       return m ? json(res, 200, m) : json(res, 404, { message: 'Du är inte i någon match.' });
     }
     if (pathname === '/api/status' && req.method === 'GET') {
@@ -206,7 +207,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     lagring.stang();
   }
 
-  return { server, tjanst, lagring, sessioner, rum, duell, klar, stang, strommar, port: () => server.address()?.port, dbPath };
+  return { server, tjanst, lagring, sessioner, rum, matcher, duell: matcher.duell, klar, stang, strommar, port: () => server.address()?.port, dbPath };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

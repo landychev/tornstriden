@@ -7,9 +7,9 @@
    Presentation: ett valt kort dras upp till sin ruta på stridsplatsen,
    knapparna för anfall/försvar ligger på stridsplatsen, bortbytta
    kort flyger till draghögen och stridsresultatet visas i en dialogruta.
-   Ett långt tryck på ett kort (hand eller stridsplats) öppnar kortet förstorat. */
+   Ett långt tryck på ett kort (hand eller stridsplats) öppnar kortet förstorat (kortlupp.js, delas med lagvyn). */
 import { MAX_LIFE } from './kort.js';
-import { USAGE, canAttack, canDefend } from './matchregler.js';
+import { USAGE } from './matchregler.js';
 import { cardFace, towerAppearance } from './grafik.js';
 import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { cardType, PHASE, ACTION, END } from './match.js';
@@ -18,6 +18,7 @@ import { GameAudio, bindAudioControls, resultEffect } from './ljud.js';
 import { skapaLokalMatch, EVENT } from './lokalmatch.js';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
 import { PROTOCOL_VERSION, RECEIPT, MATCH_COMMAND } from './kontrakt.js';
+import { docRect, styledCardCopy, flyGhost, kopplaKortlupp, reduceMotion } from './kortlupp.js';
 
 const sound = new GameAudio();
 bindAudioControls(sound);
@@ -28,13 +29,8 @@ const html = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<'
 const HUMAN = 'A';
 const COMPUTER = 'B';
 const THINK_MS = 1400;           // låt korten landa innan datorn gör nästa drag
-const FLY_MS = 850;              // ett kort flyger mellan hand, stridsplats och högar
-const HOLD_MS = 450;             // så länge ett kort hålls in innan det öppnas förstorat
-const HOLD_SLACK = 10;           // px som fingret får glida under ett långtryck
-const ZOOM_MS = 360;             // kortet flyger från sin plats in i kortrutan
 const DECISION_PHASES = [PHASE.swap, PHASE.attack, PHASE.defence];
 const PLAY_PHASES = [PHASE.attack, PHASE.defence];
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
 /* Adaptern äger matchen: LokalMatch (match.html) eller OnlineMatch (match.html?online=1, från lobbyn).
    `v` är den senaste privata vyn; den byts bara när adaptern meddelar en ny. Sätts i boot(). */
@@ -111,47 +107,6 @@ function hearts(id, count, previous = count) {
 function slot(id, content, label, extraClass = '') {
   $(id).setAttribute('aria-label', label);
   $(id).innerHTML = content ? `<div class="mini-card ${content.type}${extraClass ? ` ${extraClass}` : ''}" data-card="${content.id}"${content.simple ? ' data-simple="true"' : ''} aria-label="${html(label)}: ${html(content.name)}">${content.simple ? simpleHTML(content) : cardHTML(content)}</div>` : `<div class="empty"><span aria-hidden="true">+</span>${html(label)}</div>`;
-}
-
-/* ---- Kortflygningar: en kopia animeras i dokumentets koordinater, matchdata rörs inte ---- */
-const docRect = el => { const r = el.getBoundingClientRect(); return { left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height }; };
-
-/* Bevara utseendet även när källkortet tas bort från handen vid ett byte. */
-function styledCardCopy(template) {
-  const ghost = template.cloneNode(true);
-  if (!template.isConnected) return ghost;
-  const sourceParts = [template, ...template.querySelectorAll('*')];
-  const ghostParts = [ghost, ...ghost.querySelectorAll('*')];
-  const cardStyle = ['padding', 'margin', 'border', 'border-radius', 'background', 'color', 'font', 'text-align', 'min-height', 'min-width', 'max-width', 'display', 'flex', 'height', 'width', 'aspect-ratio', 'position', 'top', 'left', 'right', 'bottom', 'overflow'];
-  sourceParts.forEach((source, index) => {
-    const style = getComputedStyle(source);
-    cardStyle.forEach(property => ghostParts[index].style.setProperty(property, style.getPropertyValue(property)));
-  });
-  return ghost;
-}
-
-/* Lägger en kopia av `template` i dokumentet och låter den glida från `from` till `to`.
-   Kopian sätts i sin naturliga storlek (`layout`: 'to' för kort som landar i en ruta,
-   'from' för kort som lämnar handen) och skalas till den andra änden.
-   Med `inside` läggs kopian fast positionerad i det elementet (en öppen dialogruta ligger
-   i det översta lagret, ovanför allt i body); `from` och `to` ges då i fönsterkoordinater. */
-function flyGhost(template, from, to, { delay = 0, fade = false, layout = 'to', duration = FLY_MS, inside = null } = {}) {
-  if (reduceMotion.matches || !from?.width || !to?.width) return Promise.resolve();
-  const base = layout === 'from' ? from : to;
-  const at = r => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width}, ${r.height / base.height})`;
-  const ghost = styledCardCopy(template);
-  ghost.classList.add('fly-card');
-  ghost.classList.remove('dealt', 'holding');
-  ghost.removeAttribute('id');
-  ghost.removeAttribute('aria-pressed');
-  ghost.setAttribute('aria-hidden', 'true');
-  Object.assign(ghost.style, { position: inside ? 'fixed' : 'absolute', margin: '0', left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px`, visibility: 'visible' });
-  (inside ?? document.body).append(ghost);
-  const frames = [{ transform: at(from), opacity: 1 }, { transform: at(to), opacity: fade ? 0 : 1 }];
-  // Kort som landar bromsar in; kort som lämnar handen lyfter mjukt och drar sedan iväg.
-  const leaving = layout === 'from';
-  const animation = ghost.animate(frames, { duration: leaving ? duration + 220 : duration, delay, easing: leaving ? 'cubic-bezier(.45, 0, .85, .45)' : 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
-  return animation.finished.catch(() => {}).then(() => ghost.remove());
 }
 
 /* Kortet i rutan `slotId` flyger in från rektangeln `from`; rutans eget kort döljs under tiden. */
@@ -722,56 +677,6 @@ function setMode(mode) {
   render();
 }
 
-/* ---- Kortet förstorat: ett långt tryck på ett kort i handen eller på stridsplatsen
-   öppnar en ruta med hela regeltexten. Kortet flyger från sin plats in i rutan.
-   Ett kort tryck markerar kortet som förut; klicket som följer på ett långtryck sväljs. ---- */
-let hold = null;              // pågående tryck: { el, x, y, pointer, fired, timer }
-let swallowClicksUntil = 0;   // tidpunkt (performance.now) före vilken klick ignoreras
-const swallowed = () => performance.now() < swallowClicksUntil;
-const cardAt = target => target instanceof Element ? target.closest('[data-card]') : null;
-
-function cardUse(type) {
-  const uses = [canAttack(type) && 'anfaller', canDefend(type) && 'försvarar'].filter(Boolean);
-  return `Spelas när du ${uses.join(' eller ')}.`;
-}
-
-function openCardDetail(source) {
-  const type = cardType(source.dataset.card);
-  const simple = source.dataset.simple === 'true';
-  const dialog = $('card-dialog');
-  $('card-detail').className = `card-detail ${type.type}`;
-  $('card-detail').innerHTML = `<div class="card-detail-art"><div class="mini-card ${type.type}">${simple ? simpleHTML(type) : cardHTML(type)}</div></div>
-    <div class="card-detail-text">
-      <span class="eyebrow">${simple ? 'ENKEL ATTACK' : html(type.label).toUpperCase()}</span>
-      <h3 id="card-title">${html(type.name)}</h3>
-      <p class="card-detail-power"><strong>${simple ? '1' : html(type.value)}</strong><span>${simple ? 'Attackstyrka' : html(type.valueLabel)}</span></p>
-      <p class="card-detail-use">${simple ? 'Spelas den här striden som enkel attack 1, utan specialeffekt.' : cardUse(type)}</p>
-      <h4>${simple ? 'Kortets vanliga effekt' : 'Så fungerar kortet'}</h4>
-      <p>${html(type.effect)}</p>
-      <p class="help-note">Kortet slängs efter striden. Vilket kort som helst kan spelas som enkel attack 1, utan specialeffekt.</p>
-    </div>`;
-  const target = $('card-detail').querySelector('.mini-card');
-  target.style.visibility = 'hidden';
-  const from = source.getBoundingClientRect();
-  dialog.showModal();
-  flyGhost(target, from, target.getBoundingClientRect(), { duration: ZOOM_MS, inside: dialog }).then(() => { target.style.visibility = ''; });
-}
-
-function startHold(el, { x = 0, y = 0, pointer = false } = {}) {
-  if (hold) { clearTimeout(hold.timer); hold.el.classList.remove('holding'); }
-  hold = { el, x, y, pointer, fired: false, timer: setTimeout(() => { hold.fired = true; openCardDetail(el); el.classList.remove('holding'); }, HOLD_MS) };
-  el.classList.add('holding');
-}
-
-/* Kortet släpps: ett tryck som hann öppna rutan får inte också räknas som ett klick. */
-function cancelHold() {
-  if (!hold) return;
-  clearTimeout(hold.timer);
-  hold.el.classList.remove('holding');
-  if (hold.fired) swallowClicksUntil = performance.now() + 400;
-  hold = null;
-}
-
 const actionHandlers = {
   swap: () => swapCards(),
   keep: () => swapCards({ keep: true }),
@@ -787,27 +692,9 @@ const actionHandlers = {
   cancel: closeConfirmation
 };
 
-$('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !swallowed()) choose(el.dataset.instance); });
-/* Långtryck med finger, mus eller penna, samt mellanslag som hålls in på ett fokuserat kort.
-   Glider fingret (bläddring i handen) eller släpps kortet i tid avbryts trycket. */
-for (const id of ['hand', 'battle']) {
-  $(id).addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    const el = cardAt(event.target);
-    if (el) startHold(el, { x: event.clientX, y: event.clientY, pointer: true });
-  });
-  $(id).addEventListener('keydown', event => { const el = cardAt(event.target); if (el && event.key === ' ' && !event.repeat) startHold(el); });
-  $(id).addEventListener('focusout', () => { if (hold && !hold.pointer) cancelHold(); });
-  $(id).addEventListener('dragstart', event => event.preventDefault());
-}
-document.addEventListener('pointermove', event => { if (hold?.pointer && !hold.fired && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > HOLD_SLACK) cancelHold(); });
-document.addEventListener('pointerup', () => { if (hold?.pointer) cancelHold(); });
-document.addEventListener('pointercancel', () => { if (hold?.pointer) cancelHold(); });
-document.addEventListener('keyup', event => { if (hold && !hold.pointer && event.key === ' ') cancelHold(); });
-document.addEventListener('contextmenu', event => { if (hold) event.preventDefault(); });   // pekskärmens egen meny under ett långtryck
-window.addEventListener('blur', cancelHold);
-/* Kortrutan stängs med knappen, Escape eller ett tryck utanför rutan. */
-$('card-dialog').addEventListener('click', event => { if (swallowed()) { event.stopPropagation(); event.preventDefault(); } else if (event.target === event.currentTarget) event.currentTarget.close(); }, true);
+/* Långtryck på kort i handen och på stridsplatsen öppnar kortet förstorat; klicket efter ett långtryck sväljs. */
+const lupp = kopplaKortlupp({ behallare: [$('hand'), $('battle')], dialog: $('card-dialog'), detalj: $('card-detail') });
+$('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !lupp.swallowed()) choose(el.dataset.instance); });
 /* Samma handlingar används på spelbordet och i dialogrutorna. */
 function onAction(event) {
   const el = event.target.closest('[data-action]');
@@ -854,6 +741,7 @@ async function boot() {
       if (!response.ok) throw new Error('ingen match');
       data = await response.json();
     } catch { location.replace('lobby.html'); return; }
+    if (data.view.format === 'lag') { location.replace('lagmatch.html'); return; }   // lagmatchen har en egen vy (L15)
     adapter = skapaOnlineMatch({ initial: data });
     ui.mode = 'online';
     document.body.classList.add('online');

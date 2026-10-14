@@ -175,7 +175,7 @@ function renderRum(vy, ansluten, jagArVard) {
   const vard = rum.players.find(p => p.playerId === rum.hostPlayerId);
   const avslutat = rum.status !== 'FÖRBEREDELSE';
   $('room').classList.toggle('finished', avslutat);
-  $('room-heading').textContent = avslutat ? 'Matchen är slut' : jagArVard ? 'Du är värd' : `${vard?.nick ?? 'Någon'} är värd`;
+  $('room-heading').textContent = rum.status === 'STARTAD' ? 'Matchen pågår – du är utslagen' : avslutat ? 'Matchen är slut' : jagArVard ? 'Du är värd' : `${vard?.nick ?? 'Någon'} är värd`;
   $('room-count').textContent = `${rum.players.length} av högst 8 deltagare`;
   const medlem = p => el('li', { class: `member${p.playerId === vy.me.playerId ? ' me-row' : ''}` },
     el('span', {}, p.nick, p.playerId === rum.hostPlayerId ? el('span', { class: 'host' }, '(värd)') : null),

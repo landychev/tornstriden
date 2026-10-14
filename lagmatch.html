@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Tornstriden – lagmatch</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="spelbord.css">
+  <link rel="stylesheet" href="bildeffekter.css">
+  <link rel="stylesheet" href="match.css">
+  <link rel="stylesheet" href="grafik.css">
+  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="lagmatch.css">
+  <script type="module" src="lagmatchvy.js"></script>
+</head>
+<body class="compact-match team-match online">
+  <header class="masthead">
+    <a class="brand" href="lobby.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
+    <nav aria-label="Huvudmeny"><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="show-help" type="button">Så spelar ni</button><button id="leave-match" type="button">Lämna matchen</button><button id="to-lobby" type="button" hidden>Till lobbyn</button></nav>
+  </header>
+  <main>
+    <div class="game-view">
+      <section class="team-board" aria-label="Lagen och stridsplatsen">
+        <div id="turn-feedback" class="turn-feedback" role="status" aria-live="polite" hidden></div>
+        <div class="team-row enemy-row"><h2 class="team-name" id="enemy-name">Fiendelaget</h2><ul class="towers" id="enemy-towers" aria-labelledby="enemy-name"></ul></div>
+        <div class="battlefield" id="battlefield">
+          <div class="battle-copy"><span class="eyebrow" id="match-label">LAGMATCH</span><h2 id="phase-title" tabindex="-1">Lagmatch</h2><p id="phase-description"></p></div>
+          <div class="contributions">
+            <div class="side attack-side"><h3>Anfall <span id="attack-total" class="side-total" aria-label="Lagets attack"></span><span id="attack-deduction" class="side-deduction"></span></h3><ol id="attack-cards" class="played" aria-label="Anfallskön och spelade anfallskort"></ol></div>
+            <div class="side defence-side"><h3>Försvar <span id="defence-total" class="side-total" aria-label="Lagets försvar"></span><span id="defence-deduction" class="side-deduction"></span></h3><ol id="defence-cards" class="played" aria-label="Försvarskön och spelade försvarskort"></ol></div>
+          </div>
+        </div>
+        <div class="team-row own-row"><h2 class="team-name" id="own-name">Ditt lag</h2><ul class="towers" id="own-towers" aria-labelledby="own-name"></ul></div>
+      </section>
+      <p id="notice" class="notice" role="status" aria-live="polite"></p>
+      <section class="hand-area" aria-labelledby="hand-heading">
+        <div class="hand-header"><div><span class="eyebrow" id="hand-owner">DINA KORT</span><h2 id="hand-heading">Dina kort</h2></div><div class="hand-tools"><p id="hand-count"></p><button type="button" id="sound-settings" class="secondary" aria-haspopup="dialog">♫ Ljud</button></div></div>
+        <!-- Alla val görs här, direkt ovanför handen: på mobilen ligger kort och bekräftelse intill varandra. -->
+        <div class="swap-bar action-bar" id="action-bar">
+          <div id="action-info" class="selection-info"></div>
+          <div id="choices" class="choices" role="group" hidden></div>
+          <div id="usage" class="usage" role="group" aria-label="Hur kortet används" hidden><button id="usage-normal" type="button" aria-pressed="true">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false">Enkel attack 1</button></div>
+          <div id="actions" class="actions"></div>
+        </div>
+        <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
+        <p class="hand-hint"><span class="hand-help">Tryck på ett kort för att välja det.</span> <span class="hold-hint">Håll in ett kort – i handen eller på bordet – för att läsa hur det fungerar.</span> <span class="swipe-hint">Svep i sidled för fler kort.</span></p>
+        <dialog id="card-dialog" class="card-dialog game-popup" aria-labelledby="card-title">
+          <div class="card-sheet">
+            <button type="button" class="popup-close" data-close-dialog="card-dialog" aria-label="Stäng kortet" autofocus>×</button>
+            <div id="card-detail" class="card-detail"></div>
+          </div>
+        </dialog>
+        <dialog id="sound-dialog" class="sound-dialog game-popup confirm-dialog" aria-labelledby="sound-title">
+          <button type="button" id="sound-close" class="popup-close" aria-label="Stäng ljudinställningar" autofocus>×</button>
+          <header class="popup-heading"><span class="eyebrow">STÄMNING & STRID</span><h3 id="sound-title">Ljud</h3></header>
+          <div class="sound-controls">
+            <label class="sound-switch"><input type="checkbox" id="sound-enabled" checked> Ljud på</label>
+            <label for="music-volume">Musik <output id="music-level" for="music-volume">30 %</output></label>
+            <input id="music-volume" type="range" min="0" max="100" value="30">
+            <label for="effects-volume">Ljudeffekter <output id="effects-level" for="effects-volume">65 %</output></label>
+            <input id="effects-volume" type="range" min="0" max="100" value="65">
+            <p id="sound-status" role="status"></p>
+          </div>
+        </dialog>
+        <dialog id="result-dialog" class="result-dialog game-popup" aria-labelledby="result-title">
+          <button type="button" class="popup-close" data-close-dialog="result-dialog" aria-label="Stäng resultatet" autofocus>×</button>
+          <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
+          <div id="dialog-actions" class="actions"></div>
+        </dialog>
+        <dialog id="intro-dialog" class="help-dialog game-popup" aria-labelledby="intro-title">
+          <button type="button" class="popup-close" data-close-dialog="intro-dialog" aria-label="Stäng spelförklaringen" autofocus>×</button>
+          <div class="popup-hero" aria-hidden="true"><img src="assets/popup/valkommen.jpg" alt="" width="1440" height="480"></div>
+          <div class="popup-welcome-title"><span class="eyebrow">LAGMATCH</span><h3 id="intro-title">Tornstriden i lag</h3><p id="intro-size">Ett torn var. Tre liv. Ett lag vinner.</p></div>
+          <div class="help-body">
+            <ol class="help-steps">
+              <li><span class="step-no" aria-hidden="true">1</span><div><strong>Målet.</strong> Alla har ett eget torn med tre liv. Laget som slår ut alla fiendetorn vinner. Den som slås ut kan följa matchen – laget spelar vidare.</div></li>
+              <li><span class="step-no" aria-hidden="true">2</span><div><strong>Startbyten.</strong> Alla byter samtidigt, upp till två kort per omgång i två omgångar. Ingen ser någon annans hand – inte ens lagkamraternas.</div></li>
+              <li><span class="step-no" aria-hidden="true">3</span><div><strong>Anfall.</strong> Lagen turas om att anfalla. Startspelaren väljer ett fiendetorn som måltavla. Sedan lägger varje lagkamrat i tur och ordning högst ett kort eller avstår. Laget måste lägga minst ett kort – alla kort duger som enkel attack 1.</div></li>
+              <li><span class="step-no" aria-hidden="true">4</span><div><strong>Försvar.</strong> Måltavlan försvarar först, sedan kan lagkamraterna hjälpa till med ett kort var eller avstå. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar måltavlan ett liv.</div></li>
+              <li><span class="step-no" aria-hidden="true">5</span><div><strong>Mål för specialkort.</strong> Barriär, Försegling och Spegelsköld väljer ett attackkort på bordet. Törnesköld väljer en fiende som har anfallit. Håll in ett kort för att läsa hur det fungerar i lag.</div></li>
+            </ol>
+            <p class="help-note">Alla val görs i rutan direkt ovanför dina kort. Knappen <strong>Så spelar ni</strong> visar den här rutan igen.</p>
+          </div>
+          <div class="help-actions"><button type="button" class="primary" id="intro-close">Till bordet</button></div>
+        </dialog>
+        <dialog id="confirm-dialog" class="confirm-dialog game-popup" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+          <button type="button" class="popup-close" data-close-dialog="confirm-dialog" aria-label="Avbryt och stäng">×</button>
+          <header class="popup-heading"><span class="eyebrow">DITT BESLUT</span><h3 id="confirm-title">Lämna matchen?</h3></header>
+          <div class="popup-confirm-body"><span id="confirm-emblem" aria-hidden="true"></span><p id="confirm-message">Du slås ut och kan inte komma tillbaka in i matchen. Ditt lag spelar vidare utan dig.</p></div>
+          <div class="actions" id="confirm-actions"><button type="button" class="secondary" id="confirm-cancel">Stanna kvar</button><button type="button" class="primary" id="confirm-leave">Ja, lämna matchen</button></div>
+        </dialog>
+      </section>
+    </div>
+    <details class="log"><summary>Matchlogg</summary><ol id="log"></ol></details>
+    <footer class="page-footer"><p><strong>Lagmatch via servern.</strong> Varje deltagare ser bara sin egen hand; korten på bordet och tornens liv är gemensamma.</p><p id="rules-label"></p></footer>
+    <noscript><p>Aktivera JavaScript för att spela matchen.</p></noscript>
+  </main>
+</body>
+</html>

@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startaServer, PULS_MS } from './server.js';
 import { oppnaLagring } from './lagring.js';
-import { isBlocked, ROOT } from '../server.js';
-import { PROTOCOL_VERSION, MATCH_COMMAND } from '../kontrakt.js';
-import { styrdKlocka } from '../teststod.js';
+import { isBlocked, ROOT, skapaFilserver } from '../server.js';
+import { PROTOCOL_VERSION, MATCH_COMMAND, assertNoSecrets, validatePrivateView } from '../kontrakt.js';
+import { styrdKlocka, styrdSlump } from '../teststod.js';
 
 const tyst = { info() {}, warn() {}, error() {} };
 async function medServer(fn, extra = {}) {
@@ -28,22 +29,32 @@ test('Hälsokontrollen svarar och serverkod, tester och databas kan inte hämtas
   }
   assert.equal((await fetch(url('/%zz'))).status, 400);
   assert.equal((await fetch(url('/favicon.ico'))).status, 204);
-  for (const path of ['/match.html', '/kontrakt.js', '/match.js', '/lobby.html', '/x%2f..%2fmatch.html']) assert.equal((await fetch(url(path))).status, 200, path);
+  for (const path of ['/match.html', '/kontrakt.js', '/match.js', '/lobby.html', '/x%2f..%2fmatch.html', '/lagmatch.html', '/lagmatch.css', '/lagmatchvy.js', '/kortlupp.js']) assert.equal((await fetch(url(path))).status, 200, path);
+  for (const path of ['/lagmatch.js', '/lagvy.js', '/lagkortlek.js', '/online/lagspel.js']) assert.equal((await fetch(url(path))).status, 404, `${path}: lagmotorn körs bara på servern`);
   assert.equal((await fetch(url('/api/okand'))).status, 404);
 }));
 
-test('Statiska filer får inte länka till serverkod eller utanför webbroten', () => medServer(async ({ url }) => {
-  const outside = mkdtempSync(join(tmpdir(), 'tornstriden-static-'));
-  const links = mkdtempSync(join(ROOT, 'assets', 'static-test-'));
+test('Statiska filer får inte länka till serverkod eller utanför webbroten', async () => {
+  /* En egen webbrot i en temporär katalog: arbetskatalogen får aldrig testlänkar. */
+  const tmp = mkdtempSync(join(tmpdir(), 'tornstriden-static-'));
+  const root = join(tmp, 'rot'), outside = join(tmp, 'utanfor');
+  for (const dir of [join(root, 'assets', 'l'), join(root, 'online'), outside]) mkdirSync(dir, { recursive: true });
+  writeFileSync(join(root, 'online', 'server.js'), 'serverkod');
+  writeFileSync(join(root, 'assets', 'l', 'riktig.png'), 'bild');
+  writeFileSync(join(outside, 'privat.png'), 'privat');
+  symlinkSync(join(outside, 'privat.png'), join(root, 'assets', 'l', 'outside.png'));
+  symlinkSync(join(root, 'online', 'server.js'), join(root, 'assets', 'l', 'server.png'));
+  const server = createServer(skapaFilserver(root));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const url = path => `http://127.0.0.1:${server.address().port}${path}`;
   try {
-    writeFileSync(join(outside, 'privat.png'), 'privat');
-    symlinkSync(join(outside, 'privat.png'), join(links, 'outside.png'));
-    symlinkSync(join(ROOT, 'online', 'server.js'), join(links, 'server.png'));
-    for (const file of ['outside.png', 'server.png']) {
-      assert.equal((await fetch(url('/assets/' + links.split('/').at(-1) + '/' + file))).status, 404);
-    }
-  } finally { rmSync(links, { recursive: true, force: true }); rmSync(outside, { recursive: true, force: true }); }
-}));
+    assert.equal((await fetch(url('/assets/l/riktig.png'))).status, 200, 'en vanlig bild serveras');
+    for (const file of ['outside.png', 'server.png']) assert.equal((await fetch(url('/assets/l/' + file))).status, 404, file);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
 
 test('Den statiska utvecklingsservern spärrar samma vägar', () => {
   for (const path of ['/online', '/online/lagring.js', '/node_modules/x.js', '/.git/config', '/match.test.js', '/teststod.js']) assert.ok(isBlocked(path), path);
@@ -309,7 +320,7 @@ test('Rum över HTTP: värden bjuder in, mottagaren ser inbjudan i strömmen, ac
   await flikA.stang(); await flikC.stang();
 }));
 
-test('Lagval, Redo och start över HTTP: vyn visar startstatus och ett ofärdigt format spärras', () => medServer(async ({ url }) => {
+test('Lagval, Redo och start över HTTP: vyn visar startstatus och bara värden kan starta', () => medServer(async ({ url }) => {
   const anna = klient(url), bo = klient(url);
   const a = await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
   const b = await bo.call('/api/session', { method: 'POST', body: { nick: 'Bo' } });
@@ -337,7 +348,7 @@ test('Lagval, Redo och start över HTTP: vyn visar startstatus och ett ofärdigt
   await flikB.vanta('lobby', 9);   // 1 egen, 2 skapa, 3 inbjudan, 4 acceptans, 5–7 lagval, 8–9 Redo
   vy = (await bo.call('/api/lobby')).body;
   assert.deepEqual(vy.rum.players.map(p => `${p.nick}:${p.teamId}:${p.ready}`), ['Anna:A:true', 'Bo:B:true']);
-  assert.deepEqual(vy.start, { kanStarta: true, skal: [], antal: { A: 1, B: 1 }, format: 'duell', tillganglig: true, tillgangligaFormat: [2] });
+  assert.deepEqual(vy.start, { kanStarta: true, skal: [], antal: { A: 1, B: 1 }, format: 'duell', tillganglig: true, tillgangligaFormat: [2, 4, 6, 8] });
   const start = await kommando(bo, 'k10', 'STARTA', { roomId, payload: { rosterVersion: v } });
   assert.equal(start.body.status, 'AVVISAD');
   assert.match(start.body.message, /Bara värden/);
@@ -393,3 +404,87 @@ test('Onlineduell över HTTP: start ger privata matchvyer i strömmen, drag ger 
   assert.equal((await anna.call('/api/status?commandId=' + byte.body.commandId + '&scope=match:' + ma.view.matchId)).body.status, 'GODKÄND');
   await flikA.stang(); await flikB.stang();
 }));
+
+/* ---- L14: lagmatch över HTTP ---- */
+
+/* En testklients val ur sin egen vy (lagmatch): byt inget, välj mål, spela eller avstå. */
+function lagval(view, random) {
+  const pick = list => list[Math.floor(random() * list.length)];
+  const val = view.allowed.filter(a => a.type !== 'GE_UPP');
+  if (!val.length) return null;
+  const a = pick(val);
+  if (a.type === 'BEKRÄFTA_BYTE') return { type: a.type, payload: { cards: a.cards.slice(0, Math.floor(random() * 3)).map(c => c.instanceId) } };
+  if (a.type === 'VÄLJ_MÅL') return { type: a.type, payload: { targetPlayerId: pick(a.players) } };
+  if (a.type === 'SPELA_ATTACK') return a.normal.length ? { type: a.type, payload: { instanceId: pick(a.normal).instanceId } } : { type: a.type, payload: { instanceId: pick(a.simple).instanceId, usage: 'simple' } };
+  if (a.type === 'SPELA_FÖRSVAR') {
+    if (!a.cards.length || random() < 0.3) return { type: 'AVSTÅ_FÖRSVAR', payload: {} };
+    const c = pick(a.cards);
+    return { type: a.type, payload: { instanceId: c.instanceId, ...(c.cardTargets?.length ? { targetInstanceId: pick(c.cardTargets) } : {}), ...(c.playerTargets?.length ? { targetPlayerId: pick(c.playerTargets) } : {}) } };
+  }
+  return { type: a.type, payload: {} };
+}
+
+test('Lagmatch över HTTP: fyra separata klienter med egna kakor och strömmar spelar en hel match utan att se varandras kort', () => medServer(async ({ url, app }) => {
+  const namn = ['Anna', 'Bo', 'Cy', 'Di'];
+  const klienter = namn.map(() => klient(url));
+  const ids = [];
+  for (const [i, k] of klienter.entries()) ids.push((await k.call('/api/session', { method: 'POST', body: { nick: namn[i] } })).body.me.playerId);
+  const flikar = [];
+  for (const k of klienter) flikar.push(await strom(url, k.cookie()));
+  let n = 0;
+  const kommando = (k, type, extra = {}) => k.call('/api/kommando', { method: 'POST', body: { protocolVersion: 1, commandId: `l${++n}`, type, payload: {}, ...extra } });
+  const [anna, ...ovriga] = klienter;
+  await kommando(anna, 'SKAPA_RUM');
+  const roomId = (await anna.call('/api/lobby')).body.rum.id;
+  await kommando(anna, 'BJUD_IN', { roomId, payload: { playerIds: ids.slice(1) } });
+  for (const k of ovriga) await kommando(k, 'ACCEPTERA', { payload: { invitationId: (await k.call('/api/lobby')).body.inbjudningar.inkommande[0].id } });
+  for (const [i, k] of klienter.entries()) await kommando(k, 'VÄLJ_LAG', { roomId, payload: { teamId: i % 2 ? 'B' : 'A' } });
+  const v = (await anna.call('/api/lobby')).body.rum.rosterVersion;
+  for (const k of klienter) await kommando(k, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  assert.deepEqual((await anna.call('/api/lobby')).body.start.tillgangligaFormat, [2, 4, 6, 8]);
+  const start = await kommando(anna, 'STARTA', { roomId, payload: { rosterVersion: v } });
+  assert.equal(start.body.status, 'GODKÄND', start.body.message);
+  const forsta = await Promise.all(flikar.map(f => f.vanta('match')));
+  forsta.forEach((m, i) => assert.deepEqual([m.view.viewer, m.view.format, m.view.me.hand.length, m.view.phase], [ids[i], 'lag', 10, 'KORTBYTE']));
+  const matchId = forsta[0].view.matchId;
+  /* Varje klient hämtar sin vy över HTTP och väljer bara ur den; alla som kan välja skickar samtidigt. */
+  const random = styrdSlump(21);
+  let steg = 0, kommandon = 0;
+  for (;;) {
+    assert.ok(++steg < 2000, 'matchen tog aldrig slut');
+    const svar = await Promise.all(klienter.map(k => k.call('/api/match')));
+    const engine = app.lagring.hamtaMatch(matchId).match.engine;
+    svar.forEach((s, i) => {
+      validatePrivateView(s.body.view);
+      assertNoSecrets(s.body, ids[i]);
+      const { lastResult, ...rest } = s.body.view;
+      const text = JSON.stringify(rest);
+      for (const p of engine.players) if (p.id !== ids[i]) for (const inst of p.hand) assert.ok(!text.includes(`"${inst}"`), `${p.id}s kort syns för ${namn[i]}`);
+    });
+    const vyer = svar.map(s => s.body.view);
+    if (vyer[0].phase === 'AVSLUTAD') break;
+    const drag = vyer.map((view, i) => ({ i, view, val: lagval(view, random) })).filter(d => d.val);
+    assert.ok(drag.length, `ingen kan välja i fas ${vyer[0].phase}`);
+    const kvitton = await Promise.all(drag.map(d => kommando(klienter[d.i], d.val.type, { matchId, revision: d.view.revision, payload: d.val.payload })));
+    kvitton.forEach((r, j) => assert.equal(r.body.status, 'GODKÄND', `${drag[j].val.type} ${namn[drag[j].i]}: ${r.body.message}`));
+    kommandon += kvitton.length;
+  }
+  assert.ok(kommandon > 50, `${kommandon} kommandon`);
+  await new Promise(r => setTimeout(r, 50));
+  /* Strömmarna: bara egen vy, inga händer i händelserna, slutläget kom fram till alla */
+  flikar.forEach((f, i) => {
+    const matcher = f.events.filter(e => e.event === 'match').map(e => e.data);
+    assert.ok(matcher.length > 10);
+    for (const m of matcher) {
+      assert.equal(m.view.viewer, ids[i]);
+      assert.equal(m.view.matchId, matchId);
+      assertNoSecrets(m.view, ids[i]);
+      assert.ok(m.events.every(e => e.matchId === matchId && e.recipient === null && !JSON.stringify(e.data).includes('"hand"')));
+    }
+    assert.deepEqual([matcher.at(-1).view.phase, matcher.at(-1).status], ['AVSLUTAD', 'AVSLUTAD']);
+  });
+  /* Tillbaka till lobbyn */
+  for (const k of klienter) assert.equal((await kommando(k, 'LÄMNA', { roomId })).body.status, 'GODKÄND');
+  assert.ok((await anna.call('/api/lobby')).body.players.every(p => p.activity === 'LEDIG'));
+  for (const f of flikar) await f.stang();
+}, { lagspel: true, slump: styrdSlump(9) }));

@@ -16,14 +16,22 @@ const CLIENT_FILES = new Set(`spelbord.html match.html textkort.html effekter.ht
 spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css popup.css lobby.css
 spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js lobby.js
 bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js ljud.js
-kontrakt.js lokalmatch.js onlinematch.js LICENSE`.split(/\s+/));
+kontrakt.js lokalmatch.js onlinematch.js LICENSE
+lagmatch.html lagmatch.css lagmatchvy.js kortlupp.js`.split(/\s+/));
 const canonicalPath = path => posix.normalize('/' + path.replace(/^\/+/, ''));
 export const isBlocked = path => {
   const canonical = canonicalPath(path);
   return !CLIENT_FILES.has(canonical.slice(1)) && !/^\/assets\/(?!.*(?:^|\/)\.)[^\\\0]+\.(?:svg|png|jpe?g|webp|gif|ico|mp3|wav|ogg|woff2?)$/i.test(canonical);
 };
 
-export function serveFile(req, res) {
+/* Filservern för en given rot; tester skapar en egen rot i en temporär katalog så att
+   arbetskatalogen aldrig får testfiler eller symboliska länkar. */
+export function skapaFilserver(root = ROOT) {
+  return (req, res) => serveFrom(root, req, res);
+}
+export const serveFile = skapaFilserver(ROOT);
+
+function serveFrom(root, req, res) {
   let path;
   try { path = canonicalPath(decodeURIComponent(new URL(req.url, 'http://x').pathname)); }
   catch { res.writeHead(400).end('400'); return; }
@@ -33,8 +41,8 @@ export function serveFile(req, res) {
   if (isBlocked(path)) { res.writeHead(404).end('404'); return; }
   let file, stat;
   try {
-    file = realpathSync(join(ROOT, path));
-    const resolved = relative(realpathSync(ROOT), file);
+    file = realpathSync(join(root, path));
+    const resolved = relative(realpathSync(root), file);
     if (resolved.startsWith('..') || isAbsolute(resolved) || isBlocked('/' + resolved)) { res.writeHead(404).end('404'); return; }
     stat = statSync(file);
   } catch { res.writeHead(404).end('404'); return; }

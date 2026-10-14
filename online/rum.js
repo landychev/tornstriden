@@ -5,7 +5,8 @@
    frånkoppling före start, städning) körs genom samma kö som kommandona.
    L05: självvalda lag (högst 4 per lag), Redo knutet till rosterVersion och värdens start. Själva
    matchen skapas av en registrerad motor (registreraMotor, L08 för 2 spelare och L14 för 4/6/8) i
-   samma transaktion som rummet markeras STARTAD; utan motor är formatet spärrat. */
+   samma transaktion som rummet markeras STARTAD; utan motor är formatet spärrat.
+   L14: den som slagits ut ur en pågående lagmatch (FÖLJER_AVSLUT) kan gå till lobbyn med LÄMNA. */
 import { randomBytes } from 'node:crypto';
 import { ACTIVITY, CONNECTION, INVITATION, ROOM, LOBBY_COMMAND, RECEIPT, MAX_ROOM_SIZE, MATCH_SIZES, TEAM_IDS, TEAMS, validateRoom, validateInvitation } from '../kontrakt.js';
 
@@ -172,7 +173,11 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
      tar den längst anslutna kvarvarande deltagaren över (25A); alla måste bekräfta Redo igen. */
   function lamnaInom(ops, session, roomId) {
     const room = kravRum(ops, roomId);
-    if (room.status === ROOM.started) throw new RumsFel('Matchen har startat – lämna i så fall matchen, inte rummet.');
+    if (room.status === ROOM.started) {
+      /* Utslagen i en pågående lagmatch (L14): tillbaka till lobbyn; matchen och uppställningen ändras inte. */
+      if (session.activity === ACTIVITY.finished && session.matchId === room.matchId) { sattLedig(ops, session); return room; }
+      throw new RumsFel('Matchen har startat – lämna i så fall matchen, inte rummet.');
+    }
     if (room.status === ROOM.closed) { sattLedig(ops, session); return room; }   // avslutad match: tillbaka till lobbyn
     if (!room.players.some(p => p.playerId === session.playerId)) throw new RumsFel('Du är inte med i rummet.');
     room.players = room.players.filter(p => p.playerId !== session.playerId);

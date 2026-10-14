@@ -35,14 +35,22 @@ export const LOBBY_COMMAND = Object.freeze({
   nick: 'SÄTT_NICK', createRoom: 'SKAPA_RUM', invite: 'BJUD_IN', accept: 'ACCEPTERA', decline: 'AVBÖJ',
   revoke: 'ÅTERKALLA', team: 'VÄLJ_LAG', ready: 'REDO', start: 'STARTA', leave: 'LÄMNA', status: 'KOMMANDOSTATUS'
 });
-/* Matchkommandon. De sex första är dagens ACTION i match.js (testet kontrollerar att de stämmer);
-   VÄLJ_MÅL och BEKRÄFTA_START reserveras för lagmatchen (L12/L14). */
+/* Matchkommandon. De sex första är dagens ACTION i match.js (testet kontrollerar att de stämmer).
+   BEKRÄFTA_START används av duellen online (L08) och lagmatchen; VÄLJ_MÅL och AVSTÅ_ANFALL bara av lagmatchen (L12). */
 export const MATCH_COMMAND = Object.freeze({
   swap: 'BEKRÄFTA_BYTE', attack: 'SPELA_ATTACK', defend: 'SPELA_FÖRSVAR', pass: 'AVSTÅ_FÖRSVAR', next: 'FORTSÄTT', surrender: 'GE_UPP',
-  target: 'VÄLJ_MÅL', confirmStart: 'BEKRÄFTA_START'
+  target: 'VÄLJ_MÅL', confirmStart: 'BEKRÄFTA_START', passAttack: 'AVSTÅ_ANFALL'
 });
 const ROOM_COMMANDS = new Set([LOBBY_COMMAND.invite, LOBBY_COMMAND.revoke, LOBBY_COMMAND.team, LOBBY_COMMAND.ready, LOBBY_COMMAND.start, LOBBY_COMMAND.leave]);
 const INVITATION_COMMANDS = new Set([LOBBY_COMMAND.accept, LOBBY_COMMAND.decline, LOBBY_COMMAND.revoke]);
+
+/* Lagmatchens offentliga värden (L12–L15). Lagmotorn (lagmatch.js, lagstrid.js) använder samma objekt, så att
+   lagvyn i webbläsaren kan tolka serverns vy utan att ladda motorn. */
+export const TEAM_FORMAT = 'lag';
+export const TEAM_MATCH_PHASE = Object.freeze({ swap: 'KORTBYTE', start: 'STARTBEKRÄFTELSE', target: 'MÅLVAL', attack: 'ANFALL', defence: 'FÖRSVAR', result: 'RESULTAT', over: 'AVSLUTAD', error: 'FEL' });
+export const TEAM_OUTCOME = Object.freeze({ held: 'FÖRSVARET_HÖLL', hit: 'TRÄFF', aborted: 'AVBRUTEN' });
+export const TEAM_END = Object.freeze({ teamOut: 'LAG_UTSLAGET', noPlayers: 'INGA_SPELARE' });
+export const ELIMINATION = Object.freeze({ life: 'LIV', left: 'LÄMNADE', timeout: 'TIDSGRÄNS', disconnect: 'AVBROTT' });
 
 export const MAX_COMMAND_BYTES = 2048;
 export const NICK = Object.freeze({ min: 2, max: 20 });
@@ -171,6 +179,12 @@ export function validateCommand(command) {
   if (type === LOBBY_COMMAND.status) check(isId(payload.commandId), 'command.payload.commandId', 'Statusfråga kräver commandId.');
   if (type === MATCH_COMMAND.attack || type === MATCH_COMMAND.defend) check(isInstanceId(payload.instanceId), 'command.payload.instanceId', 'Kortexemplar krävs.');
   if (type === MATCH_COMMAND.target) check(isId(payload.targetPlayerId), 'command.payload.targetPlayerId', 'Måltavla krävs.');
+  if (type === MATCH_COMMAND.swap) check(payload.cards === undefined || (Array.isArray(payload.cards) && payload.cards.every(isInstanceId)), 'command.payload.cards', 'Kort att byta anges som en lista med kortexemplar.');
+  if (type === MATCH_COMMAND.defend) {
+    /* Lagmatchens mål vid försvar (L14): kortmål för Barriär, Försegling och Spegelsköld; spelarmål för Törnesköld. */
+    check(payload.targetInstanceId == null || isInstanceId(payload.targetInstanceId), 'command.payload.targetInstanceId', 'Målkortet anges som kortexemplar.');
+    check(payload.targetPlayerId == null || isId(payload.targetPlayerId), 'command.payload.targetPlayerId', 'Målspelaren anges med spelar-ID.');
+  }
   check(JSON.stringify(command).length <= MAX_COMMAND_BYTES, 'command', `Kommandot får vara högst ${MAX_COMMAND_BYTES} tecken.`);
   return command;
 }

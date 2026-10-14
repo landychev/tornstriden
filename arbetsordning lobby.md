@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L09 klara och granskningsfelen R01–R06 rättade lokalt 2026-10-13 – etapp 1 och 2 är klara: två personer kan spela en hel duell via servern från lobbyn. L10 (lagkortlek) är nästa.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade) – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare. L16 (spelarklockor och gemensamma bekräftelser) är nästa.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -56,7 +56,7 @@ Det som särskilt behöver få ett konkret värde eller beteende inför berörd 
 
 ## Uppgiftslista och status
 
-L00–L09 (etapp 1–2) är klara; övriga uppgifter är **Ej startade**. Beroenden anger lägsta krav; rekommenderad körordning är nummerordning. Ingen parallell agentkörning behövs för detta upplägg.
+L00–L15 är klara; övriga uppgifter är **Ej startade**. Beroenden anger lägsta krav; rekommenderad körordning är nummerordning. Ingen parallell agentkörning behövs för detta upplägg.
 
 | ID | Uppgift | Beroenden | Status |
 | --- | --- | --- | --- |
@@ -70,12 +70,12 @@ L00–L09 (etapp 1–2) är klara; övriga uppgifter är **Ej startade**. Beroen
 | L07 | Privat spelarvy i befintligt spel | L01 | Klar 2026-10-13 |
 | L08 | Serverstyrd duell och kommandon | L02, L03, L05, L07 | Klar 2026-10-13 |
 | L09 | Spelbar onlineduell | L06, L08 | Klar 2026-10-13 |
-| L10 | Lagkortlek och kortbokföring | L01 | Ej startad |
-| L11 | Lagstridens effektberäkning | L10 | Ej startad |
-| L12 | Lagmatchens faser och turordning | L11 | Ej startad |
-| L13 | Individuell utslagning och avhopp | L12 | Ej startad |
-| L14 | Lagmotor kopplad till servern | L08, L13 | Ej startad |
-| L15 | Lagvy och val av mål | L09, L14 | Ej startad |
+| L10 | Lagkortlek och kortbokföring | L01 | Klar 2026-10-13 |
+| L11 | Lagstridens effektberäkning | L10 | Klar 2026-10-13 |
+| L12 | Lagmatchens faser och turordning | L11 | Klar 2026-10-13 |
+| L13 | Individuell utslagning och avhopp | L12 | Klar 2026-10-13 |
+| L14 | Lagmotor kopplad till servern | L08, L13 | Klar 2026-10-13 |
+| L15 | Lagvy och val av mål | L09, L14 | Klar 2026-10-14 |
 | L16 | Spelarklockor och gemensamma bekräftelser | L14, L15 | Ej startad |
 | L17 | Återanslutning med fortsatt spel | L16 | Ej startad |
 | L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Ej startad |
@@ -601,3 +601,265 @@ Status: rättat och verifierat i arbetskatalogen.
 Verifiering: `npm test` **155/155**, lobbyprov **24/24**, onlineduell **9/9**, lokalt matchprov **13/13**, samt nytt riktat `scripts/prova-regressioner.mjs` för nick och återgång efter rumsstädning. Webbläsarproven kördes i Chrome. `deploy.sh` provades mot temporär katalog med fungerande versionsstämpling. Se [granskning L00-L09.md](<granskning L00-L09.md>) för detaljer och den första lokala provkörningens klickstopp som inte återkom i det riktade provet eller omkörningen.
 
 Ingen commit, push eller publicering ingick. L10 är fortsatt nästa planerade implementation; L16–L18:s fullständiga avbrottshantering återstår enligt planen.
+
+Uppgift och datum: L10 – Lagkortlek och kortbokföring, 2026-10-13
+Status: Klar
+Genomfört och ändrade filer:
+- Nya: `lagregler.js` (låst regelversion `lag-v1`, låst baslista enligt 11A, kortlekarna `lag-100-v1`/`lag-150-v1`/`lag-200-v1`, minsta behov 56/84/112, `buildTeamDeck`, `teamBattleCard` för 23A, `teamCanAttack`/`teamCanDefend`), `lagkortlek.js` (lagens fasta ordning och bordsordning, utdelning, startbyten, påfyllning enligt 22A, bordsprimitiver, `auditTeam`), `lagregler.test.js` (5 tester), `lagkortlek.test.js` (10 tester).
+- Stödändring utanför L10: `server.js` fick `skapaFilserver(root)` och symlänktestet i `online/server.test.js` bygger nu en egen webbrot i en temporär katalog. Det tidigare testet skapade länkar i projektets `assets/` och lämnade kvar `assets/static-test-*` när borttagning av symlänkar nekades (som i den länkade sandlådan); en sådan katalog (`static-test-1GkRmr`) finns kvar och behöver tas bort för hand. Spärren själv är oförändrad.
+- Oförändrade: `matchregler.js`, `match.js`, duellens 50-kortslek, all server- och vykod.
+Verifiering:
+- `npm test`: 170 tester, 170 godkända, tre körningar i rad. Inga nya filer i `assets/`.
+- Kortlek: 30 korttyper; vanliga kort 4/6/8 och specialkort 2/3/4 exemplar för 4/6/8 deltagare; summa 100/150/200; baslistan är identisk med duellens fördelning vid låsningen; duellen har fortfarande 50 kort; unika exemplar-ID; samma slump ger samma lek; okända kort och för små lekar avvisas.
+- 23A: för alla 30 kort blir enkel attack `{type: 'attack', attack: 1}` utan ability, cancel, försvar eller magisk typ; Drakeld tappar både magi och +2; katalogen ändras inte.
+- Startbyten för 4/6/8 med maximala byten (två kort, båda omgångarna, i omvänd bordsordning): varje exemplar på exakt ett ställe efter varje steg, undanlagda kort delas inte ut i omgång 2, blandas tillbaka efter sista omgången, alla har 10 kort och draghögen har `lek − 10 × deltagare`. Omgång 2 öppnar först när alla levande bekräftat omgång 1. Ogiltiga byten (tre kort, dubblett, annans kort, okänd spelare, efter bytena) avvisas utan ändring.
+- 22A: bara levande spelare med exakt noll kort får kort; en hand med tre kort och en utslagen spelare får inget; ett kort i taget runt bordet från angiven startspelare (b3 får översta, tredje, femte … kortet); högst fem; tom draghög blandar bara slänghögen – bordskort ligger kvar; med för få kort får den ursprungliga mottagarlistan 2 + 1 och utdelningen slutar; samma påfyllnings-ID ger ingen ny påfyllning.
+- Slumpad långkörning (3 frön × 4/6/8, 300 steg vardera med kortspel, slängning, utslagning och påfyllning): kortbokföringen håller efter varje steg och lekens storlek är oförändrad.
+Inte verifierat / återstående fel: ingen stridsberäkning, inga faser efter bytena, ingen turordning och ingen server- eller vykoppling – det är L11–L15. Balansen i 100/150/200-lekarna är inte provspelad (huvudplanen §7).
+Tekniska val och eventuella användarsvar:
+- **Startbyten i lagmatch sker samtidigt inom en omgång** (vem som helst kan bekräfta i valfri ordning), och omgång 2 öppnar när alla levande bekräftat omgång 1. Duellen byter turvis; med 8 spelare och 90 sekunder per val (L16) hade turvisa byten gett upp till 16 väntelägen. Ändras lätt till turvis om du hellre vill det.
+- **Fast ordning inom laget** = ordningen i rummets deltagarlista vid start (den ordning lobbyn visar). **Bordsordning** = lagen flätade A1, B1, A2, B2 … och används för utdelning och påfyllning. Startutdelningen börjar vid A1; påfyllningen börjar hos den spelare L12 anger (nästa anfallande lags startspelare, 21A). Första anfallande lag lottas i L12.
+- Kortbokföringens funktioner ändrar matchobjektet direkt och kastar `Avvisning` före varje ändring vid spelarfel; lagmotorn i L12 arbetar på en kopia som i duellens `process()`. Revision, händelser och faser efter `BYTEN_KLARA` hör till L12.
+- Bordskort sparas som frysta poster `{instanceId, playerId, role, usage}`, så att vald användning inte kan ändras efter ett godkänt drag (23A). Primitiverna `discardTableCardsOf` och `discardHand` finns för L13 men ingen avhoppsregel är implementerad.
+- Baslistan i `lagregler.js` är en egen låst kopia; ett test larmar om den skiljer sig från duellens lek, så att en ändring av duellen kräver ett uttryckligt beslut om lagleken.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L10.
+Rekommenderad nästa uppgift: L11 – Lagstridens effektberäkning (ren funktion med räkneexemplen i huvudplan §7).
+Commit: ingen.
+
+Uppgift och datum: L11 – Lagstridens effektberäkning, 2026-10-13
+Status: Klar
+Genomfört och ändrade filer:
+- Nya: `lagstrid.js` (`beraknaLagstrid` – ren beräkning enligt effektordningens steg 1–8; `giltigaKortmal`/`giltigaSpelarmal` för målval vid spel; `underlagFranMatch` som bygger indata från en lagmatch i `lagkortlek.js`), `lagstrid.test.js` (23 tester).
+- Stödändring: `lagkortlek.playToTable` tar emot och låser `targetCard` (exemplar-ID för Barriär/Försegling/Spegelsköld) och `targetPlayer` (spelar-ID för Törnesköld) i den frysta bordsposten; för anfallskort är båda alltid null. Ett L10-test uppdaterat för de nya fälten.
+- Oförändrade: `strid.js` och hela duellen, `match.js`, server och vyer.
+Verifiering:
+- `npm test`: 193 tester, 193 godkända, tre körningar i rad.
+- Samtliga åtta räkneexempel i huvudplan §7 ger exakt de angivna talen och utfallen: 3+3−2−2 = 2 mot 4; Drakeld 6, Spegelsköld kopierar 6 före frost, 7 mot 9; 6 mot 3+3−2−2 = 2 och ett liv; 5 mot 6 med två motstötar som tar Stormnings ägare från 2 till 0 medan lagkamraten klarar sig; stoppat Vampyrbett läker inte trots träff (5 mot 2); Drakeld + Armborst 8 mot 6 med bara en +2; borttaget speglingsmål ger 1 utan omval trots att annan magi finns kvar; avdrag och motstötar stannar vid 0.
+- Specialregler: hjälparens Helande ljus läker hjälparen, inte måltavlan (Mira-exemplet), och läkning stannar vid 3; hjälparens Isrustning sänker lagets attack; Sista anfallet/Sista bastionen läser startliv, även vid laghjälp; Drakeld får +2 av Törnesköld men inte av hybrid eller magi, och tappar bonusen när det blå kortet tas bort; två Spegelsköldar kopierar samma kort var för sig; Försegling stoppar bara magi och behåller försvar 2, Barriär ger 0; stoppad Sprängladdning sänker inte försvaret; ett borttaget stoppkort gör målet aktivt igen; frost tar inte bort Sprängladdningens avdrag; enkel attack (23A) stoppas av Barriär men kan varken förseglas eller speglas och får ingen Drakeld-bonus; Törnesköld kräver ett levande mål som lagt ett attackkort (stoppat räcker); träff kostar exakt ett liv oavsett överskott.
+- 24B: utan kvarvarande anfallskort är attacken 0 och försvaret håller även med försvar 0; Helande ljus läker; motstöt mot den som lämnat flyttas inte. 13A: saknad måltavla eller ett lag utan levande spelare ger AVBRUTEN utan livsändringar (lag utan spelare prövas först).
+- Korsprov: för en anfallare mot en försvarare ger lagberäkningen exakt duellens `strid.resolve` för alla 7 452 kombinationer (16 anfallskort + 30 enkla attacker, 17 försvarskort + avstående, alla 9 startlivspar) – attack, försvar, utfall, stopp och båda livsvärdena.
+- Slumpprov: 3 000 strider 2 mot 2 till 4 mot 4 med slumpade kort, mål och borttagna spelare; styrkor ≥ 0, liv 0–3, måltavlan förlorar högst ett liv, utslagna exakt de med 0 liv, borttagna spelare opåverkade, rätt sida läks/skadas.
+- Funktionen är ren: djupfryst indata går att använda, indata och kortkatalog är oförändrade och två anrop ger identiskt resultat.
+Inte verifierat / återstående fel: ingen faslogik, turordning, målvalsvalidering vid spel eller lagring av resultat – det är L12 (resultatet tillämpas där) och L13 (avhopp). Balansen är inte provspelad.
+Tekniska val och eventuella användarsvar:
+- Indata: `{ targetPlayerId, attacks, defences, players, startLife }`; utdata: `{ outcome, reason, attack, defence, defended, cards, stopped, deductions, lifeDelta, life, eliminated, events }`. `cards` förklarar varje korts värde, bonus, stopp och spegling för förhandsvisning och resultatvy (L15). `events` är svenska förklaringsrader utan dolda kort.
+- Kort vars ägare inte längre är med räknas inte (12B) även om de skulle ligga kvar i indata; L13 tar dessutom bort dem från bordet.
+- En Barriär, Försegling eller Spegelsköld utan giltigt mål ger bara sitt grundförsvar (0, 2 respektive 1). Om Barriär får spelas utan mål avgör L12 med hjälp av `giltigaKortmal`.
+- Flera stoppkort på samma mål är tillåtna i beräkningen; att målet inte får vara redan stoppat vid spel prövas i L12 via `giltigaKortmal`.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L11.
+Rekommenderad nästa uppgift: L12 – Lagmatchens faser och turordning.
+Commit: ingen.
+
+Uppgift och datum: L12 – Lagmatchens faser och turordning, 2026-10-13
+Status: Klar
+Genomfört och ändrade filer:
+- Nya: `lagmatch.js` (`newLagmatch`, `processLag` – kopia, kortbokföringskontroll och en revision per godkänd handling som duellens `process()`; `allowedActions`; `leaderOf`/`nextAlive` för 21A), `lagmatch.test.js` (12 tester).
+- Ändrad: `kontrakt.js` – nytt matchkommando `AVSTÅ_ANFALL` (lagmatchen har avstående både i anfall och försvar). Duellen påverkas inte; den avvisar okända handlingar som tidigare.
+- Oförändrade: `lagregler.js`, `lagkortlek.js`, `lagstrid.js` (används som de är), duellen, server och vyer.
+Verifiering:
+- `npm test`: 205 tester, 205 godkända, tre körningar i rad.
+- Start: alla levande byter samtidigt; lotten ger första lag (styrd slump: 0.1 → Södra laget, 0.9 → Norra laget); startbekräftelse från alla levande, en per person; övergången till första striden sker exakt en gång, en sen bekräftelse avvisas.
+- Målval: bara startspelaren; bara levande fiendetorn; ett fallet torn kan inte väljas.
+- Anfallskö: startspelaren och sedan levande lagkamrater med kort i fast ordning; högst ett kort per person; fel tur avvisas; den sista i kön får inte avstå om laget inte lagt något kort; ett rent försvarskort avvisas som vanlig attack men går som enkel attack 1.
+- Försvarskö: måltavlan först, sedan levande lagkamrater i fast ordning efter måltavlan (6 spelare, måltavla b2: b2, b3, b1); alla får avstå; en tom hand kan bara avstå.
+- Mål vid försvar: Försegling kräver valt magiskt kort när ett sådant finns; Barriär väljer bara ostoppade attackkort och kan inte spelas när inget finns; Törnesköld kräver en anfallare som lagt kort; resultatet (0 mot 5, motstöt mot a1) kommer oförändrat från `lagstrid.js`.
+- Efter striden: liv sparas, bordet slängs, tomma händer fylls med början hos nästa anfallande lags startspelare, alla levande bekräftar Fortsätt en gång, andra laget anfaller och 21A roterar (strid 3: a2 börjar).
+- Livsbaserad utslagning: den utslagne får 0 liv, UTSLAGEN, tom hand, inga val, behövs inte för Fortsätt, hoppas över som startspelare och i köer; när sista tornet faller vinner det andra laget utan påfyllning och alla vidare handlingar avvisas. En motstöt som slår ut en anfallare flyttar lagets målansvar till nästa levande.
+- Skyddsregel: ett lag utan handkort lämnar turen till det andra laget; om inget lag har kort blir det INTERNT_FEL med fasen FEL och ingen vinnare.
+- Hela matcher: 4 frön × 4/6/8 spelare med slumpade byten, mål, kort, enkla attacker, specialkortsmål och avstående. Varje steg höjer revisionen exakt en gång. Startspelare, anfallsordning och försvarsordning kontrolleras mot en oberoende beräkning i testet; högst ett kort per person; varje strid har minst ett anfallskort; utslagna agerar aldrig igen; varje match slutar med ett vinnande lag. Exempel: 13–40 strider per match, 117–568 steg, 15–30 olika korttyper använda.
+Inte verifierat / återstående fel:
+- Avhopp, Lämna/Ge upp i lagmatch och tidsförluster (L13, L16). Ingen server- eller vykoppling (L14, L15).
+- Under granskningen av testet hittades och rättades ett fel i själva testet: det jämförde resultatobjekt i stället för stridsnummer och kontrollerade därför samma strid flera gånger. Testet räknar nu att varje avgjord strid kontrolleras exakt en gång.
+Tekniska val och eventuella användarsvar:
+- **Första anfallande lag lottas** med serverns slump efter startbytena; lagets första spelare i fast ordning är dess första startspelare.
+- **Försvarskön** går från måltavlan vidare runt lagets fasta ordning (b2, b3, b1 – inte b2, b1, b3).
+- **Anfallskön** innehåller bara levande spelare med minst ett kort (kortantal är offentligt). Försvarskön innehåller alla levande, även de utan försvarskort, så att ingen avslöjar sin hand genom att hoppas över.
+- **Bidragskravet** (laget måste lägga minst ett kort): den sista i anfallskön kan inte avstå om inget kort lagts. Alla kort duger som enkel attack, så det går alltid.
+- **Mål vid försvar:** Barriär kräver ett ostoppat attackkort och kan annars inte spelas. Försegling och Spegelsköld kräver ett valt mål när det finns giltig magi och spelas annars utan mål. Törnesköld kräver en anfallare när någon har anfallit.
+- Start- och Fortsätt-bekräftelser ligger i lagmotorn själv, till skillnad från duellen där serverlagret (L08) lägger dem ovanpå motorn. Ingen handling kan gå förbi de andra, och övergången sker när den sista levande bekräftar.
+- `lastResult` sparar hela beräkningen från L11 plus bordet, turerna och liven, för resultatvyn (L15) och händelser (L14/L19).
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L12.
+Rekommenderad nästa uppgift: L13 – Individuell utslagning och avhopp.
+Commit: ingen.
+
+Uppgift och datum: L13 – Individuell utslagning och avhopp, 2026-10-13
+Status: Klar
+Genomfört och ändrade filer:
+- Ändrad: `lagmatch.js` – individuell utslagning. Ny `slaUt(match, spelarIds, orsak, random)` är den gemensamma utslagningsvägen som servern ska använda för tidsgräns (L16) och avbrott (L17); flera spelare i samma anrop är en händelse. `LAG_HANDLING.leave` (= `GE_UPP`) betyder "Lämna matchen" och slår bara ut den egna spelaren. Nytt: `UTSLAG` (`LIV`, `LÄMNADE`, `TIDSGRÄNS`, `AVBROTT`) sparas per spelare som `eliminationReason`; `LAG_SLUT.noPlayers` när båda lagen försvinner i samma händelse. `processLag` och `slaUt` delar samma körning (kopia, kortbokföringskontroll, en revision per godkänd händelse; avvisning lämnar matchen orörd; annat fel ger FEL utan vinnare). Stridsslut och matchslut är gemensamma för vanlig strid, avbruten strid och avhopp.
+- Ändrad: `lagkortlek.js` – `advanceSwapRound` är utbruten ur `confirmSwap`, så att ett avhopp kan avsluta en bytesomgång.
+- Ändrad: `KONTRAKT.md` – `AVSTÅ_ANFALL` (från L12) och lagmatchens betydelse av `GE_UPP`.
+- Ny: `lagavhopp.test.js` (15 tester).
+- Oförändrade: `lagregler.js`, `lagstrid.js` (L11 räknar redan om utan borttagna kort, 12B/17A/24B), `lagmatch.test.js`, duellen, server och vyer.
+Verifiering:
+- `npm test`: 220 tester, 220 godkända, tre körningar i rad. De 12 L12-testerna passerar oförändrade efter omskrivningen av `lagmatch.js`.
+- Startbyten: den som lämnar räknas inte i omgången – är hen den sista som saknas går omgången vidare, och efter sista omgången lottas första lag. Handen slängs, undanlagda bytesskort blandas tillbaka som vanligt. Sena byten och ett andra Lämna avvisas.
+- Startbekräftelse och Fortsätt: den sista som saknas lämnar → nästa strid startar exakt en gång (en loggrad "Strid N"); startspelaren som lämnar ersätts av nästa levande lagkamrat.
+- Målval: startspelaren lämnar → nästa levande tar över samma strid; 8 spelare ned till 1 mot 4 spelar vidare (ensam anfallare måste lägga kort, försvarskön b1–b4). Har resten av laget inga handkort startar striden om med samma nummer och skyddsregeln ger det andra laget turen.
+- Anfall: den aktiva lämnar → nästa i kön. Ett spelat kort tas bort (12B): 3 + 2 blir 2 när treans ägare lämnar. Försvinner lagets enda kort måste den sista i kön nu bidra (Avstå avvisas). Finns ingen kvar som kan bidra låses anfallet tomt, försvararna slutför sina val och försvaret håller (24B, attack 0).
+- Försvar: den aktiva hjälparen lämnar → nästa; ett spelat försvarskort tas bort och försvaret räknas om (Järnport bort: 3 mot 0, träff). Lämnar den sista i försvarskön avgörs striden.
+- 24B (Mira-exemplet): anfallaren lämnar under försvaret → attack 0, försvaret håller, Helande ljus läker måltavlan från 2 till 3, och en Törnesköld riktad mot den som lämnat skadar ingen annan.
+- 17A: en Barriär bunden till ett Eldklot som försvinner byter inte mål; Stormning går igenom (3 mot 0).
+- 13A: måltavlan lämnar under anfallet (Vampyrbett läker inte) eller under försvaret (ingen läkning, motstöt eller skada) → striden sparas som AVBRUTEN/MÅLTAVLAN_BORTA utan livsändringar, bordet slängs, tomma händer fylls, startspelaren roteras, alla levande bekräftar Fortsätt och det andra laget anfaller.
+- Resultatläget: ett Lämna ändrar inte det sparade resultatet.
+- Matchslut prövas först: lämnar försvarande lagets sista spelare (som också är måltavlan) blir det lagvinst, inte 13A; lämnar anfallande lagets sista mitt i striden slängs bordet och det andra laget vinner utan påfyllning. Efter matchslut avvisas sent Lämna ("Matchen är avslutad.") och sen `slaUt` ("Matchen är redan avgjord."), och matchen lämnas orörd.
+- `slaUt`: båda lagens sista samtidigt → AVSLUTAD utan vinnare (`INGA_SPELARE`); måltavla och lagkamrat samtidigt → en avbruten strid; dubbletter räknas en gång; redan utslagna hoppas över (orsaken skrivs inte om); bara redan utslagna eller okänd spelare avvisas.
+- Hela matcher: 6 frön × 4/6/8 spelare (18 matcher) med slumpade spelval, Lämna (2,5 % per steg) och gruppvisa tidsgränser/avbrott (1 %). Totalt 42 avhopp, 11 grupputslagningar och 2 avbrutna strider. Efter varje steg kontrolleras: ingen låst kö (aktiv spelare lever och har val; i byte och bekräftelser finns någon levande som saknas), måltavlan lever under öppen strid, utslagna har inga val, ingen hand och inga bordskort, och avhopp utanför en öppen strid ändrar aldrig sparat resultat. Varje match tar slut med rätt vinnare, tomt bord och korrekt kortbokföring.
+Inte verifierat / återstående fel:
+- Ingen server- eller vykoppling: `GE_UPP` från en lagmatch når ännu inte servern (L14), och knappen "Lämna matchen" finns inte i lagvyn (L15). Tidsgränser och avbrott (L16, L17) ska anropa `slaUt` men är inte byggda.
+- "Ingen vinnare" kan bara uppstå genom samtidig utslagning; det slumpade provet träffade det inte, men det fasta testet täcker fallet.
+- Vad utslagna ser (offentlig matchinformation eller lobbyn) hör till L14/L15.
+Tekniska val och eventuella användarsvar:
+- **`GE_UPP` = Lämna matchen** i lagmatch. Det är alltid tillåtet för en levande spelare medan matchen pågår och listas därför inte i `allowedActions`. Duellens `GE_UPP` är oförändrat.
+- **Ordning vid utslagning:**
+  1. Markera spelaren och släng hennes egna bordskort (12B) och hand, en gång per spelare.
+  2. Pröva matchslut.
+  3. Om måltavlan lämnade en öppen strid gäller 13A.
+  4. Annars fortsätter fasen med omräknade köer.
+- **13A följer samma flöde som en vanlig strid**: resultatrutan, Fortsätt, påfyllning, rotation av startspelare och lagbyte. Resultatet saknar livsändringar och räknas inte som en vunnen attack.
+- **Bidragskravet prövas om efter varje borttagning.** Ett tomt anfall låses ändå om ingen kvar kan bidra, så att försvararnas giltiga resultateffekter (24B) kan slutföras.
+- **Avhopp under målval:** samma strid fortsätter med nästa startspelare. Saknar laget handkort startas striden om utan nytt stridsnummer, så att påfyllning och turordning inte hoppar.
+- **`slaUt` har ingen revisionskontroll**; servern kör den i matchens kö efter tidigare kommandon. Orsaken `LIV` sätts bara av stridsavgörandet.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L13 (etapp 1–3).
+Rekommenderad nästa uppgift: L14 – Lagmotor kopplad till servern (etapp 4).
+Commit: ingen.
+
+Uppgift och datum: L14 – Lagmotor kopplad till servern, 2026-10-13
+Status: Klar
+Genomfört och ändrade filer:
+- Ny: `online/matcher.js` – väljer regelmotor efter deltagarantal (2 → duell, 4/6/8 → lag) och skickar varje matchkommando och vyhämtning till den modul som skapade matchen. Kö, transaktion, kvittenser och lagring är gemensamma.
+- Ny: `online/lagspel.js` – motorfabrik för starttransaktionen, kommandohantering och `matchFor`. Ingen spelregel finns här; allt avgörs av `lagmatch.js`.
+- Ny: `lagvy.js` – `lagVy()` (privat vy enligt kontraktet) och `lagHandelser()` (typade, offentliga händelser). Ren data utan Node-beroenden, så att lagvyn i webbläsaren (L15) kan använda samma form.
+- Ändrad: `online/server.js` – använder `matcher.js`; ny inställning `lagspel` (`TORNSTRIDEN_LAGSPEL=1`) som öppnar lagformaten i lobbyn, avstängd som standard.
+- Ändrad: `online/rum.js` – den som slagits ut ur en pågående lagmatch (FÖLJER_AVSLUT) kan gå till lobbyn med LÄMNA utan att rum eller match ändras.
+- Ändrad: `kontrakt.js` – formkontroll av `cards` (byte) och `targetInstanceId`/`targetPlayerId` (försvar).
+- Ändrad: `KONTRAKT.md` (nytt avsnitt "Lagmatch online") och `README.md`.
+- Tester: ny `online/lagspel.test.js` (9 tester) och ett nytt HTTP-prov i `online/server.test.js`.
+- Oförändrade: lagmotorn (`lagmatch.js`, `lagkortlek.js`, `lagstrid.js`, `lagregler.js`), `online/duell.js`, `online/tjanst.js`, lagringen och alla webbläsarfiler.
+Verifiering:
+- `npm test`: 230 tester, 230 godkända, tre körningar i rad.
+- Webbläsarprov i molnmiljön (Playwright/Chromium mot en kopia av arbetskatalogen): `prova-lobby.mjs` 24/24, `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5. Onlineduellen fungerar som förut genom den nya motorväljaren.
+- Start: 4/6/8 deltagare ger `format: 'lag'`, `lag-v1` och rätt kortlek. Lagens ordning är rummets ordning, och motorns spelar-ID och namn kommer från sessionerna. Alla blir SPELAR med matchens id. Efter start avvisas lagbyte och LÄMNA ("Matchen har startat").
+- Varje plats får en privat vy som klarar `validatePrivateView`: egen hand (10 kort) stämmer med servern, andra visas bara med kortantal, och `assertNoSecrets` fäller vyn för en annan läsare.
+- Separata testklienter (en per deltagare, som bara väljer ur sin egen vy och skickar samtidigt) spelade hela matcher:
+  - 4 spelare: 153 kommandon, 19 strider.
+  - 6 spelare: 322 kommandon, 26 strider.
+  - 8 spelare: 450 kommandon, 30 strider.
+  - Alla samtidiga byten och bekräftelser godkändes, utan en enda krock.
+  - Efter varje omgång kontrollerades att ingen annans aktuella hand fanns någonstans i någon vy, utom kort som redan visats i senaste resultatet.
+  - Händelserna saknar luckor, klarar `validateEvent` och bär ingen hand.
+  - Matchslut gav AVSLUTAD, ett stängt rum och FÖLJER_AVSLUT för alla.
+- Avhopp via servern (4 matcher, 16 avhopp, 5 avbrutna strider enligt 13A): den som lämnar blir FÖLJER_AVSLUT direkt, behåller en vy utan hand och val, och laget spelar vidare tills matchen tar slut.
+- Samtidiga matcher (4 och 6 spelare spelade sammanflätat): varje vy, händelse och kortexemplar hör till den egna matchen; inget från den andra matchen finns i händelserna.
+- Samtidiga val:
+  - Alla byter och bekräftar ur samma vy och godkänns.
+  - En upprepad Fortsätt är GODKÄND utan ändring.
+  - En Fortsätt från ett äldre resultat, ett byte från en tidigare omgång och ett turval med gammal revision avvisas ("Matchläget har ändrats").
+  - Övergången till nästa strid sker exakt en gång.
+- Identitet: `playerId` eller `teamId` i kommandot eller i payload avvisas av kontraktet. Fel tur, utomstående spelare, mål i eget lag och okänd match avvisas, och matchen är orörd.
+- Gamla kommandon: den som lämnat går till lobbyn och startar en ny duell. Ett nytt kommando till den gamla matchen avvisas ("Du deltar inte"). Samma gamla Lämna-kommando ger samma kvittens utan ny effekt. Den nya matchen är orörd, och den gamla spelar klart utan att röra spelarens nya session.
+- Motorfel (trasig kortbokföring): INTERNT_FEL, ingenting sparat, inga händelser, ingen vinnare.
+- HTTP: fyra separata klienter med egna kakor och SSE-strömmar startade och spelade en hel 4-spelarmatch över `/api/kommando` och `/api/match`. Inget svar innehöll en annan spelares aktuella hand, varje ström fick bara den egna vyn, slutläget nådde alla och alla kom tillbaka till lobbyn som lediga.
+Inte verifierat / återstående fel:
+- Ingen lagvy i webbläsaren än (L15). Därför är lagformaten stängda i lobbyn som standard. Startar man en lagmatch med `TORNSTRIDEN_LAGSPEL=1` kan den bara spelas med testklienter; dagens `match.html` förstår inte lagvyn.
+- Anslutningsstatus i lagvyn är sessionens (ANSLUTEN/FRÅNKOPPLAD); återanslutningsfrister och tidsgränser kommer i L16/L17.
+- `lagvy.js` finns inte i `deploy.sh` eller i `CLIENT_FILES`. Webbläsaren behöver den först i L15.
+Tekniska val och eventuella användarsvar:
+- **Motorns spelar-ID = sessionens `playerId`** (redan offentligt i lobbylistan). Ingen platsmappning behövs, till skillnad från duellens A/B.
+- **Samtidiga val:** byten och bekräftelser prövas mot början av den pågående samlingen (fas + bytesomgång + strid) i stället för exakt revision, enligt huvudplanens "rätt resultat" för Fortsätt. Utan detta skulle 4–8 samtidiga bekräftelser krocka. Lämna godtas med vilken tidigare revision som helst. Turval kräver exakt revision. Lagmotorns egen revisionskontroll är oförändrad.
+- **Bekräftelser ökar revisionen i lagmatchen**, eftersom de ligger i motorn (L12). I duellen gör de det inte. Kontraktet beskriver båda.
+- **Lagformaten stängda som standard:** `startaServer({ lagspel })` / `TORNSTRIDEN_LAGSPEL=1`, så att en publicering före L15 inte leder till en matchsida som inte förstår lagvyn. L15 tar bort spärren.
+- **Utslagna:** blir FÖLJER_AVSLUT direkt, ser offentlig information och kan gå till lobbyn med LÄMNA. Därefter kan de spela en ny match, och gamla kommandon påverkar den inte.
+- **Motorfel** rullar tillbaka allt (som i duellen) i stället för att spara fasen FEL.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L14.
+Rekommenderad nästa uppgift: L15 – Lagvy och val av mål (avslutar etapp 4).
+Commit: ingen.
+
+Uppgift och datum: L15 – Lagvy och val av mål, 2026-10-14
+Status: Klar
+Genomfört och ändrade filer:
+- Nya: `lagmatch.html`, `lagmatch.css`, `lagmatchvy.js` – lagmatchens sida. Bordet har fiendelaget överst, stridsplatsen med anfalls- och försvarskön i mitten och det egna laget nederst, närmast handen. Alla val görs i knappraden direkt ovanför handen: byten, Börja striden, måltavla, kort, vanlig/enkel attack, kortmål, spelarmål, avstående och Fortsätt. Resultatrutan visar lagets resultat och den egna utslagningen på var sin rad. Lämna matchen frågar först.
+- Ny: `kortlupp.js` – långtrycket, kortrutan och kortflygningarna, flyttade ur `matchvy.js` oförändrade och delade av duellen och lagvyn. Lagvyn lägger till en rad "I lagmatch" för specialkorten (14A–20A).
+- Nytt test: `klientfiler.test.js` (2 tester). Det följer varje sidas script, stilmallar och importer. Publicerade sidor får bara ladda filer som finns i `deploy.sh` och släpps igenom av servern. Onlinesidorna får aldrig ladda lagmotorn.
+- Nytt prov: `scripts/prova-lag.mjs` – hela lagmatcher 4/6/8 i separata webbläsarkontexter (varannan i mobilvy), bara via gränssnittet.
+- Ändrade:
+  - `matchvy.js`: använder `kortlupp.js`; skickar vidare till `lagmatch.html` när vyn är en lagmatch.
+  - `onlinematch.js`: `viewer()` blir eget spelar-ID i lagmatchen.
+  - `kontrakt.js`: `TEAM_FORMAT`, `TEAM_MATCH_PHASE`, `TEAM_OUTCOME`, `TEAM_END`, `ELIMINATION`. `lagmatch.js`, `lagstrid.js` och `lagvy.js` använder samma objekt, så det finns en källa.
+  - `online/server.js`: lagformaten öppna som standard; `TORNSTRIDEN_LAGSPEL=0` stänger dem.
+  - `online/matcher.js`: kommentar.
+  - `server.js`: `CLIENT_FILES` med lagsidan och `kortlupp.js`.
+  - `deploy.sh`: `kortlupp.js`, som den lokala matchsidan nu importerar.
+  - `lobby.js`: rubriken "Matchen pågår – du är utslagen" för den som slagits ut ur en pågående match.
+  - `online/server.test.js`: lagfilerna serveras, lagmotorn ger 404, lagformaten är tillgängliga.
+  - `KONTRAKT.md`, `README.md`.
+- Oförändrade: lagmotorns regler, servern i övrigt, `match.html`, `match.css` och lobbyflödet.
+Verifiering:
+- `npm test`: 232 tester, 232 godkända, tre körningar i rad.
+- `scripts/prova-lag.mjs` i molnmiljön (Playwright/Chromium mot en kopia av arbetskatalogen; varannan deltagare emulerad iPhone 13):
+  - 4 spelare: 9/9 kontroller, 18 strider.
+  - 6 spelare: 11/11, 23 strider. En deltagare lämnade efter strid 2 och följde resten av matchen; laget spelade vidare med 2 mot 3.
+  - 8 spelare: 12/12, 20 strider. En deltagare lämnade och gick till lobbyn medan matchen pågick.
+  - Kontrollerna i varje match:
+    - Matchsidan skickar alla till lagvyn; egen hand och båda lagens torn syns.
+    - Långtryck öppnar kortet.
+    - Hela matchen spelades bara via gränssnittet: enkel attack, kortmål (6 val) och spelarmål (4 val) användes.
+    - De andra ser "Lämnade matchen".
+    - Den som lämnat ser "Du är utslagen – laget spelar vidare" och vid slutet lagets resultat separat ("Ditt lag vinner matchen! … Du var utslagen, men laget tog hem segern").
+    - Resultatet är personligt per lag.
+    - Inga andras handkort i nätverkssvaren; inga sid- eller konsolfel.
+  - Mobilen: bekräftelseknappen ligger 23 px ovanför handen, knapp och kort ryms inom 241 px av 664, och korten är 174 px höga.
+  - 8-spelarmatchen kördes två gånger. Första gången kraschade provskriptet när det mätte mobilavståndet medan mobilspelaren hade tom hand. Det var ett fel i provet, inte i vyn, och det är rättat; omkörningen gav 12/12.
+- Duellens webbläsarprov efter flytten av långtrycket: `prova-match.mjs` 13/13 (långtryck, datormatch, tvåspelarläge), `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5, `prova-lobby.mjs` 24/24.
+- `./deploy.sh` mot en temporär katalog: `kortlupp.js` publiceras och importeras med `?v=`-stämpel. Lagsidan och lobbyn publiceras inte ännu (L21).
+- Att `klientfiler.test.js` fångar en saknad fil prövades: med `kortlupp.js` borttagen ur `deploy.sh` föll testet med "match.html laddar kortlupp.js, som saknas i deploy.sh".
+Inte verifierat / återstående fel:
+- Bara Chromium (dator och emulerad iPhone 13). Riktiga telefoner, Safari/WebKit och skärmläsare är inte provade.
+- På en mobil i 8-spelarmatch fyller bordet ungefär en skärmhöjd. Knappraden och handen ligger alltid intill varandra, men bordet och handen syns inte samtidigt.
+- Ljud provades inte (huvudlös webbläsare). Lagspecifika ljud och animationer hör till L19.
+- Inga tidsgränser eller återanslutningsfrister ännu (L16, L17).
+Tekniska val och eventuella användarsvar:
+- **Egen sida för lagmatchen** i stället för förgreningar i hela `matchvy.js`. Duellvyn är nästan orörd. `match.html?online=1` är fortfarande den enda adressen lobbyn behöver känna till.
+- **Delad `kortlupp.js`** så att långtrycket är samma kod i båda vyerna.
+- **Konstanterna i `kontrakt.js`** så att webbläsaren inte behöver lagmotorn (den spärras också av servern).
+- **Alla val i knappraden ovanför handen** för mobilkravet. Måltavlan kan också väljas genom att trycka på ett fiendetorn. Finns bara ett giltigt kortmål eller spelarmål väljs det direkt, och det syns.
+- **Lagformaten öppna som standard** nu när vyn finns, med samma status som onlineduellen: utvecklingsleverans tills L16–L22 är klara.
+- **`deploy.sh` får bara `kortlupp.js`.** Lobbyn och lagsidan läggs till när onlinespelet ska publiceras (L21), enligt tidigare beslut.
+- Under arbetet tappade `deploy.sh` sin körbarhetsbit när jag provade testet; den är återställd (`git diff --summary` visar inga lägesändringar).
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L15 (etapp 1–4).
+Rekommenderad nästa uppgift: L16 – Spelarklockor och gemensamma bekräftelser.
+Commit: ingen.
+
+
+### Rättning av granskningsfynd L10–L15 – 2026-10-14
+
+Uppgift: rätta de sex bristerna från granskningen av L10–L15.
+Status: rättat och verifierat i arbetskatalogen. Varje brist fick först ett test som visade felet.
+
+- L10: `confirmSwap` kräver en lista (en utelämnad lista är fortfarande "behåll handen"); `null`, text, tal och objekt avvisas i stället för att tolkas som ett tomt byte.
+- L10: `validateTeamDeck` kräver 4, 6 eller 8 deltagare även när egna antal kopior anges. Tidigare gav ett ogiltigt antal (t.ex. `undefined`) en jämförelse mot `NaN` som alltid släppte igenom leken.
+- L12: handlingar slås upp med `Object.hasOwn`, så `toString`, `constructor`, `__proto__` med flera avvisas som okända. Före rättelsen godkändes de och höjde revisionen. Samma rättelse i duellmotorn `match.js`, som hade samma uppslagning; regeln påverkas inte.
+- L14: påfyllningshändelsen läses ur motorns redovisning (`lastRefill` i lagmatchen) i stället för ur skillnaden i handstorlek. Den som spelar sitt sista kort och får fem nya i samma steg får nu "5", inte "4". Duellen berördes inte: där fylls handen vid Fortsätt, när den redan är tom.
+- L15: valda mål (måltavla, kortmål, spelarmål) prövas mot varje ny vy och innan draget skickas. Ett mål som servern inte längre erbjuder släpps, och finns bara ett giltigt mål väljs det.
+- L15: förhandsvisning enligt huvudplanen ("Under kortval används samma styrkeberäkning som förhandsvisning"). Vyn får `battle.preview` från samma beräkning som avgörandet, utan livsändringar. Bordet visar lagens summor och avdrag (Isrustning, Sprängladdning), och per kort bonus, stopp och spegling. Fastexten och knappraden säger "Just nu: attack X mot försvar Y – försvaret håller/anfallet går igenom om inget mer läggs". Resultatrutan visar samma uppgifter i efterhand.
+
+Ändrade filer: `lagkortlek.js`, `lagregler.js`, `lagmatch.js`, `match.js`, `lagvy.js`, `lagmatchvy.js`, `lagmatch.html`, `lagmatch.css`, `KONTRAKT.md`. Nya tester: ett per brist i `lagkortlek.test.js`, `lagregler.test.js`, `lagmatch.test.js` och `match.test.js`, samt ny `lagvy.test.js` (påfyllningshändelsen och förhandsvisningen). `scripts/prova-lag.mjs` har ett nytt riktat webbläsarprov och tålig mobilmätning, och första anfallet i varje match görs med enkel attack.
+
+Verifiering:
+- `npm test`: **238/238**, tre körningar i rad. De sex nya testerna fallerade före rättelserna.
+- Webbläsarprov i molnmiljön (Chromium, varannan deltagare emulerad iPhone 13): `prova-lag.mjs` 4 spelare **15/15**, 6 spelare **18/18**, 8 spelare **18/18**.
+- Det riktade provet:
+  1. Försvararen väljer Spegelsköld, och målet Drakeld väljs automatiskt.
+  2. Drakelds ägare lämnar.
+  3. Försvaret godkänns utan mål, och summorna 5 → 1 och försvar 1 visas medan striden pågår.
+- Samma prov mot lagvyn från före rättelsen återskapade felet: draget avvisades med "Det finns inget magiskt attackkort att spegla.", och förhandsvisningen saknades.
+- Duellen: `prova-match.mjs` 13/13, `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5.
+
+Provskriptet hade två egna kapplöpningar: mobilmätningen när vyn ritades om, och en läsning av serverns läge innan draget sparats. Båda är rättade. En kontroll som summerade enkla attacker över alla storlekar fallerade när 4 spelare kördes ensam; den är nu deterministisk.
+
+Ingen commit, push eller publicering ingick. L16 är fortsatt nästa planerade implementation.

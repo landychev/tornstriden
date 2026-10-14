@@ -264,3 +264,12 @@ test('Internt fel ger fasen FEL utan delvisa ändringar', () => {
   assert.match(reply.match.error, /Kortbokföringen/);
   assert.equal(process(reply.match, { matchId: m.id, revision: reply.match.revision, type: ACTION.next }).status, STATUS.rejected);
 });
+
+test('Namn från objektets prototyp är inga handlingar i duellen heller', () => {
+  const m = newMatch({ matchId: 'proto', random: firstA });
+  for (const type of ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf']) {
+    const reply = process(m, { matchId: m.id, revision: m.revision, type, playerId: 'A' });
+    assert.equal(reply.status, STATUS.rejected, type);
+    assert.equal(reply.match, m);
+  }
+});

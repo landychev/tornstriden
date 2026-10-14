@@ -1,0 +1,119 @@
+/* Lagvyn (arbetsordning L15). Bygger på match.css: handen, knappraden (.swap-bar), kortrutan och
+   dialogerna är desamma som i duellen. Här finns lagbordet: fiendelagets torn överst, stridsplatsen
+   med anfalls- och försvarskön i mitten och det egna laget nederst, närmast den egna handen.
+   Färg kompletteras alltid med text (måltavla, på tur, utslagen, frånkopplad). */
+
+/* Sidan får växa hellre än att handen trycks ihop när åtta torn ska visas. */
+.compact-match.team-match .game-view { height: auto; min-height: calc(100svh - 64px); }
+.compact-match.team-match .hand { flex: 1 0 210px; }
+
+/* ---- Lagbordet ---- */
+.team-board { position: relative; flex: none; display: grid; gap: 6px; padding: 8px 14px 10px; color: #ede9d9; background: radial-gradient(ellipse at 50% 43%, #3b5544 0%, #294139 56%, #223830 100%); border: 1px solid #456052; border-radius: 18px; box-shadow: 0 10px 28px #17291b15; }
+.team-board::before { content: ''; position: absolute; inset: 6px; border: 1px solid #c8bc7e24; border-radius: 13px; pointer-events: none; }
+.team-board > * { position: relative; }
+.team-board .eyebrow { color: #a8bda9; }
+.team-row { display: flex; align-items: center; gap: 6px 12px; }
+.team-name { flex: 0 0 132px; margin: 0; font: 600 11px/1.3 system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #bdbb97; }
+.towers { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.towers > li { display: flex; min-width: 0; }
+
+.tower-chip { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 3px 10px 3px 4px; border: 1px solid #70816b80; border-radius: 10px; background: #10251e45; color: inherit; font: inherit; text-align: left; }
+.tower-chip img { flex: none; width: 30px; height: 34px; object-fit: contain; }
+.tower-chip .chip-text { min-width: 0; display: grid; gap: 1px; }
+.tower-chip strong { font: 600 14px/1.15 Georgia, serif; overflow-wrap: anywhere; }
+.tower-chip strong em { font: 400 11px system-ui, sans-serif; color: #e3ce94; }
+.tower-chip small { font-size: 10.5px; line-height: 1.25; color: #c8d2c0; }
+.tower-chip .hearts { gap: 2px; }
+.tower-chip .hearts span { width: 12px; height: 12px; }
+.tower-chip.me { border-color: #e3ce94; background: #e3ce9418; }
+.tower-chip.active { box-shadow: 0 0 0 2px #e9b95e; }
+.tower-chip.active small { color: #ffe5b2; }
+.tower-chip.target { border-color: #ef9c87; background: #6b2c2240; box-shadow: 0 0 0 2px #ef9c8780; }
+.tower-chip.offline small { color: #f0b9a6; }
+.tower-chip.out { opacity: .55; filter: grayscale(.9); }
+.tower-chip.out img { transform: rotate(-6deg) translateY(3px); }
+button.tower-chip { cursor: pointer; }
+button.tower-chip.selectable { border-style: dashed; border-color: #e0d7b5; }
+button.tower-chip.selectable:hover, button.tower-chip.selectable:focus-visible { background: #e0d7b522; }
+button.tower-chip[aria-pressed='true'] { border-style: solid; border-color: #ef9c87; background: #6b2c2266; }
+
+/* ---- Stridsplatsen ---- */
+.battlefield { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 2.2fr); gap: 8px 18px; align-items: start; padding: 8px 0; border-top: 1px solid #bcbb992e; border-bottom: 1px solid #bcbb992e; }
+.battlefield .battle-copy h2 { margin: 2px 0 3px; font: 20px/1.2 Georgia, serif; }
+.battlefield .battle-copy p { margin: 0; font-size: 12px; line-height: 1.4; color: #c8d2c0; }
+.contributions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+.team-board.no-battle .contributions { display: none; }
+.side { min-width: 0; }
+.side h3 { margin: 0 0 4px; font: 600 10px/1.3 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #a8bda9; }
+.side-total { margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: #e0d7b5; color: #263c30; font-size: 11px; letter-spacing: 0; }
+.side-total:empty, .side-deduction:empty { display: none; }
+.side-deduction { margin-left: 6px; color: #f0b9a6; font-size: 10.5px; letter-spacing: 0; text-transform: none; }
+.played { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.queue-item { width: 84px; display: grid; gap: 3px; align-content: start; font-size: 10.5px; line-height: 1.25; }
+.queue-item.now .queue-name { color: #ffe5b2; }
+.queue-name { font-weight: 600; overflow-wrap: anywhere; }
+.queue-state { min-height: 62px; display: grid; place-items: center; padding: 4px; border: 1px dashed #9baf9170; border-radius: 7px; color: #afbea5; text-align: center; }
+.queue-state.now { border: 1px solid #e9b95e; color: #ffe5b2; background: #e9b95e18; }
+.queue-state.passed { font-style: italic; }
+.queue-item .mini-card { min-height: 0; padding: 2px; }
+.queue-item .mini-card .card-art { height: 46px; aspect-ratio: auto; }
+.queue-item .mini-card .mini-name { min-height: 0; padding: 2px 0; font-size: 11px; border: 0; }
+.queue-item .mini-card .mini-kind, .queue-item .mini-card .mini-label { display: none; }
+.queue-item .mini-card .mini-value { top: 3px; left: 3px; min-width: 20px; padding: 2px 3px; font-size: 13px; }
+.queue-item .mini-card.stopped { opacity: .55; filter: saturate(.3); }
+.queue-note { color: #f0c9a6; overflow-wrap: anywhere; }
+.queue-note.stopped-note { color: #f0b9a6; font-weight: 600; }
+.played .empty-note { color: #afbea5; font-size: 11px; font-style: italic; }
+
+/* ---- Knappraden ovanför handen: mål att välja och tydligt avstående ---- */
+.action-bar { margin: 0 0 4px; }
+.action-bar .selection-info { flex: 1 1 280px; }
+.action-bar .selection-info .invalid { color: var(--invalid); }
+.choices { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; order: 2; }
+.choices[hidden] { display: none; }
+.choice { min-height: 44px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--paper); color: var(--ink); font: 600 13px/1.2 system-ui, sans-serif; text-align: left; cursor: pointer; }
+.choice small { display: block; font-weight: 400; color: var(--muted); }
+.choice[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); }
+.choice[aria-pressed='true'] small { color: inherit; }
+.action-bar .usage { order: 3; flex-basis: 100%; display: flex; gap: 6px; }
+.action-bar .usage[hidden] { display: none; }
+.action-bar .usage button { min-height: 40px; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--paper); color: var(--ink); font-size: 12px; }
+.action-bar .usage button[aria-pressed='true'] { background: var(--accent); color: var(--accent-ink); }
+.action-bar .actions { order: 4; }
+
+/* Resultatrutan: vem lade vad, livsändringar och personliga rader skilda från lagets resultat */
+.result .team-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; font-size: 13px; }
+.result .team-cards h4 { margin: 0 0 4px; font: 600 11px/1.3 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.result .team-cards ul { margin: 0; padding-left: 18px; }
+.result .life-lines { margin: 8px 0; }
+.result .personal { padding: 8px 12px; border-left: 3px solid var(--invalid); background: var(--wash-result); }
+.result details { margin-top: 8px; font-size: 12px; color: var(--muted); }
+
+@media (max-width: 1000px) {
+  .compact-match.team-match nav button { padding: 7px 9px; }
+}
+@media (max-width: 680px) {
+  .compact-match.team-match .game-view { min-height: calc(100svh - 52px); }
+  .compact-match.team-match .hand { flex-basis: 190px; }
+  .team-board { padding: 6px 8px 8px; gap: 4px; border-radius: 12px; }
+  .team-row { flex-wrap: wrap; gap: 3px 6px; }
+  .team-name { flex-basis: 100%; font-size: 9.5px; }
+  .towers { gap: 4px; }
+  .towers > li { flex: 1 1 calc(50% - 4px); }
+  .tower-chip { flex: 1; min-height: 40px; gap: 5px; padding: 3px 6px 3px 3px; }
+  .tower-chip img { width: 20px; height: 24px; }
+  .tower-chip strong { font-size: 12.5px; }
+  .tower-chip small { font-size: 9.5px; }
+  .tower-chip .hearts span { width: 10px; height: 10px; }
+  .battlefield { grid-template-columns: 1fr; gap: 5px; padding: 5px 0; }
+  .battlefield .battle-copy .eyebrow { display: none; }
+  .battlefield .battle-copy h2 { font-size: 16px; }
+  .battlefield .battle-copy p { font-size: 11px; }
+  .contributions { gap: 6px; }
+  .queue-item { width: 62px; font-size: 9.5px; }
+  .queue-state { min-height: 44px; }
+  .queue-item .mini-card .card-art { height: 30px; }
+  .queue-item .mini-card .mini-name { font-size: 10px; }
+  .result .team-cards { grid-template-columns: 1fr; }
+  .choice { flex: 1 1 calc(50% - 6px); }
+}

@@ -106,7 +106,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
 
   return {
     mode: ADAPTER_MODE.online,
-    viewer: () => view.mySeat,
+    viewer: () => view.mySeat ?? view.viewer,   // duellen: plats A/B; lagmatchen: eget spelar-ID
     view: current,
     send,
     status: getStatus,
