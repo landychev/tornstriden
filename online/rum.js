@@ -375,6 +375,8 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
     skapa, bjudIn, acceptera, avboj, aterkalla, lamna, valjLag, redo, starta, startkontroll, registreraMotor, markeraMatchAvslutad, markeraAnslutning, vyFor, stada, aterstall, registrera,
     markeraUtgangna: () => lagring.transaktion(markeraUtgangna),
     pa: fn => { vidAndring = fn; },
-    timers: () => timers.size
+    timers: () => timers.size,
+    /* Avstängning: inga rumstimers (inbjudningar, frånkopplade) får hålla processen vid liv. */
+    stang() { for (const id of timers.values()) klocka.clearTimeout(id); timers.clear(); }
   };
 }

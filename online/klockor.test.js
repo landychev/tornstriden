@@ -69,7 +69,7 @@ async function spelaTill(w, ids, mal) {
 
 test('Klockornas regler: samma val behåller sin deadline, ett nytt val får 90 s och exakt på deadline är för sent', () => {
   const k1 = uppdateraKlockor({}, { a: 'byte:1', b: 'byte:1' }, 100);
-  assert.deepEqual(k1, { a: { nyckel: 'byte:1', start: 100, deadline: 100 + TURTID_MS }, b: { nyckel: 'byte:1', start: 100, deadline: 100 + TURTID_MS } });
+  assert.deepEqual(k1, { a: { nyckel: 'byte:1', start: 100, fran: 100, deadline: 100 + TURTID_MS }, b: { nyckel: 'byte:1', start: 100, fran: 100, deadline: 100 + TURTID_MS } });
   const k2 = uppdateraKlockor(k1, { b: 'byte:1', c: 'mål:1' }, 5000);
   assert.equal(k2.b, k1.b, 'oförändrat val: samma klocka');
   assert.equal(k2.c.deadline, 5000 + TURTID_MS);
@@ -282,7 +282,7 @@ test('Timern stoppas i stället för att snurra när en utgången klocka inte f�
   const klockor = { x: { nyckel: 'k', start: T0, deadline: T0 + 10 } };
   const fel = [];
   let forsok = 0;
-  const t = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => { forsok++; throw new Error('motorfel'); }, klockorFor: () => klockor, logg: { info() {}, warn() {}, error: m => fel.push(m) } });
+  const t = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => { forsok++; throw new Error('motorfel'); }, post: () => ({ klockor }), logg: { info() {}, warn() {}, error: m => fel.push(m) } });
   t.planera('m1');
   assert.equal(t.timers(), 1);
   klocka.advance(10);
@@ -292,7 +292,7 @@ test('Timern stoppas i stället för att snurra när en utgången klocka inte f�
   assert.equal(klocka.pending(), 0, 'ingen timer med 0 ms');
   assert.match(fel[0], /motorfel/);
   /* Ett nytt godkänt kommando planerar igen; samma utgångna klocka utan ändring stoppar också. */
-  const lugn = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => false, klockorFor: () => klockor, logg: { info() {}, warn() {}, error() {} } });
+  const lugn = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => false, post: () => ({ klockor }), logg: { info() {}, warn() {}, error() {} } });
   lugn.planera('m1');
   klocka.advance(1);
   await lugn.klart();
@@ -303,7 +303,7 @@ test('Timern stoppas i stället för att snurra när en utgången klocka inte f�
   const sparr = new Promise(r => { slapp = r; });
   ko.kor('match:m2', () => sparr);
   const k2 = { y: { nyckel: 'k', start: T0, deadline: klocka.now() + 5 } };
-  const sen = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => false, klockorFor: () => ({ ...k2, y: { ...k2.y, deadline: klocka.now() + 1000 } }), logg: { info() {}, warn() {}, error() {} } });
+  const sen = skapaTurklockor({ lagring: { transaktion: fn => fn({}) }, klocka, ko, slump: Math.random, tidsgrans: () => false, post: () => ({ klockor: { ...k2, y: { ...k2.y, deadline: klocka.now() + 1000 } } }), logg: { info() {}, warn() {}, error() {} } });
   sen.planera('m2');
   klocka.advance(5);   // kontrollen köas bakom spärren
   sen.stang();

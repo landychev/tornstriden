@@ -90,12 +90,19 @@ function oppnaStrom() {
     if (state.vy.me.activity === ACTIVITY.playing) tillMatchen();
   });
   strom.addEventListener('match', tillMatchen);
+  /* Livstecken (L17): svara på serverns ping, annars räknas anslutningen som avbruten efter 15 sekunder. */
+  strom.addEventListener('ping', event => { fetch('/api/livstecken', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: event.data }).catch(() => {}); });
   strom.addEventListener('ersatt', () => {
     strom.close();
     sattAnslutning('ersatt', 'Öppen i en annan flik');
     $('replaced').showModal();
   });
-  strom.onerror = () => { if (state.anslutning !== 'ersatt') sattAnslutning('ateransluter', 'Återansluter …'); };
+  strom.onerror = () => {
+    if (state.strom !== strom || state.anslutning === 'ersatt') return;
+    sattAnslutning('ateransluter', 'Återansluter …');
+    /* Webbläsaren ger upp för gott om svaret inte är en ström (t.ex. 502 från proxyn): försök igen själv. */
+    if (strom.readyState === EventSource.CLOSED) setTimeout(() => { if (state.strom === strom) oppnaStrom(); }, 3000);
+  };
 }
 
 /* Matchen har startat: matchsidan tar över (den öppnar en egen ström). */

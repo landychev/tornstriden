@@ -10,7 +10,18 @@
    Miljövariabler: PORT (8766), HOST (127.0.0.1), TORNSTRIDEN_DATA_DIR (../tornstriden-data, utanför
    webbrot och Git), TORNSTRIDEN_STATIC=0 stänger av statiska filer, TORNSTRIDEN_SECURE=1 tvingar
    Secure-kakor, TORNSTRIDEN_ORIGINS=https://tornstriden.landychev.se,... tillåtna ursprung,
-   TORNSTRIDEN_LAGSPEL=0 stänger lagformaten 4/6/8 i lobbyn (öppna sedan lagvyn finns, L15). */
+   TORNSTRIDEN_LAGSPEL=0 stänger lagformaten 4/6/8 i lobbyn (öppna sedan lagvyn finns, L15).
+
+   Livstecken (L17): strömmen skickar `ping {n}` var PING_MS; klienten svarar med POST /api/livstecken {n}.
+   Har ingen ping besvarats på TYST_MS (räknat från när den senast besvarade pingen skickades) räknas det som ett
+   avbrott, precis som en stängd anslutning: strömmen stängs och spelaren markeras frånkopplad för just den
+   anslutningsgenerationen. En stängd ström får OMLADDNING_MS nåd innan avbrottet registreras i matchen – en
+   omladdning eller ett sidbyte (lobbyn → matchsidan) blir då inget avbrott alls – men fristen räknas ändå från
+   stängningen. En ny ström är en återkomst. Varken flikbyte eller omladdning skickar Ge upp.
+
+   Omstart (L18, beslut 27B): innan servern lyssnar avbryts matcher som var pågående i förra körningen, utan
+   vinnare (SERVERAVBROTT), och deltagarna kan gå till lobbyn. Misslyckas det (t.ex. lagringsfel) startar
+   servern inte alls – den låtsas aldrig ha sparat avbrotten och tar inte emot några drag. */
 import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -23,26 +34,36 @@ import { skapaMatcher } from './matcher.js';
 import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession } from '../kontrakt.js';
 
 export const TJANST = 'tornstriden-online';
-export const PULS_MS = 25_000;   // SSE-hjärtslag så att proxyn inte stänger tysta anslutningar
+export const PING_MS = 5_000;    // ping i strömmen; håller också proxyn från att stänga tysta anslutningar
+export const TYST_MS = 15_000;   // utan livstecken så här länge räknas anslutningen som avbruten (huvudplan §10)
+export const OMLADDNING_MS = 3_000;   // nåd för en stängd ström innan matchen ser ett avbrott (omladdning, sidbyte)
 export const STADNING_MS = 60_000;   // periodisk städning av rum, inbjudningar och sessioner
 export const KAKA = 'tornstriden_session';
 
 export function standardDataDir() { return resolve(ROOT, '..', 'tornstriden-data'); }
 
-export function startaServer({ port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), lagspel = process.env.TORNSTRIDEN_LAGSPEL !== '0', klocka = systemklocka, slump = Math.random, logg = console } = {}) {
+export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), lagspel = process.env.TORNSTRIDEN_LAGSPEL !== '0', klocka = systemklocka, slump = Math.random, logg = console } = {}) {
   const dbPath = dataDir === ':memory:' ? dataDir : join(resolve(dataDir), 'tornstriden.sqlite');
   if (dbPath !== ':memory:' && resolve(dbPath).startsWith(ROOT)) throw new Error(`Databasen får inte ligga i webbroten: ${dbPath}`);
-  const lagring = oppnaLagring({ path: dbPath, klocka });
+  const lagring = lagringsfabrik({ path: dbPath, klocka });
   const tjanst = skapaTjanst({ lagring, klocka, slump, logg });
   const sessioner = skapaSessioner({ lagring, klocka });
   sessioner.registrera(tjanst);
-  sessioner.markeraAllaFrankopplade();
   const rum = skapaRumshantering({ lagring, klocka, ko: tjanst.ko, logg });
   rum.registrera(tjanst);
-  rum.aterstall();
   const matcher = skapaMatcher({ lagring, klocka, rum, lagspel });
   matcher.registrera(tjanst);   // duell för 2 deltagare, lagmatch för 4/6/8 (L14)
-  const strommar = new Set();   // { res, puls, playerId, generation, lastEventId }
+  /* Uppstart efter omstart (27B): alla frånkopplade, rummens timers tillbaka och gamla pågående matcher
+     avbrutna utan vinnare. Körs först när porten är tagen (se `klar`), så att en andra instans på samma
+     port aldrig rör en körande servers matcher. */
+  let omstart = null;
+  function forbered() {
+    sessioner.markeraAllaFrankopplade();
+    rum.aterstall();
+    omstart = matcher.avbrytEfterOmstart();
+    if (omstart.avbrutna) logg.warn(`[server] servern startades om: ${omstart.avbrutna} pågående match(er) avbröts utan vinnare (SERVERAVBROTT).`);
+  }
+  const strommar = new Set();   // { res, puls, playerId, generation, lastEventId, senast }
 
   const json = (res, status, body, headers = {}) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
   const halsa = () => ({ tjanst: TJANST, protocolVersion: PROTOCOL_VERSION, schemaversion: lagring.schemaversion, matchtrafik: { oppen: tjanst.matchtrafik.oppen, orsak: tjanst.matchtrafik.orsak }, tid: klocka.now() });
@@ -98,7 +119,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
   }
   const sandAlla = () => { sandLobby(); sandMatch(); };
   rum.pa(sandAlla);
-  matcher.pa(sandAlla);   // en tidsgräns (L16) ändrar matchen utan något kommando
+  matcher.pa(sandAlla);   // tidsgräns, avbrott och återkomst ändrar matchen utan något kommando
   let stadning = klocka.setTimeout(function stada() {
     try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda || r.raderade) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
@@ -109,7 +130,28 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     if (!strom.res.writableEnded) strom.res.end();
   }
 
+  /* Strömmen är borta (stängd av klienten eller tyst för länge): frånkopplad för just den generationen.
+     En gammal ström som redan ersatts av en ny flik eller återanslutning gör ingenting. */
+  const nadTimers = new Set();
+  function tappa(strom, { tyst = false } = {}) {
+    const varAktiv = strommar.has(strom);
+    const tid = klocka.now();   // avbrottets början: fristen räknas härifrån även efter nåden
+    stangStrom(strom);
+    if (!varAktiv || !sessioner.kopplaFran(strom.playerId, strom.generation)) return;
+    rum.markeraAnslutning(strom.playerId, CONNECTION.offline);
+    sandLobby();
+    const { playerId, generation } = strom;
+    if (tyst) { matcher.frankopplad(playerId, generation, tid); return; }   // redan 15 s utan svar
+    /* Nåd: en omladdning blir inget avbrott. Men går spelarens turklocka ut under nåden registreras avbrottet
+       direkt (räknat från stängningen), så att den kvarvarande turtiden skyddas. Kommer en ny ström inom nåden
+       har generationen bytts och det senare avbrottet ignoreras i matchkön. */
+    matcher.frankopplad(playerId, generation, tid, { nad: OMLADDNING_MS });
+    const id = klocka.setTimeout(() => { nadTimers.delete(id); matcher.frankopplad(playerId, generation, tid); }, OMLADDNING_MS);
+    nadTimers.add(id);
+  }
+
   function oppnaStrom(req, res, session) {
+    const tid = klocka.now();   // återkomstens mottagningstid (avgör mot fristen, inte när kön hinner fram)
     /* En styrande anslutning per session: en extra flik tar över och den gamla får besked. */
     for (const gammal of [...strommar].filter(s => s.playerId === session.playerId)) {
       skicka(gammal, 'ersatt', { message: 'Spelet är öppet i en annan flik.' });
@@ -117,20 +159,26 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     }
     const generation = sessioner.anslut(session.playerId);
     rum.markeraAnslutning(session.playerId, CONNECTION.online);
+    matcher.ansluten(session.playerId, generation, tid);
     res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
     res.write(`retry: 3000\nevent: halsa\ndata: ${JSON.stringify(halsa())}\n\n`);
-    const strom = { res, puls: null, playerId: session.playerId, generation, lastEventId: 0, matchId: null };
-    const slaPuls = () => { if (res.writableEnded) return; res.write(': puls\n\n'); strom.puls = klocka.setTimeout(slaPuls, PULS_MS); };
-    strom.puls = klocka.setTimeout(slaPuls, PULS_MS);
+    const strom = { res, puls: null, playerId: session.playerId, generation, lastEventId: 0, matchId: null, senast: tid, ping: 0, pingTid: new Map() };
+    /* Ping var PING_MS; har ingen ping besvarats på TYST_MS är anslutningen avbruten. */
+    const pinga = () => {
+      if (res.writableEnded) return;
+      if (klocka.now() - strom.senast >= TYST_MS) { tappa(strom, { tyst: true }); return; }
+      strom.ping += 1;
+      strom.pingTid.set(strom.ping, klocka.now());
+      if (strom.pingTid.size > 8) strom.pingTid.delete(strom.ping - 8);
+      skicka(strom, 'ping', { n: strom.ping });
+      strom.puls = klocka.setTimeout(pinga, PING_MS);
+    };
+    strom.puls = klocka.setTimeout(pinga, PING_MS);
     strommar.add(strom);
     sandLobby();   // även den nya strömmen får sin första lobbyvy här
     const m = matcher.matchFor(session.playerId);
     if (m) { strom.matchId = m.view.matchId; strom.lastEventId = m.view.lastEventId; skicka(strom, 'match', { view: m.view, events: [], status: m.status }); }
-    req.on('close', () => {
-      const varAktiv = strommar.has(strom);
-      stangStrom(strom);
-      if (varAktiv && sessioner.kopplaFran(session.playerId, generation)) { rum.markeraAnslutning(session.playerId, CONNECTION.offline); sandLobby(); }
-    });
+    req.on('close', () => tappa(strom));
   }
 
   /* ---- Routing ---- */
@@ -169,6 +217,14 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
     const kravSession = () => { if (!session) throw new SessionsFel(401, 'Ingen session. Välj ett nick först.'); return session; };
     if (pathname === '/api/lobby' && req.method === 'GET') return json(res, 200, lobbyvy(kravSession()));
     if (pathname === '/api/handelser' && req.method === 'GET') return oppnaStrom(req, res, kravSession());
+    if (pathname === '/api/livstecken' && req.method === 'POST') {
+      const { playerId } = kravSession();
+      const n = Number((await lasKropp(req).catch(() => '')).match(/"n":\s*(\d+)/)?.[1]);
+      /* Svaret på ping n bevisar att anslutningen levde när ping n skickades; utan n räknas nu. */
+      for (const strom of strommar) if (strom.playerId === playerId) strom.senast = Math.max(strom.senast, strom.pingTid.get(n) ?? (Number.isInteger(n) ? strom.senast : klocka.now()));
+      res.writeHead(204, { 'cache-control': 'no-store' });
+      return res.end();
+    }
     if (pathname === '/api/kommando' && req.method === 'POST') {
       const { playerId } = kravSession();
       const receipt = await tjanst.kommando(playerId, await lasJson(req));
@@ -198,25 +254,44 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
       if (!res.headersSent) json(res, 500, { message: 'Internt fel.' }); else res.end();
     });
   });
+  /* `listening` kommer före varje anslutning och förberedelsen är synkron: ingen begäran hanteras innan
+     avbrotten är sparade. Är porten upptagen eller misslyckas förberedelsen startar servern inte. */
+  let startad = false;
+  const klar = new Promise((resolveStart, rejectStart) => {
+    const avbryt = error => {
+      klocka.clearTimeout(stadning);
+      rum.stang();
+      server.close();
+      try { lagring.stang(); } catch { /* lagringen kan redan vara trasig */ }
+      rejectStart(error);
+    };
+    server.on('error', error => { if (!startad) avbryt(error); else logg.error(`[server] ${error.message}`); });
+    server.once('listening', () => {
+      try { forbered(); } catch (error) { return avbryt(new Error(`Uppstädningen efter omstart misslyckades – servern startar inte: ${error.message}`, { cause: error })); }
+      startad = true;
+      resolveStart();
+    });
+  });
   server.listen(port, host);
-  const klar = new Promise((resolveStart, rejectStart) => { server.once('listening', resolveStart); server.once('error', rejectStart); });
 
   async function stang() {
     klocka.clearTimeout(stadning);
+    for (const id of nadTimers) klocka.clearTimeout(id);
+    rum.stang();
     await matcher.stang();
     for (const strom of [...strommar]) stangStrom(strom);
     await new Promise(resolveClose => server.close(resolveClose));
     lagring.stang();
   }
 
-  return { server, tjanst, lagring, sessioner, rum, matcher, duell: matcher.duell, klar, stang, strommar, port: () => server.address()?.port, dbPath };
+  return { server, tjanst, lagring, sessioner, rum, matcher, duell: matcher.duell, klar, stang, strommar, port: () => server.address()?.port, dbPath, get omstart() { return omstart; } };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const app = startaServer();
+  let app;
+  try { app = startaServer(); } catch (error) { console.error(`Kunde inte starta: ${error.message}`); process.exit(1); }
   app.klar.then(() => {
     console.log(`Tornstriden online: http://127.0.0.1:${app.port()}/  (data i ${app.dbPath}, Ctrl+C avslutar)`);
-    if (!app.tjanst.matchtrafik.oppen) console.warn(`VARNING: ${app.tjanst.matchtrafik.orsak}`);
   }).catch(error => { console.error(`Kunde inte starta: ${error.message}`); process.exit(1); });
   const avsluta = () => app.stang().then(() => process.exit(0));
   process.on('SIGINT', avsluta);

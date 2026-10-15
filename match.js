@@ -9,7 +9,7 @@ import { rules, deck as lockedDeck, USAGE, buildDeck, battleCard, canAttack, can
 export const PHASE = Object.freeze({ swap: 'KORTBYTE', attack: 'ANFALL', defence: 'FÖRSVAR', result: 'RESULTAT', over: 'AVSLUTAD', error: 'FEL' });
 export const ACTION = Object.freeze({ swap: 'BEKRÄFTA_BYTE', attack: 'SPELA_ATTACK', defend: 'SPELA_FÖRSVAR', pass: 'AVSTÅ_FÖRSVAR', next: 'FORTSÄTT', surrender: 'GE_UPP' });
 export const STATUS = Object.freeze({ ok: 'GODKÄND', rejected: 'AVVISAD', error: 'INTERNT_FEL' });
-export const END = Object.freeze({ fallen: 'TORN_FALLET', surrendered: 'UPPGIVEN', timeout: 'TIDSGRÄNS', noWinner: 'INGEN_VINNARE' });
+export const END = Object.freeze({ fallen: 'TORN_FALLET', surrendered: 'UPPGIVEN', timeout: 'TIDSGRÄNS', disconnect: 'AVBROTT', noWinner: 'INGEN_VINNARE', serverAbort: 'SERVERAVBROTT' });
 export const PLAYERS = Object.freeze([{ id: 'A', name: 'Södra tornet' }, { id: 'B', name: 'Norra tornet' }]);
 
 /* Ett ogiltigt spelarval: matchen lämnas orörd. Alla andra fel är interna. */
@@ -329,8 +329,10 @@ export function process(match, action, random = Math.random) {
 /* Tidsgräns (arbetsordning L16, beslut 3A): den som inte gjort ett nödvändigt val inom 90 sekunder förlorar
    matchen. Går båda spelarnas tid ut i samma händelse vinner ingen – timerordningen får inte avgöra.
    Anropas bara av servern (onlineduellen), aldrig från en spelares kommando; samma kopia, kontroll och
-   revision som process(). */
-export function tidsgrans(match, playerIds) {
+   revision som process(). `orsaker { plats: END.timeout | END.disconnect }` (L17: återanslutningsfristen tog
+   slut) – standard är tidsgräns. */
+export function tidsgrans(match, playerIds, orsaker = {}) {
+  const orsak = id => orsaker[id] === END.disconnect ? END.disconnect : END.timeout;
   const rejected = message => ({ status: STATUS.rejected, match, message, events: [] });
   if (![PHASE.swap, PHASE.attack, PHASE.defence, PHASE.result].includes(match.phase)) return rejected('Matchen är redan avgjord.');
   const ids = [...new Set(playerIds)].filter(id => player(match, id));
@@ -344,10 +346,10 @@ export function tidsgrans(match, playerIds) {
     Object.assign(work, { battle: null, phase: PHASE.over, activePlayer: null });
     if (ids.length > 1) {
       Object.assign(work, { winner: null, endReason: END.noWinner });
-      events.push('Båda spelarnas tid för valet tog slut samtidigt. Ingen vinner matchen.');
+      events.push(ids.every(id => orsak(id) === END.timeout) ? 'Båda spelarnas tid för valet tog slut samtidigt. Ingen vinner matchen.' : 'Ingen av spelarna kunde fortsätta i tid. Ingen vinner matchen.');
     } else {
-      Object.assign(work, { winner: opponentOf(ids[0]), endReason: END.timeout });
-      events.push(`${player(work, ids[0]).name} hann inte välja i tid. ${player(work, work.winner).name} vinner matchen.`);
+      Object.assign(work, { winner: opponentOf(ids[0]), endReason: orsak(ids[0]) });
+      events.push(`${player(work, ids[0]).name} ${orsak(ids[0]) === END.disconnect ? 'kom inte tillbaka i tid' : 'hann inte välja i tid'}. ${player(work, work.winner).name} vinner matchen.`);
     }
     audit(work);
   } catch (error) {
@@ -362,6 +364,24 @@ export function tidsgrans(match, playerIds) {
 }
 
 /* ---- Spelarvy: det en spelare (eller datorn) får se ---- */
+/* Serveromstart (27B): matchen avslutas utan vinnare. Korten på bordet och de undanlagda går till
+   slänghögen, som vid Ge upp och tidsgräns; liv och händer rörs inte. Är kortbokföringen redan trasig
+   lämnas korten där de låg – matchen ska avslutas ändå, och uppstarten får inte stoppas av en match. */
+export function serveravbrott(match, text) {
+  let work = structuredClone(match);
+  try {
+    discardFromBattle(work, 'attackInstance');
+    discardFromBattle(work, 'defenceInstance');
+    moveAll(work.setAside, work.discardPile);
+    work.battle = null;
+  } catch {
+    work = structuredClone(match);
+  }
+  Object.assign(work, { phase: PHASE.over, activePlayer: null, winner: null, endReason: END.serverAbort, revision: match.revision + 1 });
+  work.log.push(text);
+  return work;
+}
+
 export function playerView(match, playerId) {
   const me = player(match, playerId);
   const other = player(match, opponentOf(playerId));

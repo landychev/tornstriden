@@ -21,12 +21,10 @@ export function skapaTjanst({ lagring, klocka = systemklocka, slump = Math.rando
   const ko = skapaKo();
   const isMatchCommand = type => Object.values(MATCH_COMMAND).includes(type);
 
-  /* Startspärr till L18: gamla pågående matcher får inte återupptas och får inte heller få nya drag. */
-  const gamla = lagring.pagaendeMatcher();
-  const matchtrafik = gamla.length
-    ? { oppen: false, orsak: `Servern startades om med ${gamla.length} pågående match(er). Matchtrafik är stängd tills avbrottshanteringen (L18) finns.`, matcher: gamla }
-    : { oppen: true, orsak: null, matcher: [] };
-  if (!matchtrafik.oppen) logg.warn(`[tjanst] ${matchtrafik.orsak}`);
+  /* Matchtrafiken är öppen. Startspärren från L02 är borttagen (L18): servern avbryter gamla pågående matcher
+     innan den öppnar (matcher.avbrytEfterOmstart), och öppnar inte alls om det misslyckas. Spärren finns kvar
+     som en strömbrytare (t.ex. för underhåll); den stänger matchkommandon och nya starter, inte lobbyn. */
+  const matchtrafik = { oppen: true, orsak: null };
 
   const scopeOf = (playerId, command) => command.matchId ? `match:${command.matchId}` : command.roomId ? `rum:${command.roomId}` : `spelare:${playerId}`;
   const kvittens = (commandId, status, message, extra = {}) => validateReceipt({ commandId, status, message, revision: null, roomRevision: null, eventId: null, fingerprint: null, ...extra });

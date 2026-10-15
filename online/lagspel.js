@@ -18,12 +18,17 @@
    Spelarklockor (L16, klockor.js): den som har ett val enligt motorns allowedActions har en klocka. Ett
    kommando som tas emot på eller efter spelarens deadline avvisas; när timern går ut slås alla vars tid
    gått ut ut tillsammans med slaUt (orsak TIDSGRÄNS). Slutar matchen utan levande lag blir den AVBRUTEN
-   utan vinnare (huvudplan §10). */
-import { newLagmatch, processLag, slaUt, allowedActions, LAG_FAS, LAG_HANDLING, UTSLAG, STATUS } from '../lagmatch.js';
+   utan vinnare (huvudplan §10).
+
+   Avbrott (L17, klockor.js): ett upptäckt avbrott hos en levande deltagare ger en frist; under den pausas bara
+   den spelarens turklocka och de andra spelar vidare tills hens val behövs. Återkomst i tid återupptar klockan;
+   slut på fristen ger utslagning (AVBROTT) i samma grupp som samtidiga tidsgränser. Händelserna AVBROTT och
+   ÅTERANSLUTEN är offentliga, så att alla ser vem som saknas och hur länge. */
+import { newLagmatch, processLag, slaUt, serveravbrott as serveravbrottMotor, allowedActions, LAG_FAS, LAG_HANDLING, LAG_SLUT, UTSLAG, STATUS } from '../lagmatch.js';
 import { isAlive } from '../lagkortlek.js';
-import { lagVy, lagHandelser, LAG_FORMAT } from '../lagvy.js';
+import { lagVy, lagHandelser, LAG_FORMAT, LAG_EVENT } from '../lagvy.js';
 import { ACTIVITY, CONNECTION, MATCH_STATUS, RECEIPT } from '../kontrakt.js';
-import { uppdateraKlockor, utgangna, forSent, TIDEN_UTE } from './klockor.js';
+import { uppdateraKlockor, forSent, registreraAvbrott, avslutaAvbrott, utgangnaMedOrsak, skaVanta, gaUtUnderNaden, stadaAvbrott, TIDEN_UTE, ANSLUTNINGSHANDELSE, fristSlut, FOR_SENT_TILLBAKA } from './klockor.js';
 
 export { LAG_FORMAT };
 const SAMLING = new Set([LAG_HANDLING.swap, LAG_HANDLING.confirmStart, LAG_HANDLING.next]);
@@ -77,10 +82,13 @@ export function skapaLagspel({ lagring, klocka, rum }) {
     const post = rad.match;
     const session = ops.hamtaSession(playerId);
     if (session?.matchId !== post.id || !post.engine.players.some(p => p.id === playerId)) return avvisa('Du deltar inte i den här matchen.');
-    /* Den vars tid gick ut strax före kommandot är redan utslagen (tidsgränsen behandlas före kommandot) och får veta varför. */
-    if (post.engine.players.find(p => p.id === playerId)?.eliminationReason === UTSLAG.timeout) return avvisa(TIDEN_UTE, post.engine.revision);
+    /* Den vars tid eller frist gick ut strax före kommandot är redan utslagen (det behandlas före kommandot) och får veta varför. */
+    const orsak = post.engine.players.find(p => p.id === playerId)?.eliminationReason;
+    if (orsak === UTSLAG.timeout) return avvisa(TIDEN_UTE, post.engine.revision);
+    if (orsak === UTSLAG.disconnect) return avvisa('Du kom inte tillbaka i tid och är utslagen.', post.engine.revision);
     if (rad.status !== MATCH_STATUS.active) return avvisa(rad.status === MATCH_STATUS.aborted ? 'Matchen avbröts. Gå till lobbyn.' : 'Matchen är avslutad. Gå till lobbyn.', post.engine.revision);
     if (forSent(post.klockor, playerId, mottagen)) return avvisa(TIDEN_UTE, post.engine.revision);
+    if (fristSlut(post, playerId, mottagen)) return avvisa(FOR_SENT_TILLBAKA, post.engine.revision);   // avgörandet kan vänta på andra, men platsen är förlorad
     const before = post.engine;
     const fel = revisionsfel(post, command);
     if (fel) return avvisa(fel, before.revision);
@@ -102,8 +110,9 @@ export function skapaLagspel({ lagring, klocka, rum }) {
     post.engine = after;
     post.revision = after.revision;
     post.lastEventId += events.length;
-    post.klockor = uppdateraKlockor(post.klockor, kravLag(after), now());
     const status = slutstatus(after);
+    stadaAvbrott(post, after.players.filter(isAlive).map(p => p.id), status !== MATCH_STATUS.active);
+    post.klockor = uppdateraKlockor(post.klockor, kravLag(after), now(), post.avbrott ?? {});
     ops.sparaMatch(post, status);
     ops.sparaHandelser(events);
     /* Nyss utslagna följer matchen utan val och kan gå till lobbyn. */
@@ -115,19 +124,75 @@ export function skapaLagspel({ lagring, klocka, rum }) {
     if (status !== MATCH_STATUS.active) rum.markeraMatchAvslutad(ops, post.roomId);
   }
 
-  /* Timern (klockor.js) i matchens kö: alla vars tid gått ut vid `tid` slås ut i samma händelse, så att
-     timerordningen aldrig avgör vinnaren. En sen eller dubbel timer hittar inget utgånget krav. */
-  function tidsgrans({ ops, matchId, now: tid, slump }) {
+  const aktivPost = (ops, matchId) => {
     const rad = ops.hamtaMatch(matchId);
-    if (!rad || rad.status !== MATCH_STATUS.active || rad.match.format !== LAG_FORMAT) return false;
-    const post = rad.match;
-    const ute = utgangna(post.klockor, tid).filter(id => isAlive(post.engine.players.find(p => p.id === id)));
-    if (!ute.length) return false;
-    const reply = slaUt(post.engine, ute, UTSLAG.timeout, slump);
+    return rad && rad.status === MATCH_STATUS.active && rad.match.format === LAG_FORMAT ? rad.match : null;
+  };
+  const levandeIds = post => post.engine.players.filter(isAlive).map(p => p.id);
+
+  /* Timern (klockor.js) i matchens kö: alla vars turklocka eller avbrottsfrist gått ut vid `tid` slås ut i samma
+     händelse, så att timerordningen aldrig avgör vinnaren. Är alla övriga levande frånkopplade väntar avgörandet
+     på deras frister (26B). En sen eller dubbel timer hittar inget utgånget. */
+  function tidsgrans({ ops, matchId, now: tid, slump }) {
+    const post = aktivPost(ops, matchId);
+    if (!post) return false;
+    const levande = levandeIds(post);
+    const ut = utgangnaMedOrsak(post, levande, tid, { tid: UTSLAG.timeout, avbrott: UTSLAG.disconnect });
+    if (!Object.keys(ut).length || skaVanta(post, levande, ut)) return false;
+    const reply = slaUt(post.engine, Object.keys(ut), ut, slump);
     if (reply.status === STATUS.rejected) return false;
     if (reply.status !== STATUS.ok) throw new Error(`Lagmotorfel vid tidsgräns: ${reply.message}`);
-    spara(ops, post, reply, { type: UTSLAG.timeout, playerId: null, players: ute });
+    spara(ops, post, reply, { type: 'TIDSGRÄNS', playerId: null, players: Object.keys(ut) });
     return true;
+  }
+
+  /* En händelse utan motorsteg (avbrott eller återkomst): revisionen är oförändrad, men vyn och händelserna ändras. */
+  function sparaAnslutning(ops, post, type, data) {
+    const event = { eventId: post.lastEventId + 1, matchId: post.id, revision: post.engine.revision, type, at: now(), data, recipient: null };
+    post.lastEventId += 1;
+    ops.sparaMatch(post, MATCH_STATUS.active);
+    ops.sparaHandelser([event]);
+  }
+
+  /* Upptäckt avbrott för anslutningen `generation` (i matchens kö). En gammal generation – spelaren har redan
+     anslutit igen – och utslagna ignoreras; samma avbrott ger ingen ny frist. */
+  function avbrott({ ops, matchId, playerId, generation, now: tid, nad = 0 }) {
+    const post = aktivPost(ops, matchId);
+    if (!post || !levandeIds(post).includes(playerId)) return false;
+    const session = ops.hamtaSession(playerId);
+    if (session?.matchId !== post.id || session.connectionGeneration !== generation || session.connection !== CONNECTION.offline) return false;
+    if (nad && !gaUtUnderNaden(post, playerId, tid, nad)) return false;   // nåden räcker: avbrottet registreras när den är slut
+    const a = registreraAvbrott(post, playerId, generation, tid);
+    if (!a) return false;
+    sparaAnslutning(ops, post, ANSLUTNINGSHANDELSE.disconnected, { playerId, deadline: a.deadline });
+    return true;
+  }
+
+  /* Återkomst med anslutningen `generation`, mottagen vid `tid`. För sent: inget ändras, fristkontrollen slår ut. */
+  function ateranslutning({ ops, matchId, playerId, generation, now: tid }) {
+    const post = aktivPost(ops, matchId);
+    if (!post || !levandeIds(post).includes(playerId)) return false;
+    if (ops.hamtaSession(playerId)?.connectionGeneration !== generation) return false;
+    if (avslutaAvbrott(post, playerId, tid) !== 'återansluten') return false;
+    sparaAnslutning(ops, post, ANSLUTNINGSHANDELSE.reconnected, { playerId });
+    return true;
+  }
+
+  /* Serveromstart (L18, 27B): matchen avbryts utan vinnare i samma transaktion som sluthändelsen. Ingen
+     utslagning, inga liv eller budgetavdrag; väntande val, klockor och avbrott avslutas, rummet stängs och
+     deltagarna kan gå till lobbyn. Anropas bara för en match som fortfarande är PÅGÅR. */
+  function serveravbrott({ ops, post }) {
+    const text = 'Servern startades om – matchen avbröts utan vinnare.';
+    const after = serveravbrottMotor(post.engine, text);
+    const at = now();
+    const events = [
+      { eventId: post.lastEventId + 1, matchId: post.id, revision: after.revision, type: LAG_EVENT.matchOver, at, data: { winnerTeam: null, endReason: LAG_SLUT.serverAbort }, recipient: null },
+      { eventId: post.lastEventId + 2, matchId: post.id, revision: after.revision, type: LAG_EVENT.log, at, data: { text }, recipient: null }
+    ];
+    Object.assign(post, { engine: after, revision: after.revision, klockor: {}, avbrott: {}, lastEventId: post.lastEventId + events.length });
+    ops.sparaMatch(post, MATCH_STATUS.aborted);
+    ops.sparaHandelser(events);
+    rum.markeraMatchAvslutad(ops, post.roomId);
   }
 
   /* Vy och händelser för en deltagare (sidladdning, återanslutning och utskick efter kommandon). */
@@ -137,12 +202,13 @@ export function skapaLagspel({ lagring, klocka, rum }) {
     const rad = lagring.hamtaMatch(session.matchId);
     if (!rad || rad.match.format !== LAG_FORMAT) return null;
     const post = rad.match;
-    const anslutning = Object.fromEntries(post.engine.players.map(p => [p.id, lagring.hamtaSession(p.id)?.connection ?? CONNECTION.offline]));
-    const view = lagVy(post.engine, playerId, { lastEventId: post.lastEventId, anslutning, matchStatus: rad.status, klockor: post.klockor ?? null, serverTid: now() });
+    /* Levande deltagare: frånkopplad bara under ett registrerat avbrott (en omladdning syns inte). */
+    const anslutning = Object.fromEntries(post.engine.players.map(p => [p.id, post.avbrott?.[p.id] ? CONNECTION.offline : isAlive(p) && rad.status === MATCH_STATUS.active ? CONNECTION.online : lagring.hamtaSession(p.id)?.connection ?? CONNECTION.offline]));
+    const view = lagVy(post.engine, playerId, { lastEventId: post.lastEventId, anslutning, matchStatus: rad.status, klockor: post.klockor ?? null, avbrott: post.avbrott ?? null, serverTid: now() });
     if (!view) return null;
     const events = efterEventId === null ? [] : lagring.hamtaHandelser(post.id, efterEventId).filter(e => e.recipient === null || e.recipient === playerId);
     return { view, events, status: rad.status };
   }
 
-  return { fabrik, hantera, tidsgrans, matchFor };
+  return { fabrik, hantera, tidsgrans, avbrott, ateranslutning, serveravbrott, matchFor };
 }

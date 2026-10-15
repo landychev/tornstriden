@@ -52,8 +52,17 @@ async function startaMatch(nicks) {
 }
 const text = (page, sel) => page.locator(sel).first().textContent({ timeout: 4000 }).catch(() => null);
 const synliga = (page, sel) => page.locator(`${sel}:not([hidden])`).count();
-/* Serverklockan flyttas; timers som förfaller körs i matchens kö. */
-async function flytta(ms) { klocka.advance(ms); await app.matcher.klockor().klart(); }
+/* Serverklockan flyttas i steg om 5 s; timers som förfaller körs i matchens kö, och sidorna hinner svara på
+   serverns ping mellan stegen (annars vore det ett tyst avbrott, L17). */
+const besvarat = () => [...app.strommar].every(s => s.ping === 0 || s.senast >= s.pingTid.get(s.ping));
+async function flytta(ms) {
+  for (let kvar = ms; kvar > 0; kvar -= 5_000) {
+    klocka.advance(Math.min(5_000, kvar));
+    await app.matcher.klockor().klart();
+    for (let i = 0; i < 80 && !besvarat(); i++) await new Promise(r => setTimeout(r, 50));   // varje sida har svarat på senaste ping
+  }
+  await app.matcher.klockor().klart();
+}
 
 /* ---- Lagmatch, fyra deltagare ---- */
 {

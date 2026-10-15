@@ -235,9 +235,11 @@ function abortBattle(match, random, events) {
 
 /* ---- Individuell utslagning (L13) ---- */
 /* Slår ut en grupp spelare i samma händelse (t.ex. samtidiga tidsgränser) och för matchen vidare.
-   Redan utslagna hoppas över; om ingen i gruppen var levande avvisas händelsen. */
+   Redan utslagna hoppas över; om ingen i gruppen var levande avvisas händelsen. `reason` är en orsak för hela
+   gruppen eller { [spelare]: orsak } när orsakerna skiljer sig (tidsgräns och avbrott i samma händelse, L17). */
 function eliminateGroup(match, playerIds, reason, random, events) {
-  invariant(Object.values(UTSLAG).includes(reason) && reason !== UTSLAG.life, `Okänd orsak till utslagning: ${reason}`);
+  const reasonOf = id => typeof reason === 'string' ? reason : reason?.[id];
+  for (const id of playerIds) invariant(Object.values(UTSLAG).includes(reasonOf(id)) && reasonOf(id) !== UTSLAG.life, `Okänd orsak till utslagning: ${reasonOf(id)}`);
   const ids = [...new Set(playerIds)];
   for (const id of ids) reject(playerOf(match, id), 'Okänd spelare.');
   const out = ids.map(id => playerOf(match, id)).filter(isAlive);
@@ -247,13 +249,13 @@ function eliminateGroup(match, playerIds, reason, random, events) {
   const targetLeft = Boolean(b?.target) && out.some(p => p.id === b.target) && [LAG_FAS.attack, LAG_FAS.defence].includes(phase);
 
   /* 1. Markera, släng egna bordskort (12B) och handen, en gång per spelare. */
-  const reasonText = { [UTSLAG.left]: 'lämnar matchen', [UTSLAG.timeout]: 'hann inte välja i tid', [UTSLAG.disconnect]: 'kom inte tillbaka i tid' }[reason];
+  const reasonText = { [UTSLAG.left]: 'lämnar matchen', [UTSLAG.timeout]: 'hann inte välja i tid', [UTSLAG.disconnect]: 'kom inte tillbaka i tid' };
   for (const p of out) {
     p.status = PLAYER_STATUS.out;
-    p.eliminationReason = reason;
+    p.eliminationReason = reasonOf(p.id);
     const own = targetLeft ? [] : discardTableCardsOf(match, p.id);
     const hand = discardHand(match, p.id);
-    events.push(`${p.name} ${reasonText} och slås ut.${own.length ? ' Kortet på bordet tas bort ur striden.' : ''}${hand ? ` ${hand} handkort slängs.` : ''}`);
+    events.push(`${p.name} ${reasonText[p.eliminationReason]} och slås ut.${own.length ? ' Kortet på bordet tas bort ur striden.' : ''}${hand ? ` ${hand} handkort slängs.` : ''}`);
   }
 
   /* 2. Matchslut prövas först. */
@@ -449,6 +451,22 @@ export function slaUt(match, playerIds, reason, random = Math.random) {
 /* ---- Tillåtna val för en spelare, utan hemlig information om andra ----
    Att lämna matchen (LAG_HANDLING.leave) är alltid möjligt för en levande spelare medan matchen pågår
    och listas därför inte här. */
+/* Serveromstart (27B): matchen avslutas utan vinnare. Bordskorten slängs och undanlagda startbyteskort går
+   tillbaka till högen, som vid ett vanligt matchslut; liv, händer och utslagningar rörs inte. Är
+   kortbokföringen redan trasig lämnas korten där de låg – matchen ska avslutas ändå. */
+export function serveravbrott(match, text) {
+  let work = structuredClone(match);
+  try {
+    if (work.table.length) discardTable(work);
+    if (work.setAside.length) work.drawPile.push(...work.setAside.splice(0));
+  } catch {
+    work = structuredClone(match);
+  }
+  Object.assign(work, { phase: LAG_FAS.over, activePlayer: null, confirm: null, battle: null, winnerTeam: null, endReason: LAG_SLUT.serverAbort, revision: match.revision + 1 });
+  work.log.push(text);
+  return work;
+}
+
 export function allowedActions(match, playerId) {
   const p = playerOf(match, playerId);
   if (!isAlive(p) || !RUNNING.includes(match.phase)) return [];

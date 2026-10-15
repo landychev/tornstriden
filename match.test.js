@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { USAGE } from './matchregler.js';
-import { newMatch, process, playerView, allowedActions, audit, PHASE, ACTION, STATUS, END } from './match.js';
+import { newMatch, process, playerView, allowedActions, audit, serveravbrott, PHASE, ACTION, STATUS, END } from './match.js';
 
 /* Förutbestämd lek: korten i `top` hamnar överst i draghögen i angiven ordning,
    så att växelvis utdelning ger A och B bestämda händer (referensmatchen nedan). */
@@ -236,6 +236,28 @@ test('Ge upp: motståndaren vinner direkt, liv och händer oförändrade, inga f
   assert.equal(process(m, { matchId: m.id, revision: m.revision, type: ACTION.surrender, playerId: 'B' }).status, STATUS.rejected);
   const during = keepHands(startReference());
   assert.equal(process(during, { matchId: during.id, revision: during.revision, type: ACTION.surrender, playerId: 'B' }).status, STATUS.ok, 'tillåtet under motståndarens tur');
+});
+test('Serveravbrott (27B): ingen vinnare, liv och händer oförändrade, bordet och de undanlagda slängs och bokföringen stämmer', () => {
+  const text = 'Servern startades om – matchen avbröts utan vinnare.';
+  const kontroll = (m, namn) => {
+    const slut = serveravbrott(m, text);
+    assert.deepEqual([slut.phase, slut.winner, slut.endReason, slut.battle, slut.activePlayer, slut.revision], [PHASE.over, null, END.serverAbort, null, null, m.revision + 1], namn);
+    assert.deepEqual(slut.players.map(p => [p.life, p.hand]), m.players.map(p => [p.life, p.hand]), `${namn}: liv och händer`);
+    assert.deepEqual([slut.setAside, slut.log.at(-1)], [[], text], namn);
+    audit(slut);
+    assert.deepEqual([allowedActions(slut, 'A'), allowedActions(slut, 'B')], [[], []], `${namn}: inga val efteråt`);
+    return slut;
+  };
+  const anfall = attack(keepHands(startReference()), 'katapult');
+  assert.equal(kontroll(anfall, 'anfall').discardPile.length, anfall.discardPile.length + 1, 'attackkortet på bordet slängs');
+  const byte = play(newMatch({ matchId: 'byte', random: firstA }), ACTION.swap, { playerId: 'A', cards: hand(newMatch({ matchId: 'byte', random: firstA }), 'A').slice(0, 2) });
+  assert.equal(byte.setAside.length, 2);
+  kontroll(byte, 'startbyten');
+  /* Redan trasig bokföring stoppar inte avbrottet: korten lämnas där de låg. */
+  const trasig = structuredClone(anfall);
+  trasig.discardPile.push(trasig.battle.attackInstance);
+  const slut = serveravbrott(trasig, text);
+  assert.deepEqual([slut.phase, slut.winner, slut.endReason, slut.battle], [PHASE.over, null, END.serverAbort, trasig.battle]);
 });
 test('Spelarvyn döljer motståndarens hand och draghögens ordning men visar liv, kortantal och öppet anfall', () => {
   let m = attack(keepHands(startReference()), 'katapult');

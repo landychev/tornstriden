@@ -333,10 +333,15 @@ body.online .player-info h1, body.online .player-info h2 { overflow-wrap: anywhe
 .actions > .turn-clock { flex: 1 1 100%; margin: 0; text-align: right; }
 .player-info .turn-clock { margin: 3px 0 0; font-size: 11px; color: #e3ce94; }
 .player-info .turn-clock.warn { color: #ffb4a0; }
+.player-info .opponent-avbrott { color: #f0b9a6; }
+.player-info .opponent-avbrott::before { content: '⏳ '; }
 .tower-chip .chip-clock { font-variant-numeric: tabular-nums; color: #e3ce94; }
 .tower-chip .chip-clock::before { content: ' · ⏱ '; }
 .tower-chip .chip-clock.warn { font-weight: 700; color: #ffb4a0; }
 .tower-chip .chip-clock.warn::before { content: ' · ⚠ '; }
+/* Återanslutningsfrist (L17) på en frånkopplad spelares torn. */
+.tower-chip .chip-avbrott { font-variant-numeric: tabular-nums; color: #f0b9a6; font-weight: 600; }
+.tower-chip .chip-avbrott::before { content: ' · ⏳ '; }
 @media (prefers-reduced-motion: no-preference) { .turn-clock.warn, .chip-clock.warn { animation: klockpuls .9s ease-in-out infinite alternate; } }
 @keyframes klockpuls { to { opacity: .55; } }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

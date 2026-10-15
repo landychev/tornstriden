@@ -1,7 +1,7 @@
 /* Individuell utslagning och avhopp i lagmatch (arbetsordning L13; huvudplan §7 och §10; beslut 8A, 12B, 13A, 17A, 24B). */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newLagmatch, processLag, slaUt, allowedActions, leaderOf, LAG_FAS, LAG_HANDLING, LAG_SLUT, UTSLAG, STATUS } from './lagmatch.js';
+import { newLagmatch, processLag, slaUt, serveravbrott, allowedActions, leaderOf, LAG_FAS, LAG_HANDLING, LAG_SLUT, UTSLAG, STATUS } from './lagmatch.js';
 import { playerOf, discardHand, auditTeam, isAlive } from './lagkortlek.js';
 import { OUTCOME, ABORT } from './lagstrid.js';
 import { USAGE } from './lagregler.js';
@@ -408,6 +408,29 @@ test('slaUt: flera samtidigt är en händelse – båda lagens sista ger ingen v
 });
 
 /* ---- Hela matcher med slumpade avhopp och tidsgränser ---- */
+test('Serveravbrott (27B): ingen vinnare, liv, händer och utslagningar står kvar och kortbokföringen stämmer', () => {
+  const text = 'Servern startades om – matchen avbröts utan vinnare.';
+  const kontroll = (m, namn) => {
+    const slut = serveravbrott(m, text);
+    assert.deepEqual([slut.phase, slut.winnerTeam, slut.endReason, slut.activePlayer, slut.confirm, slut.battle, slut.revision], [LAG_FAS.over, null, LAG_SLUT.serverAbort, null, null, null, m.revision + 1], namn);
+    assert.deepEqual(slut.players.map(p => [p.id, p.life, p.status, p.hand]), m.players.map(p => [p.id, p.life, p.status, p.hand]), `${namn}: liv, status och händer`);
+    assert.deepEqual([slut.table, slut.setAside, slut.log.at(-1)], [[], [], text], namn);
+    auditTeam(slut);
+    assert.deepEqual(m.players.map(p => allowedActions(slut, p.id)), m.players.map(() => []), `${namn}: inga val efteråt`);
+  };
+  let m = newLagmatch({ matchId: 's4', players: spelare(4), random: styrdSlump(4) });
+  m = gor(m, H.swap, 'a1', { cards: playerOf(m, 'a1').hand.slice(0, 2) });
+  assert.equal(m.setAside.length, 2);
+  kontroll(m, 'startbyten');
+  let n = tillStrid(6);
+  n = gor(n, H.target, 'a1', { target: 'b1' });
+  n = gor(n, H.attack, 'a1', simpel(n, 'a1'));
+  assert.equal(n.table.length, 1);
+  kontroll(n, 'anfall');
+  const u = lamna(tillStrid(4), 'b2');
+  assert.equal(isAlive(playerOf(u, 'b2')), false);
+  kontroll(u, 'efter avhopp');
+});
 test('Hela lagmatcher 4/6/8 med slumpade avhopp och gruppvisa utslagningar: inga låsta köer, sparade resultat ändras inte, matchen tar alltid slut', () => {
   const tally = { avhopp: 0, grupper: 0, avbrutna: 0, utanVinnare: 0, matcher: 0 };
   for (const size of [4, 6, 8]) {

@@ -6,9 +6,11 @@ export function popupIcon(name) {
   return `<svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="assets/popup/emblem.svg#${icons.has(name) ? name : 'shield'}"></use></svg>`;
 }
 
+/* over: true vid matchslut; en text ersätter rubriken ovanför titeln (t.ex. SERVERAVBROTT). */
 export function resultHeader(kind, title, over) {
-  const icon = { held: 'shield', hit: 'tower', victory: 'crown', defeat: 'banner' }[kind];
-  return `<header class="popup-result-head"><span class="eyebrow">${over ? 'MATCHEN ÄR AVGJORD' : 'STRIDENS RESULTAT'}</span><h3 id="result-title">${escape(title)}</h3><span class="popup-medallion">${popupIcon(icon)}</span></header>`;
+  const icon = { held: 'shield', hit: 'tower', victory: 'crown', defeat: 'banner', aborted: 'cards' }[kind];
+  const eyebrow = typeof over === 'string' ? over : over ? 'MATCHEN ÄR AVGJORD' : 'STRIDENS RESULTAT';
+  return `<header class="popup-result-head"><span class="eyebrow">${escape(eyebrow)}</span><h3 id="result-title">${escape(title)}</h3><span class="popup-medallion">${popupIcon(icon)}</span></header>`;
 }
 
 export function battleSummary(result) {

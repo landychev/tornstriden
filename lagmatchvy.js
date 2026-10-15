@@ -9,7 +9,9 @@
    mobilen. Ett långt tryck på ett kort i handen eller på bordet öppnar det förstorat (kortlupp.js).
    Egen utslagning och lagets resultat visas var för sig.
    Spelarklockor (L16): den som har ett val ser sin nedräkning överst i knappraden, och varje torn visar sin
-   spelares tid när servern väntar på hen (nedrakning.js). Servern avgör tidsgränsen. */
+   spelares tid när servern väntar på hen (nedrakning.js). Servern avgör tidsgränsen.
+   Avbrott (L17): en frånkopplad spelares torn visar återstående återanslutningstid; när just hens val behövs
+   säger bordet "Väntar på att … återansluter". Den egna anslutningen visas i sidhuvudet. */
 import { cards, MAX_LIFE } from './kort.js';
 import { cardFace } from './grafik.js';
 import { resultHeader, popupIcon } from './popup.js';
@@ -82,10 +84,12 @@ function resultLine(r) {
   return `Attack ${r.attack} mot försvar ${r.defence}.`;
 }
 function overTitle() {
+  if (v.endReason === TEAM_END.serverAbort) return 'Matchen avbröts';
   if (!v.winnerTeam) return 'Ingen vann matchen';
   return v.winnerTeam === v.teamId ? 'Ditt lag vinner matchen!' : `${teamName(v.winnerTeam)} vinner matchen`;
 }
 function overText() {
+  if (v.endReason === TEAM_END.serverAbort) return 'Matchen avbröts på grund av ett serveravbrott. Ingen vann. Gå till lobbyn för att ordna en ny match.';   // L18
   if (v.endReason === TEAM_END.noPlayers || !v.winnerTeam) return 'Matchen avbröts utan vinnare: alla spelare har lämnat eller slagits ut.';
   const forlorare = otherTeam(v.winnerTeam);
   const egen = !iAmAlive() && v.winnerTeam === v.teamId ? ' Du var utslagen, men laget tog hem segern.' : '';
@@ -98,7 +102,17 @@ function lageNu() {
   return p ? ` Just nu: attack ${p.attack} mot försvar ${p.defence} – ${p.defended ? 'försvaret håller' : 'anfallet går igenom'} om inget mer läggs.` : '';
 }
 
+/* Fastexten; när en frånkopplad spelares val behövs säger den det (L17). */
 function phaseText() {
+  const t = fasText();
+  if (!running()) return t;
+  const a = v.activePlayer;
+  if (a && a !== v.viewer && v.disconnects?.[a] !== undefined) return { ...t, text: `Väntar på att ${Namn(a)} återansluter.` };
+  /* Gemensamma val: nämn den som saknas för att hen är frånkopplad. */
+  const borta = [...(v.swap?.waitingFor ?? []), ...(v.confirm?.waitingFor ?? [])].filter(id => id !== v.viewer && v.disconnects?.[id] !== undefined);
+  return borta.length ? { ...t, text: `${t.text} Väntar på att ${lista(borta)} återansluter.` } : t;
+}
+function fasText() {
   const b = v.battle, r = v.lastResult;
   switch (v.phase) {
     case FAS.swap: return { title: `Startbyten – omgång ${v.swap.round} av ${v.swap.rounds}`, text: v.swap.mine ? `Väntar på ${lista(v.swap.waitingFor)}.` : `Alla byter samtidigt. Markera upp till ${v.swap.maxCards} kort eller behåll handen.` };
@@ -139,7 +153,7 @@ function chip(p, { valbar }) {
   if (!alive(p)) klass.push('out');
   if (p.connection !== CONNECTION.online) klass.push('offline');
   const status = chipStatus(p);
-  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life)}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span>` : ''}</small></span>`;
+  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life)}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span><span class="chip-avbrott" data-avbrott="${html(p.id)}" hidden></span>` : ''}</small></span>`;
   return valbar
     ? `<li><button type="button" class="${klass.join(' ')} selectable" data-target="${html(p.id)}" aria-pressed="${ui.target === p.id}" aria-label="Välj ${html(p.name)} som måltavla, ${p.life} liv">${inner}</button></li>`
     : `<li class="${klass.join(' ')}">${inner}</li>`;
@@ -399,11 +413,13 @@ function resultatEffekt(over) {
   const vann = r.outcome === UTFALL.hit ? r.attackingTeam : otherTeam(r.attackingTeam);
   return vann === v.teamId ? 'battleWon' : null;
 }
+const slutUtfall = () => v.endReason === TEAM_END.serverAbort ? 'aborted' : v.winnerTeam && v.winnerTeam === v.teamId ? 'victory' : 'defeat';
 function resultatHTML() {
   const r = v.lastResult;
   const over = v.phase === FAS.over;
-  const stridVisas = r && (!over || r.battleNumber === v.battleNumber);
-  const kind = over ? (v.winnerTeam && v.winnerTeam === v.teamId ? 'victory' : 'defeat') : r.outcome === UTFALL.hit ? 'hit' : 'held';
+  /* Vid serveravbrott visas inte den sista striden: dess förluster kom före avbrottet. */
+  const stridVisas = r && (!over || (r.battleNumber === v.battleNumber && v.endReason !== TEAM_END.serverAbort));
+  const kind = over ? slutUtfall() : r.outcome === UTFALL.hit ? 'hit' : 'held';
   const delar = [];
   if (stridVisas) {
     if (r.outcome === UTFALL.aborted) delar.push(`<p>${html(Namn(r.target))} lämnade striden. Ingen skada, läkning eller motstöt – de spelade korten slängs.</p>`);
@@ -427,7 +443,7 @@ function resultatHTML() {
     delar.push(`<p class="winner"><strong>${html(overTitle())}</strong></p>`);
     if (stridVisas) delar.push(`<p>${html(overText())}</p>`);
   }
-  return `${resultHeader(kind, over ? overTitle() : resultTitle(r), over)}<div class="popup-result-body">${delar.join('')}</div>`;
+  return `${resultHeader(kind, over ? overTitle() : resultTitle(r), over && v.endReason === TEAM_END.serverAbort ? 'SERVERAVBROTT' : over)}<div class="popup-result-body">${delar.join('')}</div>`;
 }
 function renderResult() {
   const dialog = $('result-dialog');
@@ -439,7 +455,7 @@ function renderResult() {
     return;
   }
   $('result').innerHTML = resultatHTML();
-  dialog.dataset.outcome = over ? (v.winnerTeam === v.teamId ? 'victory' : 'defeat') : v.lastResult.outcome === UTFALL.hit ? 'hit' : 'held';
+  dialog.dataset.outcome = over ? slutUtfall() : v.lastResult.outcome === UTFALL.hit ? 'hit' : 'held';
   const pending = Boolean(v.pending);
   $('dialog-actions').innerHTML = over
     ? `<button type="button" id="dialog-lobby" class="primary" data-action="lobby">Till lobbyn</button>`
@@ -608,7 +624,7 @@ function lagTillagg(type) {
   return text ? `<h4>I lagmatch</h4><p>${html(text)}</p>` : '';
 }
 
-const nedrakning = kopplaNedrakning({ klockor: () => v?.clocks, nu: () => adapter?.serverNu() ?? Date.now(), egen: () => v?.viewer, varna: text => { $('clock-alert').textContent = text; } });
+const nedrakning = kopplaNedrakning({ klockor: () => v?.clocks, avbrott: () => v?.disconnects, nu: () => adapter?.serverNu() ?? Date.now(), egen: () => v?.viewer, varna: text => { $('clock-alert').textContent = text; } });
 const lupp = kopplaKortlupp({ behallare: [$('hand'), $('battlefield')], dialog: $('card-dialog'), detalj: $('card-detail'), anvandning: lagAnvandning, tillagg: lagTillagg });
 $('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !lupp.swallowed()) choose(el.dataset.instance); });
 for (const id of ['action-bar', 'enemy-towers', 'dialog-actions']) $(id).addEventListener('click', onClick);

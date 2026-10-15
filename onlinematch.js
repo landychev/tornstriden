@@ -5,7 +5,9 @@
    frågas servern om samma commandId (KOMMANDOSTATUS) och kommandot skickas om bara när servern
    inte känner till det. En gammal vy eller gammal kvittens skriver aldrig över nyare läge.
    Spelarklockor (L16): vyn har `serverTime`; `serverNu()` ger serverns tid enligt skillnaden när vyn togs emot,
-   så att nedräkningen inte beror på att datorns klocka går rätt. */
+   så att nedräkningen inte beror på att datorns klocka går rätt.
+   Anslutning (L17): strömmen svarar på serverns `ping` med ett livstecken. Medan strömmen är borta skickas inga
+   nya drag (”Återansluter …”); efter återkomsten kommer aktuell vy från servern innan något kan väljas. */
 import { ADAPTER_MODE, RECEIPT } from './kontrakt.js';
 
 export const PENDING = Object.freeze({ sending: 'SKICKAR', checking: 'KONTROLLERAR' });
@@ -19,6 +21,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
   let matchStatus = initial.status;
   let pending = null;
   let strom = null;
+  let ansluten = false;   // strömmen är öppen och servern har hälsat (bara när connect() används)
   let onStatus = () => {};
   const listeners = new Set();
 
@@ -71,6 +74,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
 
   async function send(command) {
     if (pending) return tomKvittens(command.commandId, RECEIPT.rejected, 'Vänta – ditt förra drag behandlas fortfarande.');
+    if (strom && !ansluten) return tomKvittens(command.commandId, RECEIPT.rejected, 'Återansluter – välj igen när matchen har hämtats.');
     pending = { commandId: command.commandId, status: PENDING.sending };
     notify([]);
     let receipt = null;
@@ -99,15 +103,32 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     }
   }
 
+  /* Webbläsaren återansluter själv efter ett avbrott, men ger upp för gott om svaret inte är en ström (t.ex. 502
+     från proxyn eller 401). Då öppnas en ny ström med växande paus, efter en kontroll av sessionen. */
+  let ersatt = false;
+  let paus = 1000;
+  let nyttForsok = null;
   function connect(EventSourceCtor = globalThis.EventSource) {
+    klocka.clearTimeout(nyttForsok);
     strom?.close();
-    strom = new EventSourceCtor('/api/handelser', { withCredentials: true });
+    const egen = new EventSourceCtor('/api/handelser', { withCredentials: true });
+    strom = egen;
     onStatus('ansluter');
-    strom.addEventListener('match', event => receive(JSON.parse(event.data)));
-    strom.addEventListener('halsa', event => { const data = JSON.parse(event.data); onStatus('ansluten', data.matchtrafik.oppen ? null : data.matchtrafik.orsak); refresh(); });
-    strom.addEventListener('ersatt', () => { strom.close(); onStatus('ersatt'); });
-    strom.onerror = () => onStatus('ateransluter');
-    return strom;
+    ansluten = false;
+    ersatt = false;
+    egen.addEventListener('match', event => receive(JSON.parse(event.data)));
+    egen.addEventListener('halsa', event => { const data = JSON.parse(event.data); ansluten = true; paus = 1000; onStatus('ansluten', data.matchtrafik.oppen ? null : data.matchtrafik.orsak); refresh(); });
+    egen.addEventListener('ping', event => { fetchFn('/api/livstecken', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: event.data }).catch(() => {}); });
+    egen.addEventListener('ersatt', () => { ersatt = true; ansluten = false; egen.close(); onStatus('ersatt'); });
+    egen.onerror = () => {
+      if (strom !== egen || ersatt) return;
+      ansluten = false;
+      onStatus('ateransluter');
+      if (egen.readyState !== 2) return;   // CONNECTING: webbläsaren försöker själv
+      nyttForsok = klocka.setTimeout(async () => { await refresh(); if (strom === egen && !ersatt) connect(EventSourceCtor); }, paus);
+      paus = Math.min(paus * 2, 30_000);
+    };
+    return egen;
   }
 
   return {
@@ -120,7 +141,8 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     receive, refresh, connect,
     matchStatus: () => matchStatus,
     serverNu: () => Date.now() + skillnad,
+    ansluten: () => ansluten,
     pa: fn => { onStatus = fn; },
-    close: () => { strom?.close(); strom = null; }
+    close: () => { klocka.clearTimeout(nyttForsok); strom?.close(); strom = null; }
   };
 }

@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade) och L16 klar 2026-10-15 – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, och varje väntande val har 90 sekunders spelarklocka. L17 (återanslutning med fortsatt spel) är nästa.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L18 klara 2026-10-15 – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare och en serveromstart avbryter pågående matcher utan vinnare. L19 (ljud, animationer och tydliga besked) är nästa.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -56,7 +56,7 @@ Det som särskilt behöver få ett konkret värde eller beteende inför berörd 
 
 ## Uppgiftslista och status
 
-L00–L15 är klara; övriga uppgifter är **Ej startade**. Beroenden anger lägsta krav; rekommenderad körordning är nummerordning. Ingen parallell agentkörning behövs för detta upplägg.
+Aktuell status för varje uppgift anges i tabellen nedan. Beroenden anger lägsta krav; rekommenderad körordning är nummerordning. Ingen parallell agentkörning behövs för detta upplägg.
 
 | ID | Uppgift | Beroenden | Status |
 | --- | --- | --- | --- |
@@ -77,8 +77,8 @@ L00–L15 är klara; övriga uppgifter är **Ej startade**. Beroenden anger läg
 | L14 | Lagmotor kopplad till servern | L08, L13 | Klar 2026-10-13 |
 | L15 | Lagvy och val av mål | L09, L14 | Klar 2026-10-14 |
 | L16 | Spelarklockor och gemensamma bekräftelser | L14, L15 | Klar 2026-10-15 |
-| L17 | Återanslutning med fortsatt spel | L16 | Ej startad |
-| L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Ej startad |
+| L17 | Återanslutning med fortsatt spel | L16 | Klar 2026-10-15 |
+| L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Klar 2026-10-15 |
 | L19 | Ljud, animationer och tydliga besked | L15–L18 | Ej startad |
 | L20 | Samlat flödes- och belastningstest | L03–L19 | Ej startad |
 | L21 | Publiceringspaket och driftinstruktion | L20 | Ej startad |
@@ -954,3 +954,177 @@ Commit: ingen.
 - `scripts/prova-klockor.mjs`: fem nya kontroller för ljudrutans nedräkning, väntande motståndare, varning utan återställd deadline, mobilutrymme och stängning vid tidsförlust.
 - Verifierat lokalt i Chrome: **26/26** webbläsarkontroller. Varningsraden granskad visuellt vid 390 × 664 pixlar. `klientfiler.test.js` och `ljud.test.js`: **11/11**. `git diff --check`: utan anmärkning.
 - Ingen commit eller publicering.
+
+Uppgift och datum: L17 – Återanslutning med fortsatt spel, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- `online/klockor.js`: avbrott, frist och budget enligt 2A.
+  - `registreraAvbrott`: frist min(30 s, 90 s − förbrukat). Samma avbrott ger ingen ny frist.
+  - `avslutaAvbrott`: i tid om mottagningstiden är mindre än deadline. Faktisk väntetid debiteras en gång.
+  - Pausade turklockor (`deadline: null, kvar, fran`). Ett nytt val under avbrottet får sina 90 s från återkomsten; ett redan väntande val återupptas med sparad tid. En turklocka som redan gått ut pausas inte.
+  - `utgangnaMedOrsak` och `skaVanta`: frist och turklocka slås ut i samma grupp. Är alla övriga levande frånkopplade väntar avgörandet in deras frister.
+  - Timern vaknar för både turklockor och frister. `handelse()` kör avbrott och återkomst i matchens kö.
+  - Köade körningar kan inte ge ohanterade fel.
+- `online/lagspel.js` och `online/duell.js`:
+  - `avbrott` och `ateranslutning` kräver aktuell anslutningsgeneration; utslagna ignoreras.
+  - Händelserna `AVBROTT {playerId, deadline}` och `ÅTERANSLUTEN {playerId}`.
+  - `tidsgrans` med orsak per spelare.
+  - Den som skickar ett drag efter sin frist avvisas ("Du kom inte tillbaka i tid efter avbrottet."), även när avgörandet väntar på andra.
+  - Vyerna har `disconnects` och `players[].connection` från avbrotten. En omladdning syns inte som frånkoppling.
+- `lagmatch.js`: `slaUt` tar en orsak per spelare. `match.js`: `END.disconnect` (`AVBROTT`); `tidsgrans` tar orsaker per plats.
+- `online/matcher.js`: `frankopplad` och `ansluten` körs i matchens kö tillsammans med kommandon och timers.
+- `online/server.js`:
+  - `ping {n}` var 5 s och `POST /api/livstecken {n}`.
+  - Tyst efter 15 s, räknat från när den senast besvarade pingen skickades.
+  - En stängd ström får 3 s nåd (`OMLADDNING_MS`) innan avbrottet registreras, men fristen räknas från stängningen. En omladdning eller ett sidbyte (lobbyn → matchsidan → lagsidan) blir därför inget avbrott och kostar ingen budget.
+- `onlinematch.js` och `lobby.js`: svarar på ping med numret. Medan strömmen är borta skickas inga drag ("Återansluter …"). En ström som webbläsaren gett upp för gott (t.ex. 502 från proxyn) öppnas igen med växande paus.
+- Sidorna (`nedrakning.js` med `data-avbrott`, `lagmatchvy.js`, `matchvy.js`, `match.html`, `match.css`):
+  - Tornet visar "Frånkopplad · ⏳ 0:24".
+  - Bordet visar "Väntar på att … återansluter" när just den spelarens val behövs, också i gemensamma val.
+  - Duellen visar motståndarens återstående tid och "kom inte tillbaka i tid efter ett avbrott".
+- Tester och prov:
+  - Ny: `online/avbrott.test.js` (11 tester).
+  - `online/server.test.js`: pingprov och HTTP-prov för omladdning, ny flik, avbrott och återkomst.
+  - `onlinematch.test.js`: spärr, ping-svar och ny ström.
+  - Nytt prov: `scripts/prova-avbrott.mjs`.
+  - `scripts/prova-klockor.mjs`: klockan flyttas i steg som varje sida hinner besvara. Annars ser den hoptryckta tiden ut som tystnad.
+- `KONTRAKT.md` (avsnittet "Anslutningsavbrott"), `README.md`.
+Verifiering:
+- `npm test`: **261/261**, tre körningar i rad.
+- `online/avbrott.test.js` (styrd klocka) visar:
+  - Andra byter vidare under ett avbrott. Bara den frånkopplades klocka står still.
+  - Återkomst 5 s före fristen debiterar 25 s och återupptar med sparad tid. 1 ms före fristen är i tid; exakt på fristen är för sent.
+  - Slut på fristen slår ut, och laget spelar vidare.
+  - Fristen startar inte om när turen kommer. Ett nytt val under avbrottet får 90 s från återkomsten.
+  - Sista budgetresten ger 15 s. En extra flik debiterar inget.
+  - En gammal stängning fäller inte en ny anslutning, och samma avbrott ger en frist.
+  - Alla frånkopplade: återkomst ger seger, annars ingen vinnare (duell och lagmatch).
+  - Liv ändras under avbrottet, Fortsätt väntar på den frånkopplade, och återkomsten visar det nya läget.
+  - Tappad kvittens ger samma kvittens efter återkomsten, utan ny effekt.
+- HTTP med riktiga strömmar:
+  - Omladdning inom nåden är inget avbrott.
+  - En ny flik tar över utan avbrott.
+  - En stängd flik ger efter nåden ett avbrott, med frist från stängningen, som motståndaren ser utan att något kommando skickats.
+  - Återkomsten ger aktuell vy.
+- Webbläsarprov i molnmiljön (Chromium, varannan deltagare emulerad iPhone 13), ett i taget:
+  - `prova-avbrott.mjs` **21/21**: tyst avbrott upptäckt efter 15 s; de andra ser "Frånkopplad · ⏳"; den egna sidan visar "Återansluter"; de anslutna byter vidare; återkomst av sig själv; budget debiterad en gång; utslagning på frist med besked; omladdning är inget avbrott; stängd flik i duellen; "Väntar på att Ben återansluter"; sparad turtid efter återkomst.
+  - `prova-klockor.mjs` 26/26, inklusive avsnittet med ljudrutan och omladdning.
+  - `prova-lag.mjs 4 6 8` 37/37, `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5, `prova-lobby.mjs` 24/24.
+- **Oberoende granskning:** en separat agent granskade koden mot kravtexten och §8/§10, med egna prov. Den hittade tre buggar och fyra brister, som alla är rättade:
+  - Sen återkomst kunde spela medan avgörandet väntade.
+  - En redan utgången turklocka pausades av ett senare avbrott.
+  - Klienten kunde låsas på "Återansluter …" om webbläsarens ström gav upp.
+  - Varje matchstart såg ut som ett avbrott.
+  - Tystnaden upptäcktes först efter cirka 20 s.
+  - Vänttexten saknades i gemensamma val.
+  - Ohanterade promise-fel kunde fälla processen.
+  De två serverbuggarna fick tester som faller mot koden före rättningen och passerar efter.
+Inte verifierat / återstående fel:
+- **`prova-match.mjs` är ostadigt i tvåspelarläget.** Ungefär två av tre körningar faller när provet klickar på "Enkel attack" direkt efter startrutan. Webbläsaren rapporterar då ingen öppen ruta och ingen spärr, men träffar inte knappen. Felet finns likadant i L15-commiten (eb93ed7, tre av fyra föll) och i L16. Det är alltså inte orsakat av L16 eller L17. Det bör utredas separat; troligen en kapplöpning kring startrutan i lokalt läge eller i provet.
+- Bara Chromium; riktiga telefoner och nätbyten (wifi ↔ mobilnät) är inte provade. Detekteringstiderna (5/15 s) är huvudplanens förslag och bör justeras efter mobilprov (L20).
+- En frånkopplad kan fortfarande skicka drag via POST inom sin frist, utan ström. Turklockan står då still, men fristen begränsar tiden.
+- Rättat efter granskningen: om turklockan skulle gå ut under de 3 s nåden registreras avbrottet direkt och den kvarvarande turtiden sparas. Se rättningsredovisningen nedan.
+Tekniska val och eventuella användarsvar:
+- **Livstecken via POST som svar på ping i SSE-strömmen.** Nätverkshändelser stryps inte i bakgrundsflikar, till skillnad från timers.
+- **Nåd för stängda strömmar men inte för tysta.** En omladdning ska inte kosta något. Ett tyst avbrott har redan tagit 15 s att upptäcka.
+- **Avgörandet väntar när alla övriga är frånkopplade** (huvudplanens arbetsförslag). Den som redan gått ut får ändå aldrig spela vidare.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L17.
+Rekommenderad nästa uppgift: L18 – Matchavbrott vid serveromstart.
+Commit: ingen.
+
+Uppgift och datum: L18 – Matchavbrott vid serveromstart, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- `online/server.js`:
+  - Servern tar porten först. Sedan körs uppstarten synkront i `listening` (`forbered()`): sessionerna markeras frånkopplade, rummens timers återställs och gamla pågående matcher avbryts. `listening` kommer före varje anslutning, så ingen begäran hanteras innan avbrotten är sparade.
+  - Är porten upptagen rörs ingenting.
+  - Misslyckas uppstarten stängs porten och lagringen, och `klar` avvisas: "Uppstädningen efter omstart misslyckades – servern startar inte: …", med ursprungsfelet i `cause`. Processen avslutas med kod 1.
+  - Antalet avbrutna matcher loggas som varning. Lagringen kan bytas ut i test (`lagringsfabrik`).
+- `online/matcher.js`: ny `avbrytEfterOmstart()`. Den går igenom alla matcher med status PÅGÅR, en transaktion per match. Statusen prövas inne i transaktionen, så ingen match avslutas två gånger.
+- `match.js` och `lagmatch.js`: ny `serveravbrott(match, text)`.
+  - Avslutar matchen utan vinnare (`SERVERAVBROTT`). Kort på bordet slängs och undanlagda kort hanteras som vid ett vanligt slut, så kortbokföringen stämmer.
+  - Liv, händer och utslagningar står kvar.
+  - Är bokföringen redan trasig lämnas korten där de låg. Matchen avslutas ändå, och uppstarten stoppas inte av en enskild match.
+- `online/duell.js` och `online/lagspel.js`: ny `serveravbrott({ops, post})`.
+  - Sparar matchen AVBRUTEN med händelserna `MATCHSLUT {winner|winnerTeam: null, endReason: SERVERAVBROTT}` och `LOGG`.
+  - Tömmer klockor, avbrott och väntande bekräftelser.
+  - Stänger rummet; sessionerna blir `FÖLJER_AVSLUT`.
+- `online/tjanst.js`: startspärren från L02 är borttagen. `matchtrafik` är alltid öppen; strömbrytaren finns kvar, men ingen kod stänger den.
+- `online/rum.js`: `stang()` tar bort inbjudningstimers vid avstängning.
+- `kontrakt.js` (`TEAM_END.serverAbort`), `match.js` (`END.serverAbort`).
+- Sidorna (`matchvy.js`, `lagmatchvy.js`, `popup.js`):
+  - Resultatrutan har rubriken SERVERAVBROTT, titeln "Matchen avbröts" och ett neutralt emblem. Texten är "Matchen avbröts på grund av ett serveravbrott. Ingen vann.", och i lagmatchen även "Gå till lobbyn för att ordna en ny match.".
+  - Knappen är Till lobbyn. Ingen förlusttext eller förlustljud.
+  - Lagmatchens ruta visar inte den sista striden, eftersom dess förluster kom före avbrottet.
+- Tester och prov:
+  - Ny: `online/omstart.test.js`, tre prov med en riktig serverprocess som dödas med SIGKILL.
+  - `online/server.test.js`: tre omstarter i rad med en pågående och en redan avgjord match, en andra instans på samma port och lagringsfel under uppstädningen.
+  - `match.test.js` och `lagavhopp.test.js`: motorernas `serveravbrott` i olika faser.
+  - `online/tjanst.test.js`: provet för startspärren är ersatt.
+  - Nytt prov: `scripts/prova-omstart.mjs`.
+  - `scripts/prova-regressioner.mjs`: klockan flyttas i steg som sidan hinner besvara. En hoptryckt timme såg ut som tystnad (L17); sidan anslöt då igen och fick ibland 404 för den städade matchen, så provet föll i ungefär varannan körning.
+- `KONTRAKT.md` (avsnittet "Serveromstart"), `README.md`.
+Verifiering:
+- `npm test`: **267/267**, tre körningar i rad.
+- `online/omstart.test.js`, med en riktig process och SIGKILL:
+  - **Mitt i en duell:** nästa start visar AVBRUTEN, SERVERAVBROTT och ingen vinnare. Ett känt `commandId` ger samma kvittens och utförs inte igen, och ett nytt drag avvisas. Lämna leder till LEDIG, och en ny match startar.
+  - **Under sparande** (lagmatch där fyra deltagare skickar drag så fort de kan; processen dödas efter tolv godkända drag, mitt i strömmen av drag): varje GODKÄND kvittens som klienten fått finns kvar efter omstarten. Händelserna har inga luckor, ingen slogs ut av serverfelet och kortbokföringen stämmer.
+  - **Under uppstädningen:** 1 500 kopierade pågående matcher, och processen dödades när en del var avbrutna. Nästa start städade resten, och varje match fick exakt en `MATCHSLUT`.
+- `online/server.test.js`:
+  - Den avgjorda matchen och dess kvitton är oförändrade efter omstarten. Liv är oförändrade, och den tredje starten rör inte den redan avbrutna matchen.
+  - **En andra instans på samma port** får EADDRINUSE utan uppstädning. Den körande serverns match pågår vidare och sessionerna är anslutna. Provet faller mot koden före rättningen.
+  - **Lagringsfel vid den andra matchen:** starten avvisas med orsaken, porten stängs och bara den första matchen är sparad. Nästa start städar resten utan dubbla sluthändelser.
+- Webbläsarprov i molnmiljön (Chromium), ett i taget:
+  - `prova-omstart.mjs` **15/15**: en duell (dator och mobil) och en lagmatch med fyra deltagare. Servern dödas med SIGKILL och startas om på samma port. Sidorna ansluter själva och visar SERVERAVBROTT, "Matchen avbröts på grund av ett serveravbrott. Ingen vann." och Till lobbyn. Gamla matchen avvisar drag, Till lobbyn ger LEDIG och en ny match startar. Inga fel i webbläsarna.
+  - `prova-klockor.mjs` 26/26, `prova-avbrott.mjs` 21/21, `prova-online.mjs` 9/9, `prova-lobby.mjs` 24/24.
+  - `prova-lag.mjs`: 4 → 15/15, 6 → 18/18 och 8 → 18/18, var för sig (8 deltagare tar cirka 10 minuter här).
+  - `prova-regressioner.mjs` 5/5. Efter rättningen var 23 av 24 körningar gröna; den enda röda kunde inte fångas eller återskapas.
+  - `prova-match.mjs`: 2 av 4 gröna, med det kända felet kring "Enkel attack" (se nedan).
+- **Oberoende granskning:** en separat agent granskade koden mot kravtexten och 27B, med eget prov. Den hittade en verklig bugg och flera brister, som alla är rättade:
+  - Uppstädningen kördes innan porten var tagen. En andra instans, t.ex. `npm run online` två gånger, kunde därför avbryta en körande servers matcher innan den själv föll på EADDRINUSE.
+  - Kortbokföringen stämde inte i en match avbruten mitt i en strid eller under startbytena.
+  - Avbrottsrutan visade förlustemblemet, och lagmatchens ruta visade den sista striden.
+  - Loggraden i KONTRAKT stämde inte med koden. `SERVER_ABORT` var oanvänd.
+  - Två av uppstartens steg låg utanför felhanteringen.
+Inte verifierat / återstående fel:
+- **`prova-match.mjs` är fortfarande ostadigt i tvåspelarläget** (se L17). Klicket på "Enkel attack" efter startrutan fångas av `.game-view`. Felet finns sedan L15 och utreds separat.
+- **Två instanser på olika portar med samma datakatalog skyddas inte.** Det hör till driften (L21), t.ex. ett instanslås i datakatalogen.
+- **Medlemskapet frigörs som efter ett vanligt matchslut:** sessionen blir `FÖLJER_AVSLUT`, så att spelaren ser avbrottet, och Till lobbyn (Lämna) gör den LEDIG. Den som aldrig kommer tillbaka ligger kvar tills rummet städas (en timme).
+- Bara Chromium; riktiga telefoner är inte provade.
+- Planerad publicering (stoppa nya matcher och låt pågående bli klara) hör till L21.
+Tekniska val och eventuella användarsvar:
+- **Uppstädning när porten är tagen, synkront i `listening`.** Det är enklare än ett instanslås och räcker mot en dubbelstart på samma port.
+- **Motorerna gör avslutet**, så kortbokföringen stämmer. En redan trasig match får ändå inte stoppa uppstarten.
+- **Strömbrytaren `matchtrafik` finns kvar** för senare underhåll (L21).
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L18.
+Rekommenderad nästa uppgift: L19 – Ljud, animationer och tydliga besked.
+Commit: ingen.
+
+Uppgift och datum: L17 – rättning av två fel från användarens granskning, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- **En återkomst i tid kunde förloras i kön.**
+  - Felet: timerkontrollen använde tiden när kön hann fram, inte när timern lades i kön. A:s frist gick ut vid 30 s och B:s vid 40 s, B kom tillbaka vid 39,999 s och kön släpptes vid 45 s. Då slog timern ut båda.
+  - Rättning (`online/klockor.js`): timern prövar vid köläggningens tid, och en deadline som redan passerats läggs direkt i kön. Återkomsten prövas därför mot sin egen mottagningstid, och B vinner.
+- **Turtiden kunde gå ut under nåden för en stängd ström.**
+  - Felet: en spelare som stängde vid 89 s förlorade vid 90 s, innan avbrottet registrerades vid 92 s.
+  - Rättning: vid stängningen prövar matchen direkt om spelarens löpande turklocka går ut före nådens slut (`gaUtUnderNaden` i `online/klockor.js`, `nad` i `matcher.frankopplad` och i `avbrott` i `online/duell.js`/`online/lagspel.js`, anropet i `tappa` i `online/server.js`). I så fall registreras avbrottet genast, räknat från stängningen, och den kvarvarande tiden sparas. Annars gäller nåden som förut.
+- Tester:
+  - `online/avbrott.test.js`: två nya prov, köad timer mot återkomst i tid och nåd nära turtidens slut.
+  - `online/server.test.js`: nytt HTTP-prov, ström stängd 1 s före turtidens slut.
+- `KONTRAKT.md`: avsnitten "Spelarklockor" (timern) och "Anslutningsavbrott" (nåden).
+Verifiering (bara relevanta tester):
+- `online/*.test.js` utom omstartsproven: **94/94**.
+- De tre nya proven faller mot koden före rättningen och passerar efter. Köprovet gav före rättningen "ingen vinnare", precis som i granskningen.
+- `prova-avbrott.mjs` 21/21, `prova-klockor.mjs` 26/26.
+Slutkontroll av L17 efter rättningarna, 2026-10-15:
+- De två ursprungliga felproven kördes om separat: återkomst vid 39,999 s godtas trots kö till 45 s, och avbrott vid 89 s skyddar den sista sekunden av turtiden.
+- Hela den aktuella arbetskatalogens testsvit: **270/270** godkända. Webbläsarprovet `prova-avbrott.mjs`: **21/21** i Chrome.
+- L17 och dess två granskningsrättelser är verifierade och klara.
+Inte verifierat / återstående fel: en omladdning under den sista 3 s av turtiden syns nu som ett kort avbrott och kostar sin faktiska tid i budgeten. Det är avsiktligt: utan det skulle omladdningar kunna hålla klockan stilla gratis.
+Tekniska val och eventuella användarsvar: nåden behålls för omladdningar. Den behöver bara ge vika när turklockan annars skulle gå ut innan avbrottet hinner registreras.
+Beroenden som nu är klara: L00–L18.
+Rekommenderad nästa uppgift: L19 – Ljud, animationer och tydliga besked.
+Commit: ingen.

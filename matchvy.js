@@ -79,15 +79,18 @@ const personal = () => ui.mode !== 'hotseat';   // "du" i texterna (mot datorn o
 /* Matchslutet i ord: fallet torn, uppgivet, tidsgräns (L16) eller ingen vinnare när båda tiderna gick ut. */
 const vem = id => personal() && id === ui.viewer ? 'Du' : nameOf(id);
 function slutText() {
-  if (!v.winner) return 'Båda spelarnas tid för valet tog slut samtidigt. Ingen vinner matchen.';
+  if (v.endReason === END.serverAbort) return 'Matchen avbröts på grund av ett serveravbrott. Ingen vann.';   // L18
+  if (!v.winner) return 'Ingen av spelarna kunde fortsätta i tid. Ingen vinner matchen.';
   const forlorare = opponentOf(v.winner);
   if (v.endReason === END.surrendered) return `${nameOf(forlorare)} gav upp matchen.`;
   if (v.endReason === END.timeout) return `${vem(forlorare)} hann inte välja i tid.`;
+  if (v.endReason === END.disconnect) return `${vem(forlorare)} kom inte tillbaka i tid efter ett avbrott.`;
   return `${nameOf(forlorare)} har fallit efter ${v.battleNumber} strider.`;
 }
-const vinnarRubrik = () => !v.winner ? 'Ingen vinner matchen' : personal() && v.winner === ui.viewer ? 'Du vinner matchen' : `${nameOf(v.winner)} vinner matchen`;
+const vinnarRubrik = () => v.endReason === END.serverAbort ? 'Matchen avbröts' : !v.winner ? 'Ingen vinner matchen' : personal() && v.winner === ui.viewer ? 'Du vinner matchen' : `${nameOf(v.winner)} vinner matchen`;
 /* Egen nedräkning online (L16): bara när servern väntar på mig. */
 const minKlocka = () => ONLINE && v.deadline ? klockrad(v.deadline.playerId, { varning: 'kvar – välj nu, annars förlorar du matchen' }) : '';
+const motstandarenBorta = () => ONLINE && v.disconnects?.[opponentOf(ui.viewer)] !== undefined;   // L17
 const opponentName = () => ui.mode === 'computer' ? 'Datorn' : nameOf(opponentOf(ui.viewer));
 /* Online sitter man alltid nederst: zonen 'A' på bordet är den egna och 'B' motståndarens. Lokalt är zon = plats. */
 const zone = id => ONLINE ? (id === ui.viewer ? 'A' : 'B') : id;
@@ -161,7 +164,7 @@ function phaseText() {
     case PHASE.attack: return { title: `${active} anfaller`, text: ui.thinking ? `Strid ${v.battleNumber}.${waiting}` : `Strid ${v.battleNumber}. Välj ett kort eller använd enkel attack 1.` };
     case PHASE.defence: { const a = v.battle.attack; const type = cardType(a.cardId); return { title: `${active} försvarar`, text: `${nameOf(v.battle.attacker)} anfaller med ${a.usage === USAGE.simple ? `${type.name} som enkel attack 1` : `${type.name} (${type.value})`}.${ui.thinking ? waiting : ' Välj ett försvarskort eller avstå.'}` }; }
     case PHASE.result: { const r = v.lastResult; return { title: r.defended ? 'Försvaret håller' : `${nameOf(r.defender)} träffas`, text: `Attack ${r.attackStrength} mot försvar ${r.defenceStrength}. Läs resultatet och tryck Fortsätt.` }; }
-    case PHASE.over: return { title: v.winner ? `${nameOf(v.winner)} vinner` : 'Ingen vinner', text: slutText() };
+    case PHASE.over: return { title: v.endReason === END.serverAbort ? 'Matchen avbröts' : v.winner ? `${nameOf(v.winner)} vinner` : 'Ingen vinner', text: slutText() };
     case PHASE.error: return { title: 'Matchen har stoppats', text: `Regel- eller bokföringsfel: ${v.error}. Starta en ny match.` };
     default: return { title: '', text: '' };
   }
@@ -237,14 +240,16 @@ function renderActions() {
     actions = button('pass', 'Avstå försvar', { kind: 'secondary', id: 'confirm-pass' }) + button('defend', ok ? `Försvara med ${html(type.name)}` : 'Försvara', { disabled: !ok, id: 'confirm-defend' });
   } else if (v.phase === PHASE.result) {
     const waiting = ONLINE && Boolean(v.confirm?.mine);
-    info = `<h3>Strid ${v.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${html(nameOf(opponentOf(v.lastResult.attacker)))}.${v.players.some(p => p.life > 0 && !p.cardCount) ? ' En tom hand får upp till fem nya kort.' : ''}${waiting ? ` Väntar på att ${html(opponentName())} trycker Fortsätt.` : ''}</p>`;
+    info = `<h3>Strid ${v.lastResult.battleNumber} är avgjord</h3><p>Spelade kort ligger i slänghögen. Nästa anfallare: ${html(nameOf(opponentOf(v.lastResult.attacker)))}.${v.players.some(p => p.life > 0 && !p.cardCount) ? ' En tom hand får upp till fem nya kort.' : ''}${waiting ? ` Väntar på att ${html(opponentName())} ${motstandarenBorta() ? 'återansluter' : 'trycker Fortsätt'}.` : ''}</p>`;
     actions = button('next', waiting ? 'Väntar …' : 'Fortsätt <span aria-hidden="true">→</span>', { id: 'confirm-next', disabled: waiting });
   } else if (v.phase === PHASE.over) {
-    info = `<h3>${html(vinnarRubrik())}</h3><p>${v.endReason === END.surrendered ? 'Matchen avslutades genom att motståndaren gav upp.' : v.endReason === END.fallen ? 'Motståndarens torn har fallit.' : html(slutText())} Ingen påfyllning eller ny tur efter avslut.</p>`;
+    info = `<h3>${html(vinnarRubrik())}</h3><p>${v.endReason === END.surrendered ? 'Matchen avslutades genom att motståndaren gav upp.' : v.endReason === END.fallen ? 'Motståndarens torn har fallit.' : html(slutText())}${v.endReason === END.serverAbort ? ' Gå till lobbyn för att ordna en ny match.' : ' Ingen påfyllning eller ny tur efter avslut.'}</p>`;
     actions = ONLINE ? button('lobby', 'Till lobbyn', { id: 'confirm-new-match' }) : button('new', 'Spela igen', { id: 'confirm-new-match' });
   } else if (v.phase === PHASE.error) {
     info = `<h3>Matchen har stoppats</h3><p>${html(v.error)}</p>`;
     actions = ONLINE ? button('lobby', 'Till lobbyn', { id: 'confirm-new-match' }) : button('new', 'Ny match', { id: 'confirm-new-match' });
+  } else if (motstandarenBorta()) {
+    info = `<h3>Väntar på att ${html(opponentName())} återansluter</h3><p>Motståndaren har tappat anslutningen. Kommer hen inte tillbaka i tid vinner du matchen.</p>`;
   } else {
     info = `<h3>${html(nameOf(v.activePlayer ?? ui.viewer))} står på tur</h3><p>Vänta på motståndarens drag.</p>`;
   }
@@ -330,9 +335,9 @@ function renderResult() {
     lines.push(`<p>${html(slutText())}</p>`);
   }
   if (over) lines.push(`<p class="winner"><strong>${html(vinnarRubrik())}.</strong></p>`);
-  const kind = over ? (personal() && v.winner !== ui.viewer ? 'defeat' : 'victory') : r.defended ? 'held' : 'hit';
+  const kind = over ? (v.endReason === END.serverAbort ? 'aborted' : personal() && v.winner !== ui.viewer ? 'defeat' : 'victory') : r.defended ? 'held' : 'hit';
   dialog.dataset.outcome = kind;
-  $('result').innerHTML = `${resultHeader(kind, phaseText().title, over)}<div class="popup-result-body">${lines.join('')}</div>`;
+  $('result').innerHTML = `${resultHeader(kind, phaseText().title, over && v.endReason === END.serverAbort ? 'SERVERAVBROTT' : over)}<div class="popup-result-body">${lines.join('')}</div>`;
   const waiting = ONLINE && !over && Boolean(v.confirm?.mine);
   $('dialog-actions').innerHTML = over
     ? (ONLINE ? button('lobby', 'Till lobbyn', { id: 'dialog-new' }) : button('new', 'Spela igen', { id: 'dialog-new' }))
@@ -364,7 +369,7 @@ function renderStart() {
   const mine = ONLINE && Boolean(v.confirm?.mine);
   $('start-message').textContent = `${nameOf(pending.playerId)} har lottats till att anfalla först. ${ui.mode === 'computer'
     ? (pending.playerId === HUMAN ? 'Välj ditt första attackkort när du är redo.' : 'Du försvarar först. Datorn väntar tills du trycker på Börja striden.')
-    : ONLINE ? (pending.playerId === ui.viewer ? 'Du anfaller först.' : 'Du försvarar först.') + (mine ? ` Väntar på att ${opponentName()} bekräftar.` : ' Striden börjar när båda har tryckt på Börja striden.')
+    : ONLINE ? (pending.playerId === ui.viewer ? 'Du anfaller först.' : 'Du försvarar först.') + (mine ? ` Väntar på att ${opponentName()} ${motstandarenBorta() ? 'återansluter' : 'bekräftar'}.` : ' Striden börjar när båda har tryckt på Börja striden.')
     : 'Den andra spelaren försvarar.'}`;
   $('start-clock').innerHTML = minKlocka();
   $('start-play').disabled = mine;
@@ -459,7 +464,7 @@ function render() {
   for (const p of v.players) tower(p.id);
   const opponent = v.players.find(p => zone(p.id) === 'B');
   $('label-B').textContent = ui.mode === 'computer' ? 'DATORN' : ONLINE ? 'MOTSTÅNDARE' : 'SPELARE B';
-  if (ONLINE) { $('name-B').textContent = opponent.name; $('name-A').textContent = nameOf(ui.viewer); $('label-A').textContent = 'DU'; $('opponent-clock').dataset.klocka = opponentOf(ui.viewer); }
+  if (ONLINE) { $('name-B').textContent = opponent.name; $('name-A').textContent = nameOf(ui.viewer); $('label-A').textContent = 'DU'; $('opponent-clock').dataset.klocka = opponentOf(ui.viewer); $('opponent-avbrott').dataset.avbrott = opponentOf(ui.viewer); }
   $('hidden-B').classList.toggle('empty', !opponent.cardCount);
   $('draw-number').textContent = String(v.drawPileSize);
   $('discard-number').textContent = String(v.discardPile.length);
@@ -749,7 +754,7 @@ document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEve
 }));
 window.addEventListener('beforeunload', event => { if (!ONLINE && v && ![PHASE.over, PHASE.error].includes(v.phase) && v.revision > 0) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pagehide', cancelComputerJob);
-const nedrakning = kopplaNedrakning({ klockor: () => (ONLINE ? v?.clocks : null), nu: () => adapter?.serverNu?.() ?? Date.now(), egen: () => ui.viewer, varna: text => { $('clock-alert').textContent = text; } });
+const nedrakning = kopplaNedrakning({ klockor: () => (ONLINE ? v?.clocks : null), avbrott: () => (ONLINE ? v?.disconnects : null), nu: () => adapter?.serverNu?.() ?? Date.now(), egen: () => ui.viewer, varna: text => { $('clock-alert').textContent = text; } });
 /* ---- Start: välj adapter. Online hämtas matchen från servern; saknas den går man till lobbyn. ---- */
 const CONNECTION_TEXT = { ansluter: 'Ansluter …', ansluten: 'Ansluten', ateransluter: 'Återansluter …', ersatt: 'Öppen i en annan flik', utloggad: 'Sessionen har gått ut' };
 async function boot() {

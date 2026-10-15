@@ -174,3 +174,55 @@ test('Två drag samtidigt: det andra avvisas lokalt tills kvittensen kommit', as
   release();
   assert.equal((await first).status, RECEIPT.ok);
 });
+
+/* L17: en låtsasström som testet styr. readyState 0 = CONNECTING, 1 = OPEN, 2 = CLOSED. */
+function skapaStromfabrik() {
+  const strommar = [];
+  class FalskStrom {
+    constructor(url) { this.url = url; this.readyState = 0; this.lyssnare = {}; this.onerror = null; strommar.push(this); }
+    addEventListener(typ, fn) { (this.lyssnare[typ] ??= []).push(fn); }
+    close() { this.readyState = 2; }
+    skicka(typ, data) { this.readyState = 1; for (const fn of this.lyssnare[typ] ?? []) fn({ data: JSON.stringify(data) }); }
+    fel(stangd) { this.readyState = stangd ? 2 : 0; this.onerror?.(); }
+  }
+  return { FalskStrom, strommar };
+}
+const halsa = { tjanst: 'tornstriden-online', protocolVersion: 1, matchtrafik: { oppen: true, orsak: null } };
+
+test('Anslutning (L17): drag spärras medan strömmen är borta, ping besvaras med sitt nummer, och en ström som gett upp öppnas igen', async () => {
+  const klocka = styrdKlocka();
+  const anrop = [];
+  const adapter = skapaOnlineMatch({ initial: { view: vy() }, klocka, fetchFn: async (path, init) => { anrop.push({ path, ...init }); return path.startsWith('/api/match') ? svar(200, { view: vy() }) : svar(204, null); } });
+  const lagen = [];
+  adapter.pa(lage => lagen.push(lage));
+  const { FalskStrom, strommar } = skapaStromfabrik();
+  adapter.connect(FalskStrom);
+  assert.equal((await adapter.send(kommando())).status, RECEIPT.rejected, 'inga drag innan servern hälsat');
+  strommar[0].skicka('halsa', halsa);
+  assert.equal(adapter.ansluten(), true);
+  strommar[0].skicka('ping', { n: 7 });
+  await new Promise(setImmediate);
+  const livstecken = anrop.find(a => a.path === '/api/livstecken');
+  assert.deepEqual([livstecken.method, livstecken.body], ['POST', '{"n":7}']);
+  /* Tillfälligt fel: webbläsaren återansluter själv (CONNECTING) – ingen egen ny ström. */
+  strommar[0].fel(false);
+  assert.equal(adapter.ansluten(), false);
+  assert.match((await adapter.send(kommando())).message, /Återansluter/);
+  assert.equal(klocka.pending(), 0);
+  /* Strömmen har gett upp för gott (t.ex. 502 från proxyn): adaptern öppnar en ny efter en paus. */
+  strommar[0].fel(true);
+  assert.equal(strommar.length, 1);
+  klocka.advance(1000);
+  await new Promise(setImmediate);
+  await new Promise(setImmediate);
+  assert.equal(strommar.length, 2, 'ny ström');
+  assert.ok(anrop.some(a => a.path.startsWith('/api/match')), 'sessionen och matchen kontrolleras först');
+  strommar[1].skicka('halsa', halsa);
+  assert.equal(adapter.ansluten(), true);
+  assert.deepEqual(lagen.filter((l, i) => l !== lagen[i - 1]), ['ansluter', 'ansluten', 'ateransluter', 'ansluter', 'ansluten']);
+  /* En ersatt flik försöker aldrig igen. */
+  strommar[1].skicka('ersatt', {});
+  strommar[1].fel(true);
+  klocka.advance(60_000);
+  assert.equal(strommar.length, 2);
+});

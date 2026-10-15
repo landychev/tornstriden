@@ -81,18 +81,17 @@ test('Misslyckad lagring ger varken delvis sparat drag eller godkänd kvittens',
   assert.equal(lagring.hamtaMatch('m1').match.revision, 0, 'hanterarens skrivning före kraschen är borta');
 });
 
-test('Startspärr: gamla pågående matcher stänger matchtrafik men inte lobbykommandon', async () => {
+test('Ingen startspärr i tjänsten (L18): gamla pågående matcher avbryts av servern före start, inte här', async () => {
   const { tjanst } = setup({ before: l => l.sparaMatch(match(3)) });
-  assert.equal(tjanst.matchtrafik.oppen, false);
-  assert.deepEqual(tjanst.matchtrafik.matcher, ['m1']);
-  const receipt = await tjanst.kommando('anna', cmd());
-  assert.equal(receipt.status, RECEIPT.rejected);
-  assert.match(receipt.message, /startades om/);
+  assert.equal(tjanst.matchtrafik.oppen, true);
+  const receipt = await tjanst.kommando('anna', cmd({ revision: 3 }));
+  assert.equal(receipt.status, RECEIPT.ok, 'kommandot når hanteraren');
+  /* Strömbrytaren finns kvar för underhåll: stängd matchtrafik avvisar matchkommandon men inte lobbyn. */
+  Object.assign(tjanst.matchtrafik, { oppen: false, orsak: 'Underhåll.' });
+  assert.match((await tjanst.kommando('anna', cmd({ revision: 4, commandId: 'c9' }))).message, /Underhåll/);
   tjanst.registrera(LOBBY_COMMAND.leave, () => ({ status: RECEIPT.ok }));
   const lobby = await tjanst.kommando('anna', cmd({ type: LOBBY_COMMAND.leave, roomId: 'r1', matchId: undefined, revision: undefined, commandId: 'c2' }));
   assert.equal(lobby.status, RECEIPT.ok);
-  const { tjanst: ren } = setup({ before: l => l.sparaMatch(match(3), MATCH_STATUS.finished) });
-  assert.equal(ren.matchtrafik.oppen, true, 'avslutade matcher spärrar inte');
 });
 
 test('Kön kör samma nyckel i ordning och olika nycklar oberoende', async () => {

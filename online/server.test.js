@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startaServer, PULS_MS } from './server.js';
+import { startaServer, PING_MS, TYST_MS, OMLADDNING_MS } from './server.js';
 import { oppnaLagring } from './lagring.js';
 import { isBlocked, ROOT, skapaFilserver } from '../server.js';
 import { PROTOCOL_VERSION, MATCH_COMMAND, assertNoSecrets, validatePrivateView } from '../kontrakt.js';
@@ -123,7 +123,7 @@ test('SSE-provet avbryter och städar en ström som aldrig ger en hel händelse'
   assert.ok(cancelled);
 });
 
-test('Händelseströmmen öppnas med hälsa, slår puls via den injicerade klockan och stängs med servern', () => medServer(async ({ app, url, klocka }) => {
+test('Händelseströmmen öppnas med hälsa, pingar via den injicerade klockan, hålls vid liv av livstecken och stängs vid tystnad (L17)', () => medServer(async ({ app, url, klocka }) => {
   assert.equal((await fetch(url('/api/handelser'))).status, 401, 'strömmen kräver session');
   const cookie = (await fetch(url('/api/session'), { method: 'POST', headers: { 'content-type': 'application/json', origin: url('') }, body: JSON.stringify({ nick: 'Anna' }) })).headers.get('set-cookie').split(';')[0];
   const response = await fetch(url('/api/handelser'), { headers: { cookie } });
@@ -135,34 +135,162 @@ test('Händelseströmmen öppnas med hälsa, slår puls via den injicerade klock
     assert.match(await read(), /^retry: 3000\nevent: halsa\ndata: \{.*"protocolVersion":1/);
     assert.match(await read(), /event: lobby\ndata: \{"me":\{"playerId":"p-[0-9a-f]+","nick":"Anna","activity":"LEDIG","connection":"ANSLUTEN"\}/);
     assert.equal(app.strommar.size, 1);
-    klocka.advance(PULS_MS);
-    assert.match(await read(), /^: puls/);
-    klocka.advance(PULS_MS);
-    assert.match(await read(), /^: puls/);
+    klocka.advance(PING_MS);
+    assert.match(await read(), /^event: ping\ndata: \{"n":1\}/);
+    const livstecken = await fetch(url('/api/livstecken'), { method: 'POST', headers: { cookie, origin: url('') } });
+    assert.equal(livstecken.status, 204);
+    assert.equal((await fetch(url('/api/livstecken'), { method: 'POST', headers: { origin: url('') } })).status, 401, 'livstecken kräver session');
+    klocka.advance(PING_MS);
+    assert.match(await read(), /^event: ping\ndata: \{"n":2\}/);
+    /* Inga fler livstecken: efter TYST_MS från det senaste stängs strömmen och spelaren blir frånkopplad. */
+    klocka.advance(PING_MS);
+    assert.match(await read(), /^event: ping\ndata: \{"n":3\}/);
+    assert.equal(app.strommar.size, 1, 'precis före gränsen är strömmen kvar');
+    klocka.advance(TYST_MS - 2 * PING_MS);
+    assert.equal(app.strommar.size, 0, 'tyst anslutning räknas som avbruten');
+    assert.equal(app.lagring.listaSessioner(klocka.now())[0].connection, 'FRÅNKOPPLAD');
   } finally { await reader.cancel(); }
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(app.strommar.size, 0, 'stängd anslutning städas bort');
-  assert.equal(klocka.pending(), 1, 'ingen pulstimer kvar – bara den periodiska städningen');
+  assert.equal(klocka.pending(), 1, 'ingen pingtimer kvar – bara den periodiska städningen');
 }));
 
-test('Databasen hamnar utanför webbroten och gamla pågående matcher stänger matchtrafiken vid start', async () => {
+test('Databasen hamnar utanför webbroten; en omstart avbryter pågående matcher utan vinnare innan servern öppnar, en gång (L18)', async () => {
   assert.throws(() => startaServer({ port: 0, dataDir: join(ROOT, 'assets'), logg: tyst }), /webbroten/);
   const dir = mkdtempSync(join(tmpdir(), 'tornstriden-'));
   const dataDir = join(dir, 'data');
+  /* Första körningen: en duell pågår och en annan duell har redan avgjorts (Cia ger upp). */
   const forsta = startaServer({ port: 0, dataDir, logg: tyst });
   await forsta.klar;
   assert.equal(forsta.dbPath, join(dataDir, 'tornstriden.sqlite'));
-  forsta.lagring.sparaMatch({ id: 'm1', revision: 2, rulesVersion: 'duell-v1', deckVersion: 'duell-50-v1', instances: {} });
+  const duell = async (nicks, commandId) => {
+    const ids = nicks.map(nick => { const { session } = forsta.sessioner.skapa(nick); forsta.sessioner.anslut(session.playerId); return session.playerId; });
+    const room = forsta.rum.skapa(ids[0]);
+    forsta.rum.bjudIn(ids[0], room.id, [ids[1]]);
+    forsta.rum.acceptera(ids[1], forsta.rum.vyFor(ids[1]).inbjudningar.inkommande[0].id);
+    forsta.rum.valjLag(ids[0], room.id, 'A'); forsta.rum.valjLag(ids[1], room.id, 'B');
+    const rv = forsta.lagring.hamtaRum(room.id).rosterVersion;
+    for (const id of ids) forsta.rum.redo(id, room.id, true, rv);
+    const start = await forsta.tjanst.kommando(ids[0], { protocolVersion: 1, commandId, type: 'STARTA', roomId: room.id, payload: { rosterVersion: rv } });
+    assert.equal(start.status, 'GODKÄND');
+    return { ids, room, matchId: forsta.lagring.hamtaRum(room.id).matchId };
+  };
+  const { ids, room, matchId } = await duell(['Anna', 'Bo'], 's1');
+  /* En andra instans på samma port och med samma data startar inte, och den rör inte den körande serverns matcher eller sessioner. */
+  const krock = startaServer({ port: forsta.port(), dataDir, logg: tyst });
+  await assert.rejects(krock.klar, /EADDRINUSE/);
+  assert.equal(krock.omstart, null, 'ingen uppstädning utan port');
+  assert.equal(forsta.lagring.hamtaMatch(matchId).status, 'PÅGÅR');
+  for (const id of ids) assert.equal(forsta.lagring.hamtaSession(id).connection, 'ANSLUTEN');
+  const avgjord = await duell(['Cia', 'Dag'], 's0');
+  const geUpp = { protocolVersion: 1, commandId: 'g0', type: 'GE_UPP', matchId: avgjord.matchId, revision: forsta.matcher.matchFor(avgjord.ids[0]).view.revision, payload: {} };
+  const uppgiven = await forsta.tjanst.kommando(avgjord.ids[0], geUpp);
+  assert.equal(uppgiven.status, 'GODKÄND', uppgiven.message);
+  const avgjordFore = { rad: forsta.lagring.hamtaMatch(avgjord.matchId), handelser: forsta.lagring.hamtaHandelser(avgjord.matchId) };
+  assert.deepEqual([avgjordFore.rad.status, avgjordFore.rad.match.engine.winner], ['AVSLUTAD', 'B']);
+  const vy = forsta.matcher.matchFor(ids[0]).view;
+  const drag = await forsta.tjanst.kommando(ids[0], { protocolVersion: 1, commandId: 'd1', type: 'BEKRÄFTA_BYTE', matchId, revision: vy.revision, payload: { cards: [] } });
+  assert.equal(drag.status, 'GODKÄND');
+  const fore = forsta.lagring.hamtaMatch(matchId).match;
+  /* Processen dör utan att städa (inga sluthändelser sparas vid avstängning). */
   await forsta.stang();
+  /* Andra körningen: matchen avbryts innan servern lyssnar. */
   const andra = startaServer({ port: 0, dataDir, logg: tyst });
+  assert.equal(andra.omstart, null, 'uppstädningen väntar tills porten är tagen');
   await andra.klar;
+  assert.deepEqual([andra.omstart.avbrutna, andra.omstart.matcher], [1, [matchId]]);
   const halsa = await (await fetch(`http://127.0.0.1:${andra.port()}/api/halsa`)).json();
-  assert.equal(halsa.matchtrafik.oppen, false);
-  assert.match(halsa.matchtrafik.orsak, /startades om med 1 pågående/);
+  assert.equal(halsa.matchtrafik.oppen, true, 'startspärren är borta');
+  const rad = andra.lagring.hamtaMatch(matchId);
+  assert.equal(rad.status, 'AVBRUTEN');
+  assert.deepEqual([rad.match.engine.phase, rad.match.engine.winner, rad.match.engine.endReason], ['AVSLUTAD', null, 'SERVERAVBROTT']);
+  assert.deepEqual(rad.match.engine.players.map(p => p.life), fore.engine.players.map(p => p.life), 'inga liv förlorade');
+  assert.deepEqual([rad.match.klockor, rad.match.avbrott, rad.match.confirm], [{}, {}, null]);
+  const handelser = andra.lagring.hamtaHandelser(matchId);
+  assert.deepEqual(handelser.map(e => e.eventId), handelser.map((_, i) => i + 1), 'inga luckor');
+  assert.deepEqual(handelser.filter(e => e.type === 'MATCHSLUT').map(e => e.data), [{ winner: null, endReason: 'SERVERAVBROTT' }]);
+  /* Det sparade slutresultatet för den avgjorda matchen rörs inte. */
+  assert.deepEqual({ rad: andra.lagring.hamtaMatch(avgjord.matchId), handelser: andra.lagring.hamtaHandelser(avgjord.matchId) }, avgjordFore, 'avgjord match oförändrad');
+  assert.deepEqual(await andra.tjanst.kommando(avgjord.ids[0], geUpp), uppgiven, 'den avgjorda matchens kvittens finns kvar');
+  assert.equal(andra.lagring.hamtaRum(room.id).status, 'STÄNGD');
+  for (const id of ids) assert.deepEqual([andra.lagring.hamtaSession(id).activity, andra.lagring.hamtaSession(id).connection], ['FÖLJER_AVSLUT', 'FRÅNKOPPLAD']);
+  /* Kvittenshistoriken finns kvar: samma commandId ger samma kvittens men utförs aldrig igen; nya drag avvisas. */
+  const igen = await andra.tjanst.kommando(ids[0], { protocolVersion: 1, commandId: 'd1', type: 'BEKRÄFTA_BYTE', matchId, revision: vy.revision, payload: { cards: [] } });
+  assert.deepEqual(igen, drag);
+  const nytt = await andra.tjanst.kommando(ids[1], { protocolVersion: 1, commandId: 'd2', type: 'BEKRÄFTA_BYTE', matchId, revision: rad.match.revision, payload: { cards: [] } });
+  assert.deepEqual([nytt.status, nytt.message], ['AVVISAD', 'Matchen avbröts. Gå till lobbyn.']);
+  assert.equal(andra.lagring.hamtaMatch(matchId).match.revision, rad.match.revision);
+  /* Vyn visar slutstatus och orsak. */
+  const sluten = andra.matcher.matchFor(ids[1]).view;
+  assert.deepEqual([sluten.phase, sluten.endReason, sluten.matchStatus, sluten.allowed], ['AVSLUTAD', 'SERVERAVBROTT', 'AVBRUTEN', []]);
+  /* Till lobbyn och en ny match fungerar efter uppstädningen. */
+  for (const id of ids) assert.equal((await andra.tjanst.kommando(id, { protocolVersion: 1, commandId: `l-${id}`, type: 'LÄMNA', roomId: room.id, payload: {} })).status, 'GODKÄND');
+  for (const id of ids) andra.sessioner.anslut(id);
+  const nyttRum = andra.rum.skapa(ids[0]);
+  andra.rum.bjudIn(ids[0], nyttRum.id, [ids[1]]);
+  andra.rum.acceptera(ids[1], andra.rum.vyFor(ids[1]).inbjudningar.inkommande[0].id);
+  andra.rum.valjLag(ids[0], nyttRum.id, 'A'); andra.rum.valjLag(ids[1], nyttRum.id, 'B');
+  const rv2 = andra.lagring.hamtaRum(nyttRum.id).rosterVersion;
+  for (const id of ids) andra.rum.redo(id, nyttRum.id, true, rv2);
+  assert.equal((await andra.tjanst.kommando(ids[0], { protocolVersion: 1, commandId: 's2', type: 'STARTA', roomId: nyttRum.id, payload: { rosterVersion: rv2 } })).status, 'GODKÄND');
+  const nyMatch = andra.lagring.hamtaRum(nyttRum.id).matchId;
   await andra.stang();
+  /* Tredje körningen: den gamla avbrutna matchen rörs inte igen; den nya avbryts. */
+  const tredje = startaServer({ port: 0, dataDir, logg: tyst });
+  await tredje.klar;
+  assert.deepEqual([tredje.omstart.avbrutna, tredje.omstart.matcher], [1, [nyMatch]]);
+  assert.equal(tredje.lagring.hamtaHandelser(matchId).filter(e => e.type === 'MATCHSLUT').length, 1, 'ingen dubbel sluthändelse');
+  assert.equal(tredje.lagring.hamtaHandelser(matchId).length, handelser.length);
+  await tredje.stang();
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('Lagringsfel under uppstädningen: servern öppnar inte, och en ny start städar klart utan dubbla sluthändelser (L18)', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tornstriden-'));
+  const dataDir = join(dir, 'data');
+  const forsta = startaServer({ port: 0, dataDir, logg: tyst, lagspel: true });
+  await forsta.klar;
+  /* Tre pågående matcher: en duell och två lagmatcher. */
+  const matcher = [];
+  for (const size of [2, 4, 4]) {
+    const ids = Array.from({ length: size }, (_, i) => { const { session } = forsta.sessioner.skapa(`s${matcher.length}x${i}`); forsta.sessioner.anslut(session.playerId); return session.playerId; });
+    const room = forsta.rum.skapa(ids[0]);
+    forsta.rum.bjudIn(ids[0], room.id, ids.slice(1));
+    for (const id of ids.slice(1)) forsta.rum.acceptera(id, forsta.rum.vyFor(id).inbjudningar.inkommande[0].id);
+    ids.forEach((id, i) => forsta.rum.valjLag(id, room.id, i % 2 ? 'B' : 'A'));
+    const rv = forsta.lagring.hamtaRum(room.id).rosterVersion;
+    for (const id of ids) forsta.rum.redo(id, room.id, true, rv);
+    forsta.rum.starta(ids[0], room.id, rv);
+    matcher.push(forsta.lagring.hamtaRum(room.id).matchId);
+  }
+  await forsta.stang();
+  /* Andra start: lagringen fallerar vid den andra matchens transaktion. */
+  let lasningar = 0;
+  const trasig = args => {
+    const lagring = oppnaLagring(args);
+    const vanlig = lagring.transaktion;
+    /* Uppstädningen läser varje match i sin transaktion; den andra läsningen fallerar. */
+    lagring.transaktion = fn => vanlig(ops => fn(new Proxy(ops, { get: (t, k) => k === 'hamtaMatch' ? id => { if (++lasningar === 2) throw new Error('disken är full'); return t.hamtaMatch(id); } : t[k] })));
+    return lagring;
+  };
+  const trasigServer = startaServer({ port: 0, dataDir, logg: tyst, lagringsfabrik: trasig });
+  await assert.rejects(trasigServer.klar, error => /^Uppstädningen efter omstart misslyckades – servern startar inte: disken är full$/.test(error.message) && error.cause?.message === 'disken är full');
+  assert.equal(trasigServer.server.listening, false, 'porten stängdes utan att någon begäran hanterats');
   const kontroll = oppnaLagring({ path: join(dataDir, 'tornstriden.sqlite') });
-  assert.equal(kontroll.hamtaMatch('m1').match.revision, 2, 'data överlevde två serverstarter');
+  assert.deepEqual(matcher.map(id => kontroll.hamtaMatch(id).status), ['AVBRUTEN', 'PÅGÅR', 'PÅGÅR'], 'den första sparades, inget mer låtsas vara sparat');
   kontroll.stang();
+  /* Tredje start: resten städas, den första rörs inte igen. */
+  const tredje = startaServer({ port: 0, dataDir, logg: tyst, lagspel: true });
+  await tredje.klar;
+  assert.deepEqual([tredje.omstart.avbrutna, tredje.omstart.matcher], [2, matcher.slice(1)]);
+  for (const id of matcher) {
+    assert.equal(tredje.lagring.hamtaMatch(id).status, 'AVBRUTEN');
+    assert.equal(tredje.lagring.hamtaHandelser(id).filter(e => e.type === 'MATCHSLUT').length, 1, `${id}: en sluthändelse`);
+  }
+  const lag = tredje.lagring.hamtaMatch(matcher[1]).match.engine;
+  assert.deepEqual([lag.phase, lag.winnerTeam, lag.endReason], ['AVSLUTAD', null, 'SERVERAVBROTT']);
+  assert.ok(lag.players.every(p => p.status === 'LEVANDE'), 'ingen individuell förlust');
+  await tredje.stang();
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -187,6 +315,7 @@ async function strom(url, cookie) {
   const decoder = new TextDecoder();
   let buffer = '';
   const events = [];
+  const svar = [];
   const pump = async () => {
     for (;;) {
       const { value, done } = await reader.read();
@@ -196,13 +325,22 @@ async function strom(url, cookie) {
       while ((index = buffer.indexOf('\n\n')) !== -1) {
         const block = buffer.slice(0, index); buffer = buffer.slice(index + 2);
         const event = block.match(/^event: (.+)$/m)?.[1]; const data = block.match(/^data: (.+)$/m)?.[1];
+        if (event === 'ping') { svar.push(fetch(url('/api/livstecken'), { method: 'POST', headers: { cookie, origin: url(''), 'content-type': 'application/json' }, body: data }).then(r => r.text())); continue; }   // som klienten: svara på ping (L17)
         if (event) events.push({ event, data: JSON.parse(data) });
       }
     }
   };
   const done = pump();
   const vanta = async (event, n = 1) => { for (let i = 0; i < 200 && events.filter(e => e.event === event).length < n; i++) await new Promise(r => setTimeout(r, 5)); return events.filter(e => e.event === event).at(-1)?.data; };
-  return { status: response.status, events, vanta, stang: async () => { await reader.cancel(); await done.catch(() => {}); } };
+  return { status: response.status, events, vanta, svarat: () => Promise.all(svar), stang: async () => { await reader.cancel(); await done.catch(() => {}); } };
+}
+/* Flyttar den styrda klockan i steg om PING_MS och låter strömmarna svara på varje ping, som riktiga klienter. */
+async function flytta(klocka, ms, flikar) {
+  for (let kvar = ms; kvar > 0; kvar -= PING_MS) {
+    klocka.advance(Math.min(PING_MS, kvar));
+    await new Promise(r => setTimeout(r, 15));
+    await Promise.all(flikar.map(f => f.svarat()));
+  }
 }
 
 test('Separata gäster får olika identitet, omladdning behåller den, och någon annans nick ger ingen åtkomst', () => medServer(async ({ url }) => {
@@ -406,12 +544,130 @@ test('Onlineduell över HTTP: start ger privata matchvyer i strömmen, drag ger 
   assert.deepEqual(mb2.view.deadline, { playerId: 'B', at: klocka.now() + 90_000 });
   assert.equal(ma2.view.deadline, null);
   assert.deepEqual(ma2.view.clocks, { B: klocka.now() + 90_000 });
-  klocka.advance(90_000);
+  await flytta(klocka, 90_000, [flikA, flikB]);
   await app.matcher.klockor().klart();
   const slutA = await flikA.vanta('match', 3), slutB = await flikB.vanta('match', 3);
   for (const slut of [slutA, slutB]) assert.deepEqual([slut.view.phase, slut.view.winner, slut.view.endReason, slut.status, slut.view.deadline], ['AVSLUTAD', 'A', 'TIDSGRÄNS', 'AVSLUTAD', null]);
   assert.ok(slutB.events.some(e => e.type === 'MATCHSLUT'));
   await flikA.stang(); await flikB.stang();
+}));
+
+/* ---- L17: avbrott och återkomst över HTTP ---- */
+test('Avbrott över HTTP: en stängd ström blir ett avbrott som motståndaren ser, en ny flik tar över utan avbrott, och återkomsten visar aktuellt läge', () => medServer(async ({ url, app, klocka }) => {
+  const anna = klient(url), bo = klient(url);
+  await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
+  const b = await bo.call('/api/session', { method: 'POST', body: { nick: 'Bo' } });
+  let flikA = await strom(url, anna.cookie()), flikB = await strom(url, bo.cookie());
+  await flikB.vanta('lobby');
+  let n = 0;
+  const kommando = (k, type, extra = {}) => k.call('/api/kommando', { method: 'POST', body: { protocolVersion: 1, commandId: `a${++n}`, type, payload: {}, ...extra } });
+  await kommando(anna, 'SKAPA_RUM');
+  const roomId = (await anna.call('/api/lobby')).body.rum.id;
+  await kommando(anna, 'BJUD_IN', { roomId, payload: { playerIds: [b.body.me.playerId] } });
+  await kommando(bo, 'ACCEPTERA', { payload: { invitationId: (await bo.call('/api/lobby')).body.inbjudningar.inkommande[0].id } });
+  await kommando(anna, 'VÄLJ_LAG', { roomId, payload: { teamId: 'A' } });
+  await kommando(bo, 'VÄLJ_LAG', { roomId, payload: { teamId: 'B' } });
+  const v = (await bo.call('/api/lobby')).body.rum.rosterVersion;
+  await kommando(anna, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  await kommando(bo, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  assert.equal((await kommando(anna, 'STARTA', { roomId, payload: { rosterVersion: v } })).body.status, 'GODKÄND');
+  const start = await flikA.vanta('match');
+  const matchId = start.view.matchId;
+  await flikB.vanta('match');
+  /* En andra flik för Anna tar över: den gamla strömmen stängs, men det är inget avbrott. */
+  const flikA2 = await strom(url, anna.cookie());
+  await flikA2.vanta('match');
+  await new Promise(r => setTimeout(r, 30));
+  assert.deepEqual(app.lagring.hamtaMatch(matchId).match.avbrott ?? {}, {}, 'ny flik är inget avbrott');
+  assert.ok(flikA.events.some(e => e.event === 'ersatt'));
+  await flikA.stang();
+  flikA = flikA2;
+  const vantaPa = async villkor => { for (let i = 0; i < 200 && !villkor(); i++) await new Promise(r => setTimeout(r, 5)); assert.ok(villkor()); };
+  const boId = b.body.me.playerId;
+  const borta = () => app.lagring.hamtaSession(boId).connection === 'FRÅNKOPPLAD';
+  /* Bo laddar om (stänger och öppnar inom nåden): inget avbrott, ingen budget dras. */
+  await flikB.stang();
+  await vantaPa(borta);   // servern har sett stängningen; nåden löper
+  flikB = await strom(url, bo.cookie());
+  await flikB.vanta('match');
+  await flytta(klocka, OMLADDNING_MS + PING_MS, [flikA, flikB]);
+  assert.deepEqual(app.lagring.hamtaMatch(matchId).match.avbrott ?? {}, {}, 'en omladdning är inget avbrott');
+  assert.equal(app.lagring.hamtaHandelser(matchId).filter(e => e.type === 'AVBROTT').length, 0);
+  /* Bo stänger sin flik: efter nåden får Anna avbrottet med Bos frist, räknad från stängningen, utan att något kommando skickats. */
+  const stangd = klocka.now();
+  await flikB.stang();
+  await vantaPa(borta);
+  await flytta(klocka, OMLADDNING_MS, [flikA]);
+  await app.matcher.klockor().klart();
+  await vantaPa(() => flikA.events.some(e => e.event === 'match' && e.data.view.disconnects?.B));
+  const avbrott = flikA.events.filter(e => e.event === 'match' && e.data.view.disconnects?.B).at(-1).data;
+  assert.equal(avbrott.view.disconnects.B, stangd + 30_000);
+  assert.equal(avbrott.view.players.find(p => p.id === 'B').connection, 'FRÅNKOPPLAD');
+  assert.ok(avbrott.events.some(e => e.type === 'AVBROTT' && e.data.playerId === 'B'));
+  /* Annas drag går igenom medan Bo är borta (det är hennes tur). */
+  assert.equal((await kommando(anna, 'BEKRÄFTA_BYTE', { matchId, revision: avbrott.view.revision, payload: { cards: [] } })).body.status, 'GODKÄND');
+  /* Bo kommer tillbaka: strömmen ger direkt aktuell vy (Annas byte syns), och Anna ser återkomsten. */
+  flikB = await strom(url, bo.cookie());
+  const bosVy = await flikB.vanta('match');
+  assert.equal(bosVy.view.activePlayer, 'B', 'återkomsten visar läget efter avbrottet');
+  await new Promise(r => setTimeout(r, 30));
+  const efter = app.lagring.hamtaMatch(matchId).match;
+  assert.deepEqual(efter.avbrott, {});
+  assert.equal(efter.avbrottsbudget[b.body.me.playerId] >= 0, true);
+  const sista = flikA.events.filter(e => e.event === 'match').at(-1).data;
+  assert.deepEqual(sista.view.disconnects, {});
+  assert.ok(sista.events.some(e => e.type === 'ÅTERANSLUTEN'));
+  await flikA.stang(); await flikB.stang();
+}));
+
+test('Avbrott över HTTP: en ström som stängs strax före turtidens slut skyddar den kvarvarande tiden – ingen förlust under nåden (granskning L17)', () => medServer(async ({ url, app, klocka }) => {
+  const anna = klient(url), bo = klient(url);
+  await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
+  const b = await bo.call('/api/session', { method: 'POST', body: { nick: 'Bo' } });
+  const flikar = { A: await strom(url, anna.cookie()), B: await strom(url, bo.cookie()) };
+  await flikar.B.vanta('lobby');
+  let n = 0;
+  const kommando = (k, type, extra = {}) => k.call('/api/kommando', { method: 'POST', body: { protocolVersion: 1, commandId: `n${++n}`, type, payload: {}, ...extra } });
+  await kommando(anna, 'SKAPA_RUM');
+  const roomId = (await anna.call('/api/lobby')).body.rum.id;
+  await kommando(anna, 'BJUD_IN', { roomId, payload: { playerIds: [b.body.me.playerId] } });
+  await kommando(bo, 'ACCEPTERA', { payload: { invitationId: (await bo.call('/api/lobby')).body.inbjudningar.inkommande[0].id } });
+  await kommando(anna, 'VÄLJ_LAG', { roomId, payload: { teamId: 'A' } });
+  await kommando(bo, 'VÄLJ_LAG', { roomId, payload: { teamId: 'B' } });
+  const v = (await bo.call('/api/lobby')).body.rum.rosterVersion;
+  await kommando(anna, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  await kommando(bo, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  assert.equal((await kommando(anna, 'STARTA', { roomId, payload: { rosterVersion: v } })).body.status, 'GODKÄND');
+  const start = await flikar.A.vanta('match');
+  await flikar.B.vanta('match');
+  const matchId = start.view.matchId;
+  const tur = start.view.activePlayer;                       // den som byter först har klockan
+  const annan = tur === 'A' ? 'B' : 'A';
+  const turId = app.lagring.hamtaMatch(matchId).match.seats[tur];
+  const deadline = app.lagring.hamtaMatch(matchId).match.klockor[turId].deadline;
+  /* 89 sekunder går med besvarade ping; sedan stängs strömmen för den som har turen. */
+  await flytta(klocka, deadline - 1_000 - klocka.now(), [flikar.A, flikar.B]);
+  const stangd = klocka.now();
+  await flikar[tur].stang();
+  for (let i = 0; i < 200 && app.lagring.hamtaSession(turId).connection !== 'FRÅNKOPPLAD'; i++) await new Promise(r => setTimeout(r, 5));
+  await app.matcher.klockor().klart();
+  const direkt = app.lagring.hamtaMatch(matchId).match;
+  assert.deepEqual([direkt.avbrott[turId]?.start, direkt.avbrott[turId]?.deadline], [stangd, stangd + 30_000], 'avbrottet registreras direkt, räknat från stängningen');
+  assert.deepEqual([direkt.klockor[turId].deadline, direkt.klockor[turId].kvar], [null, 1_000], 'den sista sekunden är sparad');
+  /* Turtiden (90 s) och nåden (92 s) passerar: ingen förlust, samma avbrott. */
+  await flytta(klocka, OMLADDNING_MS + PING_MS, [flikar[annan]]);
+  await app.matcher.klockor().klart();
+  const efter = app.lagring.hamtaMatch(matchId);
+  assert.deepEqual([efter.status, efter.match.engine.phase, efter.match.engine.winner], ['PÅGÅR', 'KORTBYTE', null]);
+  assert.equal(app.lagring.hamtaHandelser(matchId).filter(e => e.type === 'AVBROTT').length, 1);
+  /* Återkomsten återupptar klockan med den sparade sekunden. */
+  flikar[tur] = await strom(url, (tur === 'A' ? anna : bo).cookie());
+  await flikar[tur].vanta('match');
+  await app.matcher.klockor().klart();
+  const tillbaka = app.lagring.hamtaMatch(matchId).match;
+  assert.deepEqual(tillbaka.avbrott, {});
+  assert.equal(tillbaka.klockor[turId].deadline, klocka.now() + 1_000);
+  await flikar.A.stang(); await flikar.B.stang();
 }));
 
 /* ---- L14: lagmatch över HTTP ---- */

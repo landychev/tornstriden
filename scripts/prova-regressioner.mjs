@@ -9,11 +9,20 @@ import { MATCH_COMMAND, PROTOCOL_VERSION, RECEIPT } from '../kontrakt.js';
 import { PHASE } from '../match.js';
 
 const klocka = styrdKlocka(100000);
+/* Klockan flyttas i steg om 5 s som sidan hinner besvara (ping, L17). En hoptryckt timme ser annars ut som
+   tystnad: servern stänger strömmen, sidan ansluter igen och får 404 för den städade matchen. */
+const besvarat = () => [...app.strommar].every(s => s.ping === 0 || s.senast >= s.pingTid.get(s.ping));
+async function flytta(ms) {
+  for (let kvar = ms; kvar > 0; kvar -= 5_000) {
+    klocka.advance(Math.min(5_000, kvar));
+    for (let i = 0; i < 200 && !besvarat(); i++) await new Promise(r => setTimeout(r, 10));
+  }
+}
 const app = startaServer({ port: 0, dataDir: ':memory:', klocka, slump: styrdSlump(5), logg: { info() {}, warn() {}, error() {} } });
 await app.klar;
 let browser;
 try {
-  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+  browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const base = `http://127.0.0.1:${app.port()}`;
   const nick = '<b onclick=top.z=1>';
   const a = app.sessioner.skapa(nick), b = app.sessioner.skapa('" onclick=top.z=2 x=');
@@ -79,7 +88,7 @@ try {
   await render();
   await page.locator('#result-dialog[open]').waitFor();
   await safe('Uppgiven match', '#result');
-  klocka.advance(STADNING_ALDER_MS + 1);
+  await flytta(STADNING_ALDER_MS + 1);
   await new Promise(setImmediate);
   app.rum.stada();
   assert.equal(app.duell.matchFor(bid), null);

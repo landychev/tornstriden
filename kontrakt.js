@@ -49,7 +49,7 @@ const INVITATION_COMMANDS = new Set([LOBBY_COMMAND.accept, LOBBY_COMMAND.decline
 export const TEAM_FORMAT = 'lag';
 export const TEAM_MATCH_PHASE = Object.freeze({ swap: 'KORTBYTE', start: 'STARTBEKRÄFTELSE', target: 'MÅLVAL', attack: 'ANFALL', defence: 'FÖRSVAR', result: 'RESULTAT', over: 'AVSLUTAD', error: 'FEL' });
 export const TEAM_OUTCOME = Object.freeze({ held: 'FÖRSVARET_HÖLL', hit: 'TRÄFF', aborted: 'AVBRUTEN' });
-export const TEAM_END = Object.freeze({ teamOut: 'LAG_UTSLAGET', noPlayers: 'INGA_SPELARE' });
+export const TEAM_END = Object.freeze({ teamOut: 'LAG_UTSLAGET', noPlayers: 'INGA_SPELARE', serverAbort: 'SERVERAVBROTT' });
 export const ELIMINATION = Object.freeze({ life: 'LIV', left: 'LÄMNADE', timeout: 'TIDSGRÄNS', disconnect: 'AVBROTT' });
 
 export const MAX_COMMAND_BYTES = 2048;

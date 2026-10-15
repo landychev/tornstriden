@@ -7,11 +7,15 @@
 
    Spelarklockor (L16, klockor.js): platsen som ska välja (eller bekräfta) har 90 sekunder. Ett kommando på
    eller efter deadline avvisas; när timern går ut förlorar den spelaren matchen (match.js tidsgrans). Går
-   båda bekräftelseklockorna ut samtidigt avbryts matchen utan vinnare. */
-import { newMatch, process, tidsgrans as tidsgransMotor, PHASE, ACTION, STATUS, END } from '../match.js';
+   båda bekräftelseklockorna ut samtidigt avbryts matchen utan vinnare.
+
+   Avbrott (L17, klockor.js): en frånkopplad spelare får en frist och sin turklocka pausad; den andra kan göra
+   sina val tills den frånkopplades val behövs. Slut på fristen ger förlust (`AVBROTT`). Är båda frånkopplade
+   väntar avgörandet in den andras frist; går båda ut vinner ingen. */
+import { newMatch, process, tidsgrans as tidsgransMotor, serveravbrott as serveravbrottMotor, PHASE, ACTION, STATUS, END } from '../match.js';
 import { privatVy, typadeHandelser, EVENT } from '../lokalmatch.js';
-import { MATCH_COMMAND, MATCH_STATUS, RECEIPT, ACTIVITY, TEAM_FORMAT } from '../kontrakt.js';
-import { uppdateraKlockor, utgangna, forSent, TIDEN_UTE } from './klockor.js';
+import { MATCH_COMMAND, MATCH_STATUS, RECEIPT, ACTIVITY, TEAM_FORMAT, CONNECTION } from '../kontrakt.js';
+import { uppdateraKlockor, forSent, registreraAvbrott, avslutaAvbrott, utgangnaMedOrsak, skaVanta, gaUtUnderNaden, klockvy as offentligaKlockor, TIDEN_UTE, ANSLUTNINGSHANDELSE, fristSlut, FOR_SENT_TILLBAKA } from './klockor.js';
 
 export const DUELL_EVENT = Object.freeze({ confirm: 'BEKRÄFTELSE', aborted: 'AVBRUTEN' });
 export const SEATS = Object.freeze(['A', 'B']);
@@ -45,11 +49,11 @@ export function skapaDuell({ lagring, klocka, rum }) {
     else if ([PHASE.swap, PHASE.attack, PHASE.defence].includes(e.phase) && e.activePlayer) krav[post.seats[e.activePlayer]] = `${e.phase}:${e.revision}`;
     return krav;
   }
-  /* Klockorna för vyn: platsernas deadlines (offentliga – alla ser vems tur det är) och den egna. */
+  /* Klockorna för vyn per plats: löpande turklockor och avbrottsfrister (offentliga – alla ser vems tur det är
+     och vem som saknas) samt den egna deadline. En pausad klocka visas inte. */
   function klockvy(post, seat) {
-    const clocks = {};
-    for (const s of SEATS) { const k = post.klockor?.[post.seats[s]]; if (k) clocks[s] = k.deadline; }
-    return { clocks, deadline: clocks[seat] === undefined ? null : { playerId: seat, at: clocks[seat] }, serverTime: now() };
+    const { clocks, disconnects } = offentligaKlockor(post, id => seatOf(post, id));
+    return { clocks, disconnects, deadline: clocks[seat] === undefined ? null : { playerId: seat, at: clocks[seat] }, serverTime: now() };
   }
 
   /* Privat vy för en spelare: motorns vy för platsen + vem som sitter var + väntande bekräftelse. */
@@ -63,7 +67,8 @@ export function skapaDuell({ lagring, klocka, rum }) {
       allowed = allowed.filter(a => a.type === ACTION.surrender);
       if (!confirm.mine && alive(post, seat)) allowed.push({ type: confirm.kind });
     }
-    return { ...v, seats: { ...post.seats }, mySeat: seat, confirm, allowed, matchStatus: post.status ?? MATCH_STATUS.active, ...klockvy(post, seat) };
+    const players = v.players.map(p => ({ ...p, connection: post.avbrott?.[post.seats[p.id]] ? CONNECTION.offline : CONNECTION.online }));
+    return { ...v, players, seats: { ...post.seats }, mySeat: seat, confirm, allowed, matchStatus: post.status ?? MATCH_STATUS.active, ...klockvy(post, seat) };
   }
 
   /* ---- Kommandon ---- */
@@ -105,9 +110,12 @@ export function skapaDuell({ lagring, klocka, rum }) {
     const seat = session?.matchId === post.id ? seatOf(post, playerId) : null;
     if (!seat) return { status: RECEIPT.rejected, message: 'Du deltar inte i den här matchen.' };
     const e = post.engine;
-    if (e.phase === PHASE.over && ((e.endReason === END.timeout && e.winner !== seat) || e.endReason === END.noWinner)) return { status: RECEIPT.rejected, message: TIDEN_UTE, revision: e.revision };   // förlorade på tid strax före kommandot
+    if (e.phase === PHASE.over && e.endReason === END.noWinner) return { status: RECEIPT.rejected, message: 'Ingen av er hann fortsätta i tid – matchen avbröts utan vinnare.', revision: e.revision };
+    if (e.phase === PHASE.over && e.endReason === END.timeout && e.winner !== seat) return { status: RECEIPT.rejected, message: TIDEN_UTE, revision: e.revision };   // förlorade på tid strax före kommandot
+    if (e.phase === PHASE.over && e.endReason === END.disconnect && e.winner !== seat) return { status: RECEIPT.rejected, message: 'Du kom inte tillbaka i tid och har förlorat matchen.', revision: e.revision };
     if (rad.status !== MATCH_STATUS.active) return { status: RECEIPT.rejected, message: rad.status === MATCH_STATUS.aborted ? 'Matchen avbröts. Gå till lobbyn.' : 'Matchen är avslutad. Gå till lobbyn.', revision: post.revision };
     if (forSent(post.klockor, playerId, mottagen)) return { status: RECEIPT.rejected, message: TIDEN_UTE, revision: post.engine.revision };
+    if (fristSlut(post, playerId, mottagen)) return { status: RECEIPT.rejected, message: FOR_SENT_TILLBAKA, revision: post.engine.revision };
     if (command.revision !== post.engine.revision) return { status: RECEIPT.rejected, message: 'Matchläget har ändrats – försök igen.', revision: post.engine.revision };
     try {
       let events = [];
@@ -121,8 +129,9 @@ export function skapaDuell({ lagring, klocka, rum }) {
         events = kor(post, { matchId: post.id, revision: post.engine.revision, type, playerId: seat, card: payload.instanceId, usage: payload.usage, cards: payload.cards }, ops);
       }
       delete post.slump;
-      post.klockor = uppdateraKlockor(post.klockor, kravDuell(post), now());
       const status = slutstatus(post.engine);
+      if (status !== MATCH_STATUS.active) post.avbrott = {};
+      post.klockor = uppdateraKlockor(post.klockor, kravDuell(post), now(), post.avbrott ?? {});
       ops.sparaMatch(post, status);
       ops.sparaHandelser(events);
       if (status !== MATCH_STATUS.active) rum.markeraMatchAvslutad(ops, post.roomId);
@@ -133,24 +142,77 @@ export function skapaDuell({ lagring, klocka, rum }) {
     }
   }
 
-  /* Timern (klockor.js) i matchens kö: den vars tid gått ut förlorar; båda samtidigt ger ingen vinnare. */
-  function tidsgrans({ ops, matchId, now: tid }) {
+  const aktivPost = (ops, matchId) => {
     const rad = ops.hamtaMatch(matchId);
-    if (!rad || rad.status !== MATCH_STATUS.active || rad.match.format === TEAM_FORMAT) return false;
-    const post = rad.match;
-    const seats = utgangna(post.klockor, tid).map(id => seatOf(post, id)).filter(Boolean);
-    if (!seats.length) return false;
+    return rad && rad.status === MATCH_STATUS.active && rad.match.format !== TEAM_FORMAT ? rad.match : null;
+  };
+  const levandeIds = post => aliveSeats(post).map(seat => post.seats[seat]);
+
+  /* Timern (klockor.js) i matchens kö: den vars turklocka eller avbrottsfrist gått ut förlorar; båda samtidigt
+     ger ingen vinnare. Är den andra frånkopplad med tid kvar väntar avgörandet på hens frist (26B). */
+  function tidsgrans({ ops, matchId, now: tid }) {
+    const post = aktivPost(ops, matchId);
+    if (!post) return false;
+    const levande = levandeIds(post);
+    const ut = utgangnaMedOrsak(post, levande, tid, { tid: END.timeout, avbrott: END.disconnect });
+    if (!Object.keys(ut).length || skaVanta(post, levande, ut)) return false;
+    const orsaker = Object.fromEntries(Object.entries(ut).map(([id, orsak]) => [seatOf(post, id), orsak]));
     const before = post.engine;
-    const reply = tidsgransMotor(before, seats);
+    const reply = tidsgransMotor(before, Object.keys(orsaker), orsaker);
     if (reply.status === STATUS.rejected) return false;
     if (reply.status !== STATUS.ok) throw new Error(`Motorfel vid tidsgräns: ${reply.message}`);
     const events = typadeHandelser({ before, after: reply.match, replyEvents: reply.events, action: { type: 'TIDSGRÄNS', playerId: null }, nextEventId: post.lastEventId + 1, at: now() });
-    Object.assign(post, { engine: reply.match, revision: reply.match.revision, confirm: null, klockor: {} });
+    Object.assign(post, { engine: reply.match, revision: reply.match.revision, confirm: null, klockor: {}, avbrott: {} });
     post.lastEventId += events.length;
     ops.sparaMatch(post, slutstatus(post.engine));
     ops.sparaHandelser(events);
     rum.markeraMatchAvslutad(ops, post.roomId);
     return true;
+  }
+
+  function sparaAnslutning(ops, post, type, data) {
+    const event = { eventId: post.lastEventId + 1, matchId: post.id, revision: post.engine.revision, type, at: now(), data, recipient: null };
+    post.lastEventId += 1;
+    ops.sparaMatch(post, MATCH_STATUS.active);
+    ops.sparaHandelser([event]);
+  }
+
+  /* Upptäckt avbrott (i matchens kö); gammal generation och samma avbrott ignoreras. */
+  function avbrott({ ops, matchId, playerId, generation, now: tid, nad = 0 }) {
+    const post = aktivPost(ops, matchId);
+    if (!post || !levandeIds(post).includes(playerId)) return false;
+    const session = ops.hamtaSession(playerId);
+    if (session?.matchId !== post.id || session.connectionGeneration !== generation || session.connection !== CONNECTION.offline) return false;
+    if (nad && !gaUtUnderNaden(post, playerId, tid, nad)) return false;   // nåden räcker: avbrottet registreras när den är slut
+    const a = registreraAvbrott(post, playerId, generation, tid);
+    if (!a) return false;
+    sparaAnslutning(ops, post, ANSLUTNINGSHANDELSE.disconnected, { playerId: seatOf(post, playerId), deadline: a.deadline });
+    return true;
+  }
+
+  /* Återkomst mottagen vid `tid`; för sent ändrar inget (fristkontrollen avgör). */
+  function ateranslutning({ ops, matchId, playerId, generation, now: tid }) {
+    const post = aktivPost(ops, matchId);
+    if (!post || !levandeIds(post).includes(playerId)) return false;
+    if (ops.hamtaSession(playerId)?.connectionGeneration !== generation) return false;
+    if (avslutaAvbrott(post, playerId, tid) !== 'återansluten') return false;
+    sparaAnslutning(ops, post, ANSLUTNINGSHANDELSE.reconnected, { playerId: seatOf(post, playerId) });
+    return true;
+  }
+
+  /* Serveromstart (L18, 27B): avbruten utan vinnare, ingen förlust för någon. Bara för en match som är PÅGÅR. */
+  function serveravbrott({ ops, post }) {
+    const text = 'Servern startades om – matchen avbröts utan vinnare.';
+    const after = serveravbrottMotor(post.engine, text);
+    const at = now();
+    const events = [
+      { eventId: post.lastEventId + 1, matchId: post.id, revision: after.revision, type: EVENT.matchOver, at, data: { winner: null, endReason: END.serverAbort }, recipient: null },
+      { eventId: post.lastEventId + 2, matchId: post.id, revision: after.revision, type: EVENT.log, at, data: { text }, recipient: null }
+    ];
+    Object.assign(post, { engine: after, revision: after.revision, confirm: null, klockor: {}, avbrott: {}, lastEventId: post.lastEventId + events.length });
+    ops.sparaMatch(post, MATCH_STATUS.aborted);
+    ops.sparaHandelser(events);
+    rum.markeraMatchAvslutad(ops, post.roomId);
   }
 
   /* Startbekräftelsen avslutas utan motorsteg; Fortsätt-bekräftelsen kör motorns FORTSÄTT en gång. */
@@ -174,5 +236,5 @@ export function skapaDuell({ lagring, klocka, rum }) {
     return { view, events, status: rad.status };
   }
 
-  return { fabrik, vyFor, matchFor, registrera, hantera, tidsgrans, seatOf, korEfterBekraftelse };
+  return { fabrik, vyFor, matchFor, registrera, hantera, tidsgrans, avbrott, ateranslutning, serveravbrott, seatOf, korEfterBekraftelse };
 }
