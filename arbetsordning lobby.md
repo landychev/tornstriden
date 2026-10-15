@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade) – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare. L16 (spelarklockor och gemensamma bekräftelser) är nästa.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade) och L16 klar 2026-10-15 – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, och varje väntande val har 90 sekunders spelarklocka. L17 (återanslutning med fortsatt spel) är nästa.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -76,7 +76,7 @@ L00–L15 är klara; övriga uppgifter är **Ej startade**. Beroenden anger läg
 | L13 | Individuell utslagning och avhopp | L12 | Klar 2026-10-13 |
 | L14 | Lagmotor kopplad till servern | L08, L13 | Klar 2026-10-13 |
 | L15 | Lagvy och val av mål | L09, L14 | Klar 2026-10-14 |
-| L16 | Spelarklockor och gemensamma bekräftelser | L14, L15 | Ej startad |
+| L16 | Spelarklockor och gemensamma bekräftelser | L14, L15 | Klar 2026-10-15 |
 | L17 | Återanslutning med fortsatt spel | L16 | Ej startad |
 | L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Ej startad |
 | L19 | Ljud, animationer och tydliga besked | L15–L18 | Ej startad |
@@ -863,3 +863,94 @@ Verifiering:
 Provskriptet hade två egna kapplöpningar: mobilmätningen när vyn ritades om, och en läsning av serverns läge innan draget sparats. Båda är rättade. En kontroll som summerade enkla attacker över alla storlekar fallerade när 4 spelare kördes ensam; den är nu deterministisk.
 
 Ingen commit, push eller publicering ingick. L16 är fortsatt nästa planerade implementation.
+
+Uppgift och datum: L16 – Spelarklockor och gemensamma bekräftelser, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- Ny: `online/klockor.js`.
+  - Varje val som servern kräver av en viss spelare har 90 sekunder: kortbyte, startbekräftelse, målval, kortspel, avstående och Fortsätt.
+  - Klockorna sparas med matchen (`klockor {spelare: {nyckel, start, deadline}}`) och räknas om efter varje ändring. Samma val behåller sin deadline, ett nytt val får nya 90 sekunder, och den som bara väntar på andra har ingen klocka.
+  - En timer per match går vid tidigaste deadline och körs i matchens kö.
+- `online/tjanst.js`: mottagningstiden tas innan kommandot köas och skickas till hanteraren (`mottagen`). `efterGodkand(fn)` anropas efter varje sparat godkänt kommando.
+- `online/matcher.js`: skapar timern och planerar om den efter varje godkänt kommando, även STARTA. Timern går till rätt modul (`tidsgrans`); `pa(fn)` meddelar servern och `stang()` tar bort timers.
+- `online/lagspel.js`:
+  - Den som har val enligt motorns `allowedActions` har en klocka.
+  - Ett kommando på eller efter spelarens deadline avvisas med "Tiden för ditt val har gått ut.".
+  - Timern slår ut alla vars tid gått ut i en och samma händelse med `slaUt` (orsak TIDSGRÄNS).
+  - Sparandet är samlat i `spara()` för både drag och tidsgräns.
+  - En match utan levande lag sparas AVBRUTEN (huvudplan §10).
+- `online/duell.js` och `match.js`:
+  - Den som är på tur eller ska bekräfta har klockan.
+  - Ny `tidsgrans(match, platser)` i duellmotorn: den vars tid gått ut förlorar (`TIDSGRÄNS`).
+  - Går båda ut samtidigt vinner ingen (`INGEN_VINNARE`), och matchen sparas AVBRUTEN.
+- `online/server.js`: en tidsgräns skickar nya vyer till alla deltagare; timers tas bort vid avstängning.
+- `lagvy.js` och duellens vy: `deadline` (egen), `clocks` (alla väntade spelares deadlines, offentligt) och `serverTime`.
+- `onlinematch.js`: `serverNu()` räknar ned mot serverns tid enligt skillnaden när vyn togs emot.
+- Ny: `nedrakning.js`, delad av båda vyerna.
+  - Den som har ett val ser "1:30 kvar att välja" överst i knappraden, i resultatrutan och i duellens startruta.
+  - Under 20 sekunder visas en varning med text, tecken och färg: "… kvar – välj nu, annars slås du ut" i lagmatchen och "annars förlorar du matchen" i duellen. Skärmläsare får "Mindre än 20 sekunder kvar att välja." en gång.
+  - Lagvyns torn visar varje väntad spelares tid på statusraden ("10 kort · Inte klar · ⏱ 1:12"). Duellen visar motståndarens tid vid motståndarens torn.
+- `matchvy.js`: förlust på tid ("Du hann inte välja i tid.") och matchslut utan vinnare ("Ingen vinner matchen").
+- `lagmatchvy.js`, `lagmatch.html`, `match.html`, `match.css`: nedräkning, varning och skärmläsarrad. Lagvyn säger "Matchen avbröts utan vinnare" när inget lag finns kvar.
+- `server.js` (`CLIENT_FILES`) och `deploy.sh`: `nedrakning.js`. Duellsidan importerar den, så den publiceras med `?v=`-stämpel.
+- Tester och prov:
+  - Ny: `online/klockor.test.js` (10 tester).
+  - `online/server.test.js`: en tidsgräns i en duell når båda strömmarna utan något kommando.
+  - `online/lagspel.test.js`: en match utan vinnare ska vara AVBRUTEN.
+  - Nytt prov: `scripts/prova-klockor.mjs`.
+- `KONTRAKT.md` (avsnittet "Spelarklockor"), `README.md`.
+Verifiering:
+- `npm test`: **248/248** (238 tidigare och 10 nya) efter alla rättningar; 246 före granskningarna, tre körningar i rad.
+- `online/klockor.test.js` (styrd klocka, inga verkliga väntetider):
+  - Deadline − 1 ms godtas och exakt deadline avvisas, i både lagmatch och duell.
+  - Ett avvisat drag och en omladdning ändrar inte deadline. Väntan på andra ger ingen klocka.
+  - Ett drag köat 1 ms före deadline bakom en spärrad kö godtas, trots att servern blir klar 5 s efter deadline. Ett drag mottaget exakt på deadline avvisas.
+  - Tre samtidiga utgångar slås ut i samma händelse, och vinnaren prövas efter hela gruppen.
+  - Alla sex i en 6-spelarmatch slås ut samtidigt: matchen blir AVBRUTEN utan vinnare, rummet stängs och alla blir FÖLJER_AVSLUT.
+  - Startbekräftelse, målval, kortspel, försvar och Fortsätt har klockor. Den som inte bekräftar Fortsätt slås ut, och nästa strid startar direkt.
+  - En dubbel timer har ingen effekt (oförändrad revision och händelser).
+  - Duellen: förlust på tid, och båda startbekräftelserna ute samtidigt ger ingen vinnare.
+  - Timern stoppas i stället för att snurra när en utgången klocka inte får effekt (motorfel), och efter `stang()` planeras inget nytt. Testet föll mot koden före rättningen (timer med 0 ms kvar) och passerar efter.
+- Webbläsarprov i molnmiljön (Chromium, varannan deltagare emulerad iPhone 13), körda ett i taget:
+  - `prova-klockor.mjs`: **17/17**.
+    - Fyra deltagare ser 1:30, och tornen visar tiden.
+    - Den som behållit handen har ingen klocka.
+    - Efter 75 s visas en varning med text och ett skärmläsarbesked.
+    - Efter 90 s slås två ut tillsammans, med besked "Tiden för ditt val tog slut". De två andra får nya 90 s i omgång 2.
+    - Duell: egen och motståndarens nedräkning. Efter 90 s visar resultatrutan "Du hann inte välja i tid" respektive "Du vinner matchen".
+  - `prova-lag.mjs 4 6 8` i en körning: **37/37**. 12, 21 och 18 strider; kortmål 3, spelarmål 3, enkel attack 10.
+  - `prova-match.mjs` 13/13, `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5, `prova-lobby.mjs` 24/24.
+- Fel som provet hittade och som är rättat: först låg tornens klocka på en egen rad. Det gjorde bordet så högt i 6- och 8-spelarmatcher på mobilen att handen hamnade under skärmkanten, och långtryckskontrollen föll. Klockan står nu på tornets statusrad, och mobilmåtten är oförändrade (23 px mellan knapp och kort).
+- En första omgång där proven kördes samtidigt gav tidtagningsfel av överbelastning (belastning 36 på 2 kärnor). Den räknas inte; alla resultat ovan är från körningar ett i taget.
+- **Oberoende granskning 2026-10-15** (en separat agent som inte sett arbetet, mot kravtexten och huvudplan §9–10, med egna prov med styrd klocka). Bekräftat korrekt: tidsregeln (mottagen före kön, dedupe före tidskontroll, < i tid, == för sent), klocka ⇔ val i alla faser, nycklarna i `kravLag` vid avhopp, ny ledare, `pruneQueue` och omstart av strid, duellens nycklar, grupputslagning, AVBRUTEN utan vinnare, dubbel timer, hemligheter, klientens nedräkning och `deploy.sh`. Ett fynd rättat:
+  - `online/klockor.js`: om tidsgränsen kastade (motorfel, rullas tillbaka) eller inte fick effekt fast en klocka gått ut, planerades timern om med 0 ms och servern snurrade i en tät slinga med full CPU. Nu stoppas matchens timer och felet loggas; nästa godkända kommando planerar den igen.
+  - `online/matcher.js`, `online/server.js`: `stang()` väntar in en redan köad timerkontroll innan lagringen stängs, och efter avstängning planeras inga nya timers.
+  - Efter rättningen: `npm test` 247/247, `prova-klockor.mjs` 17/17, `prova-online.mjs` 9/9.
+- **Användarens granskning 2026-10-15** fann två brister till, båda återskapade och rättade:
+  - *En fördröjd timer kunde ge fel vinnare.* Deadlinekontrollen gällde bara avsändaren: A hade bekräftat starten, B:s 90 sekunder gick ut medan timern var sen, A lämnade – och B vann. Nu behandlas alla klockor som gått ut vid kommandots mottagningstid före kommandot (`tjanst.foreHantering` → `klockor.kontrollera(matchId, mottagen)`, i egen transaktion som står kvar även om kommandot avvisas). I scenariot förlorar B på tid först, A vinner, och A:s Lämna avvisas eftersom matchen redan är avgjord. Nytt test i `online/klockor.test.js` för både duell och lagmatch; två äldre tester uppdaterade (avsändaren som är för sent slås nu ut direkt, med beskedet "Tiden för ditt val har gått ut.").
+  - *Spelförklaringen dolde varningen och slutbeskedet.* Nedräkningen ligger nu som en fast rad överst i alla öppna rutor (spelförklaring, bytesförklaring, kortruta, ljud- och bekräftelseruta), och vid matchslut – samt när jag själv slås ut i lagmatchen – stängs öppna hjälprutor så att resultatet eller utslagningen syns direkt. `prova-klockor.mjs` har fyra nya kontroller där en deltagare i varje match låter spelförklaringen ligga öppen hela tiden (21 kontroller). `prova-regressioner.mjs` tål nu att spelförklaringen redan är stängd när sidan laddas om efter matchslut.
+  - Efter båda rättningarna, ett prov i taget i molnet: `prova-klockor.mjs` 21/21, `prova-lag.mjs 4 6 8` 37/37, `prova-match.mjs` 13/13, `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5, `prova-lobby.mjs` 24/24.
+Inte verifierat / återstående fel:
+- Bara Chromium (dator och emulerad iPhone 13). Riktiga telefoner, Safari och riktiga skärmläsare är inte provade.
+- Klientens nedräkning utgår från serverns tid när vyn togs emot. Nätfördröjning gör att den visar lite mindre tid än servern, aldrig mer.
+- Frånkoppling påverkar inte klockan ännu. Pausen och återanslutningsfristen under avbrott hör till L17 (26B).
+Tekniska val och eventuella användarsvar:
+- **Ett kommando som tas emot efter avsändarens deadline** leder till att avsändaren slås ut på tid innan kommandot prövas (huvudplan §10: "ny handling är i tid om mottagningstid < deadline"); kommandot avvisas med "Tiden för ditt val har gått ut.". Det gäller även Lämna, som då ger orsak TIDSGRÄNS i stället för LÄMNADE.
+- **Klientens nedräkning** mäts från serverns tid i den senaste vyn, utan nätfördröjning, och kan därför visa något mer tid än servern har kvar. Servern avgör; en spelare kan se 0:01 och ändå få "Tiden för ditt val har gått ut".
+- **Första klockan startar i starttransaktionen**, innan sidan hunnit laddas och spelförklaringen lästs. 90 sekunder räcker, men den som läser länge ser en kortare nedräkning.
+- **Mottagningstiden avgör.** Den tas innan kommandot köas, så kö- och databastid räknas aldrig mot spelaren. Timern ligger i samma kö som kommandona och prövar om vilka klockor som verkligen gått ut. Därför har en sen eller dubbel timer ingen effekt.
+- **Klockorna räknas om ur motorns läge** efter varje ändring i stället för att startas och stoppas för hand. Ett val kan inte glömmas, och den som väntar får ingen klocka.
+- **Avbruten utan vinnare** när inget lag finns kvar, både vid tidsgräns och när de sista har lämnat (huvudplan §10). I duellen gäller samma sak när båda tiderna går ut samtidigt. Tidigare sparades en lagmatch utan lag som AVSLUTAD.
+- Varningen kommer vid 20 sekunder kvar (beslutspunkten "Varningstid före 90-sekundersgränsen").
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L16.
+Rekommenderad nästa uppgift: L17 – Återanslutning med fortsatt spel.
+Commit: ingen.
+
+### Rättning av duellens ljudruta – 2026-10-15
+
+- `match.html`: ljudrutan visar nu den egna nedräkningen och varningen under 20 sekunder med samma komponent som övriga rutor. Den som väntar på motståndaren har ingen egen klocka.
+- `matchvy.js`: ljudrutan stängs vid matchslut. Ett vanligt stridsresultat väntar tills ljudrutan stängs och öppnas då via samma stängningshantering som övriga hjälprutor.
+- `scripts/prova-klockor.mjs`: fem nya kontroller för ljudrutans nedräkning, väntande motståndare, varning utan återställd deadline, mobilutrymme och stängning vid tidsförlust.
+- Verifierat lokalt i Chrome: **26/26** webbläsarkontroller. Varningsraden granskad visuellt vid 390 × 664 pixlar. `klientfiler.test.js` och `ljud.test.js`: **11/11**. `git diff --check`: utan anmärkning.
+- Ingen commit eller publicering.

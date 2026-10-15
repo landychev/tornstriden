@@ -36,7 +36,9 @@ function forhandsvisning(match) {
 }
 
 /* Privat vy för en deltagare enligt kontraktet (validatePrivateView) med lagmatchens fält. */
-export function lagVy(match, playerId, { lastEventId = 0, anslutning = {}, pending = null, matchStatus = null } = {}) {
+/* `klockor` (L16) är serverns spelarklockor { [spelare]: { deadline } }: deadlines är offentliga (alla ser vem
+   som väntas på), `deadline` är den egna. `serverTid` låter klienten räkna ned oberoende av sin egen klocka. */
+export function lagVy(match, playerId, { lastEventId = 0, anslutning = {}, pending = null, matchStatus = null, klockor = null, serverTid = null } = {}) {
   const me = match.players.find(p => p.id === playerId);
   if (!me) return null;
   const allowed = allowedActions(match, playerId);
@@ -85,7 +87,9 @@ export function lagVy(match, playerId, { lastEventId = 0, anslutning = {}, pendi
     log: match.log.slice(-40),
     allowed,
     pending,
-    deadline: null
+    deadline: klockor?.[playerId] ? { playerId, at: klockor[playerId].deadline } : null,
+    clocks: Object.fromEntries(Object.entries(klockor ?? {}).map(([id, k]) => [id, k.deadline])),
+    serverTime: serverTid
   };
 }
 

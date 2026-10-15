@@ -46,8 +46,9 @@ try {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   async function render() {
     await page.goto(base + '/match.html?online=1');
-    await page.locator('#intro-dialog[open]').waitFor();
-    await page.click('#intro-close');
+    /* Efter matchslut stängs spelförklaringen av sig själv så att resultatet syns direkt (L16). */
+    await page.locator('#intro-dialog[open], #result-dialog[open]').first().waitFor();
+    if (await page.locator('#intro-dialog[open]').count()) await page.click('#intro-close');
     if (await page.locator('#swap-dialog[open]').count()) await page.click('#swap-close');
   }
   async function safe(label, selector) {

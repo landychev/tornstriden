@@ -112,7 +112,7 @@ async function spelaMatch(w, ids, { random, lamnaChans = 0, maxSteg = 4000, kont
 function kontrolleraSlut(w, { ids, roomId, matchId }) {
   const rad = w.lagring.hamtaMatch(matchId);
   const engine = rad.match.engine;
-  assert.equal(rad.status, MATCH_STATUS.finished);
+  assert.equal(rad.status, engine.winnerTeam ? MATCH_STATUS.finished : MATCH_STATUS.aborted, 'utan levande lag: avbruten utan vinnare (L16)');
   assert.equal(engine.phase, LAG_FAS.over);
   assert.equal(w.lagring.hamtaRum(roomId).status, ROOM.closed);
   assert.ok(['A', 'B'].includes(engine.winnerTeam) || engine.endReason === LAG_SLUT.noPlayers);

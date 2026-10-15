@@ -98,6 +98,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
   }
   const sandAlla = () => { sandLobby(); sandMatch(); };
   rum.pa(sandAlla);
+  matcher.pa(sandAlla);   // en tidsgräns (L16) ändrar matchen utan något kommando
   let stadning = klocka.setTimeout(function stada() {
     try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda || r.raderade) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
@@ -202,6 +203,7 @@ export function startaServer({ port = Number(process.env.PORT) || 8766, host = p
 
   async function stang() {
     klocka.clearTimeout(stadning);
+    await matcher.stang();
     for (const strom of [...strommar]) stangStrom(strom);
     await new Promise(resolveClose => server.close(resolveClose));
     lagring.stang();

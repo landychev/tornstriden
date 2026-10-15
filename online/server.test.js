@@ -356,7 +356,7 @@ test('Lagval, Redo och start över HTTP: vyn visar startstatus och bara värden 
   await flikA.stang(); await flikB.stang();
 }));
 
-test('Onlineduell över HTTP: start ger privata matchvyer i strömmen, drag ger händelser, fel tur avvisas', () => medServer(async ({ url }) => {
+test('Onlineduell över HTTP: start ger privata matchvyer i strömmen, drag ger händelser, fel tur avvisas, och en tidsgräns når båda utan kommando', () => medServer(async ({ url, app, klocka }) => {
   const anna = klient(url), bo = klient(url);
   const a = await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
   const b = await bo.call('/api/session', { method: 'POST', body: { nick: 'Bo' } });
@@ -402,6 +402,15 @@ test('Onlineduell över HTTP: start ger privata matchvyer i strömmen, drag ger 
   assert.equal(igen.view.revision, 1);
   assert.equal(igen.events.length, ma2.view.lastEventId);
   assert.equal((await anna.call('/api/status?commandId=' + byte.body.commandId + '&scope=match:' + ma.view.matchId)).body.status, 'GODKÄND');
+  /* L16: Bo har klockan och Anna ser den; när tiden går ut får båda strömmarna slutläget utan något kommando. */
+  assert.deepEqual(mb2.view.deadline, { playerId: 'B', at: klocka.now() + 90_000 });
+  assert.equal(ma2.view.deadline, null);
+  assert.deepEqual(ma2.view.clocks, { B: klocka.now() + 90_000 });
+  klocka.advance(90_000);
+  await app.matcher.klockor().klart();
+  const slutA = await flikA.vanta('match', 3), slutB = await flikB.vanta('match', 3);
+  for (const slut of [slutA, slutB]) assert.deepEqual([slut.view.phase, slut.view.winner, slut.view.endReason, slut.status, slut.view.deadline], ['AVSLUTAD', 'A', 'TIDSGRÄNS', 'AVSLUTAD', null]);
+  assert.ok(slutB.events.some(e => e.type === 'MATCHSLUT'));
   await flikA.stang(); await flikB.stang();
 }));
 

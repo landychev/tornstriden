@@ -324,3 +324,27 @@
 .connection:empty { display: none; }
 .connection.warn { color: var(--invalid); font-weight: 600; }
 body.online .player-info h1, body.online .player-info h2 { overflow-wrap: anywhere; }
+
+/* ---- Spelarklockor (L16): serverns 90 sekunder per val. Varningen har både färg, tecken och text. ---- */
+.turn-clock { margin: 0 0 4px; font: 600 13px/1.3 system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--muted); }
+.turn-clock::before { content: '⏱ '; }
+.turn-clock.warn { color: var(--invalid); }
+.turn-clock.warn::before { content: '⚠ '; }
+.actions > .turn-clock { flex: 1 1 100%; margin: 0; text-align: right; }
+.player-info .turn-clock { margin: 3px 0 0; font-size: 11px; color: #e3ce94; }
+.player-info .turn-clock.warn { color: #ffb4a0; }
+.tower-chip .chip-clock { font-variant-numeric: tabular-nums; color: #e3ce94; }
+.tower-chip .chip-clock::before { content: ' · ⏱ '; }
+.tower-chip .chip-clock.warn { font-weight: 700; color: #ffb4a0; }
+.tower-chip .chip-clock.warn::before { content: ' · ⚠ '; }
+@media (prefers-reduced-motion: no-preference) { .turn-clock.warn, .chip-clock.warn { animation: klockpuls .9s ease-in-out infinite alternate; } }
+@keyframes klockpuls { to { opacity: .55; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 680px) { .compact-match .player-info .turn-clock { font-size: 10px; } }
+.battle-actions .turn-clock { color: #e3ce94; }
+.battle-actions .turn-clock.warn { color: #ffb4a0; }
+/* Klockan i en öppen ruta ligger som en fast rad överst, så den syns utan att rulla även på mobilen. */
+.game-popup .dialog-clock { flex: 1 1 100%; margin: 0 0 6px; text-align: center; font-size: 14px; }
+.help-dialog > .dialog-clock, .card-sheet > .dialog-clock { position: sticky; top: 0; z-index: 2; margin: 0; padding: 8px 56px 8px 16px; background: var(--paper); color: var(--ink); border-bottom: 1px solid var(--line); text-align: left; }
+.help-dialog > .dialog-clock.warn, .card-sheet > .dialog-clock.warn { color: var(--invalid); }
+.game-popup .dialog-clock[hidden] { display: none; }

@@ -3,7 +3,9 @@
    SSE-händelse `match` (och /api/match vid sidladdning/återanslutning); kommandon skickas med
    fetch POST och får en kvittens. Ett drag är "väntande" tills kvittensen kommit; uteblir svaret
    frågas servern om samma commandId (KOMMANDOSTATUS) och kommandot skickas om bara när servern
-   inte känner till det. En gammal vy eller gammal kvittens skriver aldrig över nyare läge. */
+   inte känner till det. En gammal vy eller gammal kvittens skriver aldrig över nyare läge.
+   Spelarklockor (L16): vyn har `serverTime`; `serverNu()` ger serverns tid enligt skillnaden när vyn togs emot,
+   så att nedräkningen inte beror på att datorns klocka går rätt. */
 import { ADAPTER_MODE, RECEIPT } from './kontrakt.js';
 
 export const PENDING = Object.freeze({ sending: 'SKICKAR', checking: 'KONTROLLERAR' });
@@ -11,6 +13,9 @@ const tomKvittens = (commandId, status, message) => ({ commandId, status, messag
 
 export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args), vanta = ms => new Promise(r => setTimeout(r, ms)), maxForsok = 5, forsokMs = 1500, timeoutMs = 10000, klocka = globalThis } = {}) {
   let view = initial.view;
+  let skillnad = 0;   // serverns tid minus den lokala, mätt när en vy togs emot
+  const matTid = nv => { if (Number.isFinite(nv?.serverTime)) skillnad = nv.serverTime - Date.now(); };
+  matTid(view);
   let matchStatus = initial.status;
   let pending = null;
   let strom = null;
@@ -27,6 +32,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     const fresh = events.filter(e => e.eventId > view.lastEventId);
     const changed = nv.lastEventId !== view.lastEventId || nv.revision !== view.revision || JSON.stringify(nv.confirm) !== JSON.stringify(view.confirm);
     view = nv;
+    matTid(nv);
     if (status) matchStatus = status;
     if (changed || fresh.length) notify(fresh);
     return true;
@@ -113,6 +119,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     receive, refresh, connect,
     matchStatus: () => matchStatus,
+    serverNu: () => Date.now() + skillnad,
     pa: fn => { onStatus = fn; },
     close: () => { strom?.close(); strom = null; }
   };

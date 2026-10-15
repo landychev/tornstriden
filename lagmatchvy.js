@@ -7,7 +7,9 @@
    nederst, närmast den egna handen. Alla val – byten, måltavla, kort, kortmål, avstående och Fortsätt –
    görs i knappraden direkt ovanför handen, så att kort och bekräftelse ligger intill varandra även på
    mobilen. Ett långt tryck på ett kort i handen eller på bordet öppnar det förstorat (kortlupp.js).
-   Egen utslagning och lagets resultat visas var för sig. */
+   Egen utslagning och lagets resultat visas var för sig.
+   Spelarklockor (L16): den som har ett val ser sin nedräkning överst i knappraden, och varje torn visar sin
+   spelares tid när servern väntar på hen (nedrakning.js). Servern avgör tidsgränsen. */
 import { cards, MAX_LIFE } from './kort.js';
 import { cardFace } from './grafik.js';
 import { resultHeader, popupIcon } from './popup.js';
@@ -16,6 +18,7 @@ import { GameAudio, bindAudioControls } from './ljud.js';
 import { EVENT } from './lokalmatch.js';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
 import { kopplaKortlupp, reduceMotion } from './kortlupp.js';
+import { kopplaNedrakning, klockrad } from './nedrakning.js';
 import { PROTOCOL_VERSION, RECEIPT, MATCH_COMMAND as C, TEAMS, PLAYER_STATUS, CONNECTION, TEAM_FORMAT, TEAM_MATCH_PHASE as FAS, TEAM_OUTCOME as UTFALL, TEAM_END, ELIMINATION } from './kontrakt.js';
 
 const sound = new GameAudio();
@@ -36,7 +39,8 @@ const ui = {
   cardTarget: null,      // valt attackkort för Barriär, Försegling eller Spegelsköld
   playerTarget: null,    // vald anfallare för Törnesköld
   notice: null,          // { text, kind }
-  selKey: null           // läget som markeringarna gäller
+  selKey: null,          // läget som markeringarna gäller
+  utslagsKey: null       // för att stänga hjälprutor när jag slås ut
 };
 
 /* ---- Härledningar ur vyn ---- */
@@ -65,6 +69,8 @@ function ledare(team) {
   const start = Math.max(0, order.indexOf(v.nextLeader[team]));
   return [...order.slice(start), ...order.slice(0, start)].find(id => alive(playerOf(id))) ?? null;
 }
+/* Egen nedräkning (L16): bara när servern väntar på just mig. */
+const minKlocka = () => v.deadline && iAmAlive() && running() ? klockrad(v.viewer, { varning: 'kvar – välj nu, annars slås du ut' }) : '';
 const utslagText = p => ({ [ELIMINATION.left]: 'Du lämnade matchen.', [ELIMINATION.life]: 'Ditt torn har fallit.', [ELIMINATION.timeout]: 'Tiden för ditt val tog slut.', [ELIMINATION.disconnect]: 'Du kom inte tillbaka i tid.' })[p?.eliminationReason] ?? 'Ditt torn har fallit.';
 
 function resultTitle(r) {
@@ -80,7 +86,7 @@ function overTitle() {
   return v.winnerTeam === v.teamId ? 'Ditt lag vinner matchen!' : `${teamName(v.winnerTeam)} vinner matchen`;
 }
 function overText() {
-  if (v.endReason === TEAM_END.noPlayers || !v.winnerTeam) return 'Alla spelare har lämnat eller slagits ut.';
+  if (v.endReason === TEAM_END.noPlayers || !v.winnerTeam) return 'Matchen avbröts utan vinnare: alla spelare har lämnat eller slagits ut.';
   const forlorare = otherTeam(v.winnerTeam);
   const egen = !iAmAlive() && v.winnerTeam === v.teamId ? ' Du var utslagen, men laget tog hem segern.' : '';
   return `${teamName(forlorare)} har inga torn kvar efter ${v.battleNumber} strider.${egen}`;
@@ -133,7 +139,7 @@ function chip(p, { valbar }) {
   if (!alive(p)) klass.push('out');
   if (p.connection !== CONNECTION.online) klass.push('offline');
   const status = chipStatus(p);
-  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life)}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}</small></span>`;
+  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life)}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span>` : ''}</small></span>`;
   return valbar
     ? `<li><button type="button" class="${klass.join(' ')} selectable" data-target="${html(p.id)}" aria-pressed="${ui.target === p.id}" aria-label="Välj ${html(p.name)} som måltavla, ${p.life} liv">${inner}</button></li>`
     : `<li class="${klass.join(' ')}">${inner}</li>`;
@@ -370,7 +376,8 @@ function renderActions() {
       actions = knapp('to-lobby-bar', 'lobby', 'Till lobbyn');
     }
   }
-  $('action-info').innerHTML = info;
+  /* Egen nedräkning överst: bara när servern väntar på just mig (L16). */
+  $('action-info').innerHTML = minKlocka() + info;
   $('choices').innerHTML = choices ?? '';
   $('choices').hidden = !choices;
   $('choices').setAttribute('aria-label', v.phase === FAS.target ? 'Välj måltavla' : 'Välj mål för kortet');
@@ -436,7 +443,7 @@ function renderResult() {
   const pending = Boolean(v.pending);
   $('dialog-actions').innerHTML = over
     ? `<button type="button" id="dialog-lobby" class="primary" data-action="lobby">Till lobbyn</button>`
-    : `<button type="button" id="dialog-next" class="primary" data-action="next"${!can(C.next) || pending ? ' disabled' : ''}>${v.confirm?.mine ? `Väntar på ${html(lista(v.confirm.waitingFor))} …` : 'Fortsätt <span aria-hidden="true">→</span>'}</button>`;
+    : `${minKlocka()}<button type="button" id="dialog-next" class="primary" data-action="next"${!can(C.next) || pending ? ' disabled' : ''}>${v.confirm?.mine ? `Väntar på ${html(lista(v.confirm.waitingFor))} …` : 'Fortsätt <span aria-hidden="true">→</span>'}</button>`;
   const key = over ? `${v.matchId}|slut` : `${v.matchId}|${v.lastResult.battleNumber}`;
   if (key === resultKey) return;
   resultKey = key;
@@ -445,9 +452,11 @@ function renderResult() {
   vantandeResultat = true;
   oppnaResultat();
 }
+const HJALPRUTOR = ['intro-dialog', 'confirm-dialog', 'card-dialog', 'sound-dialog'];
 function oppnaResultat() {
   if (!vantandeResultat || !resultKey) return;
-  if (['intro-dialog', 'confirm-dialog', 'card-dialog', 'sound-dialog'].some(id => $(id).open)) return;   // öppnas när rutan stängts
+  if (v.phase === FAS.over) for (const id of HJALPRUTOR) if ($(id).open) $(id).close();   // matchslutet ska synas direkt (L16)
+  if (HJALPRUTOR.some(id => $(id).open)) return;   // öppnas när rutan stängts
   vantandeResultat = false;
   if (!$('result-dialog').open) $('result-dialog').showModal();
 }
@@ -487,6 +496,11 @@ function render() {
   const pendingText = v.pending?.status === PENDING.sending ? 'Skickar ditt drag …' : v.pending?.status === PENDING.checking ? 'Kontrollerar om draget registrerades …' : null;
   $('notice').textContent = ui.notice?.text ?? pendingText ?? '';
   $('notice').className = `notice${(ui.notice ? ui.notice.kind === 'info' : Boolean(pendingText)) ? ' info' : ''}`;
+  for (const el of document.querySelectorAll('.dialog-clock')) el.dataset.klocka = v.viewer;
+  /* Blir jag utslagen (t.ex. på tid) medan en hjälpruta är öppen ska beskedet synas direkt. */
+  const utslagsKey = `${v.matchId}|${iAmAlive()}`;
+  if (utslagsKey !== ui.utslagsKey) { if (ui.utslagsKey && !iAmAlive()) for (const id of HJALPRUTOR) if ($(id).open) $(id).close(); ui.utslagsKey = utslagsKey; }
+  nedrakning();
 }
 
 /* Markeringar gäller ett visst läge; när läget byts (ny fas, ny strid, ny tur eller bytesomgång) nollställs de. */
@@ -594,6 +608,7 @@ function lagTillagg(type) {
   return text ? `<h4>I lagmatch</h4><p>${html(text)}</p>` : '';
 }
 
+const nedrakning = kopplaNedrakning({ klockor: () => v?.clocks, nu: () => adapter?.serverNu() ?? Date.now(), egen: () => v?.viewer, varna: text => { $('clock-alert').textContent = text; } });
 const lupp = kopplaKortlupp({ behallare: [$('hand'), $('battlefield')], dialog: $('card-dialog'), detalj: $('card-detail'), anvandning: lagAnvandning, tillagg: lagTillagg });
 $('hand').addEventListener('click', event => { const el = event.target.closest('[data-instance]'); if (el && !lupp.swallowed()) choose(el.dataset.instance); });
 for (const id of ['action-bar', 'enemy-towers', 'dialog-actions']) $(id).addEventListener('click', onClick);

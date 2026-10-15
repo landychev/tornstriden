@@ -3,10 +3,15 @@
    spelares kommandon får alltid platsen från medlemskapet, aldrig från klienten. Varje godkänt
    kommando sparar motorläge, händelser och kvittens i samma transaktion (tjanst.js).
    Start- och Fortsätt-bekräftelser är egna kommandon: övergången sker exakt en gång när båda
-   levande spelare har bekräftat, och ingen kan använda motorns FORTSÄTT för att hoppa över den andre. */
-import { newMatch, process, PHASE, ACTION, STATUS } from '../match.js';
+   levande spelare har bekräftat, och ingen kan använda motorns FORTSÄTT för att hoppa över den andre.
+
+   Spelarklockor (L16, klockor.js): platsen som ska välja (eller bekräfta) har 90 sekunder. Ett kommando på
+   eller efter deadline avvisas; när timern går ut förlorar den spelaren matchen (match.js tidsgrans). Går
+   båda bekräftelseklockorna ut samtidigt avbryts matchen utan vinnare. */
+import { newMatch, process, tidsgrans as tidsgransMotor, PHASE, ACTION, STATUS, END } from '../match.js';
 import { privatVy, typadeHandelser, EVENT } from '../lokalmatch.js';
-import { MATCH_COMMAND, MATCH_STATUS, RECEIPT, ACTIVITY } from '../kontrakt.js';
+import { MATCH_COMMAND, MATCH_STATUS, RECEIPT, ACTIVITY, TEAM_FORMAT } from '../kontrakt.js';
+import { uppdateraKlockor, utgangna, forSent, TIDEN_UTE } from './klockor.js';
 
 export const DUELL_EVENT = Object.freeze({ confirm: 'BEKRÄFTELSE', aborted: 'AVBRUTEN' });
 export const SEATS = Object.freeze(['A', 'B']);
@@ -22,6 +27,7 @@ export function skapaDuell({ lagring, klocka, rum }) {
     const nick = id => players.find(p => p.playerId === id).nick;
     const engine = newMatch({ matchId: `m-${room.id.slice(2)}`, random: slump, names: { A: nick(seats.A), B: nick(seats.B) } });
     const post = { id: engine.id, revision: engine.revision, rulesVersion: engine.rulesVersion, deckVersion: engine.deckVersion, roomId: room.id, seats, engine, lastEventId: 0, confirm: null, createdAt: now() };
+    post.klockor = uppdateraKlockor({}, kravDuell(post), now());
     ops.sparaMatch(post, MATCH_STATUS.active);
     return { matchId: post.id, rulesVersion: post.rulesVersion, deckVersion: post.deckVersion };
   }
@@ -29,6 +35,22 @@ export function skapaDuell({ lagring, klocka, rum }) {
   const seatOf = (post, playerId) => SEATS.find(seat => post.seats[seat] === playerId) ?? null;
   const alive = (post, seat) => post.engine.players.find(p => p.id === seat).life > 0;
   const aliveSeats = post => SEATS.filter(seat => alive(post, seat));
+  const slutstatus = e => e.phase !== PHASE.over ? MATCH_STATUS.active : e.winner ? MATCH_STATUS.finished : MATCH_STATUS.aborted;
+
+  /* Vem servern väntar på: obekräftade levande platser under en bekräftelse, annars den som är på tur. */
+  function kravDuell(post) {
+    const e = post.engine;
+    const krav = {};
+    if (post.confirm) { for (const seat of aliveSeats(post)) if (!post.confirm.by[seat]) krav[post.seats[seat]] = `${post.confirm.kind}:${e.revision}`; }
+    else if ([PHASE.swap, PHASE.attack, PHASE.defence].includes(e.phase) && e.activePlayer) krav[post.seats[e.activePlayer]] = `${e.phase}:${e.revision}`;
+    return krav;
+  }
+  /* Klockorna för vyn: platsernas deadlines (offentliga – alla ser vems tur det är) och den egna. */
+  function klockvy(post, seat) {
+    const clocks = {};
+    for (const s of SEATS) { const k = post.klockor?.[post.seats[s]]; if (k) clocks[s] = k.deadline; }
+    return { clocks, deadline: clocks[seat] === undefined ? null : { playerId: seat, at: clocks[seat] }, serverTime: now() };
+  }
 
   /* Privat vy för en spelare: motorns vy för platsen + vem som sitter var + väntande bekräftelse. */
   function vyFor(post, playerId) {
@@ -41,7 +63,7 @@ export function skapaDuell({ lagring, klocka, rum }) {
       allowed = allowed.filter(a => a.type === ACTION.surrender);
       if (!confirm.mine && alive(post, seat)) allowed.push({ type: confirm.kind });
     }
-    return { ...v, seats: { ...post.seats }, mySeat: seat, confirm, allowed, matchStatus: post.status ?? MATCH_STATUS.active };
+    return { ...v, seats: { ...post.seats }, mySeat: seat, confirm, allowed, matchStatus: post.status ?? MATCH_STATUS.active, ...klockvy(post, seat) };
   }
 
   /* ---- Kommandon ---- */
@@ -74,7 +96,7 @@ export function skapaDuell({ lagring, klocka, rum }) {
     return { events, done: waiting.length === 0 };
   }
 
-  function hantera({ playerId, command, ops, slump }) {
+  function hantera({ playerId, command, ops, slump, mottagen = now() }) {
     const rad = ops.hamtaMatch(command.matchId);
     if (!rad) return { status: RECEIPT.rejected, message: 'Matchen finns inte.' };
     const post = rad.match;
@@ -82,7 +104,10 @@ export function skapaDuell({ lagring, klocka, rum }) {
     const session = ops.hamtaSession(playerId);
     const seat = session?.matchId === post.id ? seatOf(post, playerId) : null;
     if (!seat) return { status: RECEIPT.rejected, message: 'Du deltar inte i den här matchen.' };
+    const e = post.engine;
+    if (e.phase === PHASE.over && ((e.endReason === END.timeout && e.winner !== seat) || e.endReason === END.noWinner)) return { status: RECEIPT.rejected, message: TIDEN_UTE, revision: e.revision };   // förlorade på tid strax före kommandot
     if (rad.status !== MATCH_STATUS.active) return { status: RECEIPT.rejected, message: rad.status === MATCH_STATUS.aborted ? 'Matchen avbröts. Gå till lobbyn.' : 'Matchen är avslutad. Gå till lobbyn.', revision: post.revision };
+    if (forSent(post.klockor, playerId, mottagen)) return { status: RECEIPT.rejected, message: TIDEN_UTE, revision: post.engine.revision };
     if (command.revision !== post.engine.revision) return { status: RECEIPT.rejected, message: 'Matchläget har ändrats – försök igen.', revision: post.engine.revision };
     try {
       let events = [];
@@ -96,15 +121,36 @@ export function skapaDuell({ lagring, klocka, rum }) {
         events = kor(post, { matchId: post.id, revision: post.engine.revision, type, playerId: seat, card: payload.instanceId, usage: payload.usage, cards: payload.cards }, ops);
       }
       delete post.slump;
-      const status = post.engine.phase === PHASE.over ? MATCH_STATUS.finished : MATCH_STATUS.active;
+      post.klockor = uppdateraKlockor(post.klockor, kravDuell(post), now());
+      const status = slutstatus(post.engine);
       ops.sparaMatch(post, status);
       ops.sparaHandelser(events);
-      if (status === MATCH_STATUS.finished) rum.markeraMatchAvslutad(ops, post.roomId);
+      if (status !== MATCH_STATUS.active) rum.markeraMatchAvslutad(ops, post.roomId);
       return { status: RECEIPT.ok, revision: post.engine.revision, eventId: post.lastEventId };
     } catch (error) {
       if (error instanceof DuellFel) return { status: RECEIPT.rejected, message: error.message, revision: post.engine.revision };
       throw error;
     }
+  }
+
+  /* Timern (klockor.js) i matchens kö: den vars tid gått ut förlorar; båda samtidigt ger ingen vinnare. */
+  function tidsgrans({ ops, matchId, now: tid }) {
+    const rad = ops.hamtaMatch(matchId);
+    if (!rad || rad.status !== MATCH_STATUS.active || rad.match.format === TEAM_FORMAT) return false;
+    const post = rad.match;
+    const seats = utgangna(post.klockor, tid).map(id => seatOf(post, id)).filter(Boolean);
+    if (!seats.length) return false;
+    const before = post.engine;
+    const reply = tidsgransMotor(before, seats);
+    if (reply.status === STATUS.rejected) return false;
+    if (reply.status !== STATUS.ok) throw new Error(`Motorfel vid tidsgräns: ${reply.message}`);
+    const events = typadeHandelser({ before, after: reply.match, replyEvents: reply.events, action: { type: 'TIDSGRÄNS', playerId: null }, nextEventId: post.lastEventId + 1, at: now() });
+    Object.assign(post, { engine: reply.match, revision: reply.match.revision, confirm: null, klockor: {} });
+    post.lastEventId += events.length;
+    ops.sparaMatch(post, slutstatus(post.engine));
+    ops.sparaHandelser(events);
+    rum.markeraMatchAvslutad(ops, post.roomId);
+    return true;
   }
 
   /* Startbekräftelsen avslutas utan motorsteg; Fortsätt-bekräftelsen kör motorns FORTSÄTT en gång. */
@@ -128,5 +174,5 @@ export function skapaDuell({ lagring, klocka, rum }) {
     return { view, events, status: rad.status };
   }
 
-  return { fabrik, vyFor, matchFor, registrera, hantera, seatOf, korEfterBekraftelse };
+  return { fabrik, vyFor, matchFor, registrera, hantera, tidsgrans, seatOf, korEfterBekraftelse };
 }

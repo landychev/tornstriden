@@ -21,7 +21,7 @@ files=(
   spelbord.html match.html textkort.html effekter.html
   spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css popup.css
   spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js ljud.js
-  kontrakt.js lokalmatch.js onlinematch.js kortlupp.js
+  kontrakt.js lokalmatch.js onlinematch.js kortlupp.js nedrakning.js
   LICENSE
 )
 for file in "${files[@]}"; do
