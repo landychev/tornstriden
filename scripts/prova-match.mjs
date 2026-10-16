@@ -1,5 +1,5 @@
 /* Webbläsarprov av den lokala matchen (arbetsordning L07): spelar en hel datormatch i match.html via
-   gränssnittet (byte, anfall, försvar, resultatrutor, långtryck, utvecklingspanel, tvåspelarläge).
+   gränssnittet (byte, anfall, försvar, resultatrutor, långtryck, tvåspelarläge).
    Kör från projektroten: `npm install` och sedan `node scripts/prova-match.mjs`. */
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
@@ -59,13 +59,6 @@ try {
   check('långtryck öppnar kortet förstorat', detailOpen === 1);
   if (detailOpen) { await page.keyboard.press('Escape'); await page.locator('#card-dialog[open]').waitFor({ state: 'detached' }).catch(() => {}); }
   await page.waitForTimeout(500);   // klicket närmast efter ett långtryck sväljs med avsikt
-
-  /* Utvecklingspanelen visar motståndarens hand lokalt */
-  await page.evaluate(() => { document.getElementById('dev-panel').open = true; });
-  await page.check('#show-both');
-  check('utvecklingspanelen får motståndarens hand via adapterns lokala inblick', (await page.locator('#other-hand li').count()) > 0);
-  await page.uncheck('#show-both');
-  await page.evaluate(() => { document.getElementById('dev-panel').open = false; });
 
   /* Spela tills matchen är slut */
   let battles = 0, played = 0, defended = 0, passed = 0, steps = 0;

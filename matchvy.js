@@ -13,7 +13,7 @@ import { USAGE } from './matchregler.js';
 import { cardFace, towerAppearance } from './grafik.js';
 import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { cardType, PHASE, ACTION, END } from './match.js';
-import { DecisionError, STRATEGIES, STRATEGY } from './dator.js';
+import { DecisionError, STRATEGIES } from './dator.js';
 import { GameAudio, bindAudioControls, skapaHandelsevakt, handelseljud, resultatljud } from './ljud.js';
 import { skapaLokalMatch, EVENT } from './lokalmatch.js';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
@@ -40,7 +40,6 @@ let adapter = null;
 let v = null;
 const ui = {
   mode: 'computer',     // 'computer' | 'hotseat' | 'online'
-  strategy: STRATEGIES.smart,
   viewer: HUMAN,        // vems hand som visas
   selected: [],         // markerade exemplar-ID (högst två vid kortbyte, ett annars)
   usage: USAGE.normal,  // NORMAL eller ENKEL_ATTACK vid anfall
@@ -49,8 +48,7 @@ const ui = {
   focus: null,          // element-ID som ska få fokus efter nästa render
   thinking: false,      // datorn väntar på att spela
   startPending: null,   // första anfallaren visas innan någon får spela
-  decisionError: null,  // { matchId, revision, reason } – datorn kunde inte välja
-  computerLog: []       // datorns beslut och skäl (visas i utvecklingsläget)
+  decisionError: null   // { matchId, revision, reason } – datorn kunde inte välja
 };
 let pendingJob = null;  // högst ett väntande datorjobb
 let flying = Promise.resolve();  // senaste kortflygningen; resultatrutan väntar in den
@@ -463,16 +461,6 @@ function renderSwapHelp() {
   dialog.showModal();
 }
 
-/* Utvecklingspanelen: motståndarens hand hämtas bara via adapterns lokala inblick. Online finns ingen sådan väg. */
-function renderDev() {
-  const other = v.players.find(p => p.id !== ui.viewer);
-  const show = $('show-both').checked;
-  const names = show && adapter.local ? adapter.local.revealHand(other.id) : null;
-  $('other-hand').innerHTML = !show ? '' : !names ? '<p>Motståndarens hand finns bara på servern.</p>' : `<p><strong>${html(nameOf(other.id))}</strong> (${other.cardCount} kort):</p><ul>${names.map(name => `<li>${html(name)}</li>`).join('') || '<li>Tom hand</li>'}</ul>`;
-  $('computer-log').innerHTML = ui.computerLog.map(line => `<li>${html(line)}</li>`).join('') || '<li>Inga datorbeslut ännu.</li>';
-  $('dev-state').textContent = `match ${v.matchId} · revision ${v.revision} · fas ${v.phase} · aktiv ${v.activePlayer ?? '–'} · strid ${v.battleNumber} · läge ${ui.mode} · strategi ${ui.strategy} (${STRATEGY.version})`;
-}
-
 /* Vems hand som visas: alltid A mot datorn; i tvåspelarläget den som står på tur (bara lokalt). */
 function syncViewer() {
   if (!adapter.local) { ui.viewer = adapter.viewer(); return; }   // online: fast identitet från servern
@@ -497,8 +485,7 @@ function render() {
   $('draw-number').textContent = String(v.drawPileSize);
   $('discard-number').textContent = String(v.discardPile.length);
   $('turn-label').textContent = v.activePlayer ? `${nameOf(v.activePlayer)} står på tur` : v.phase === PHASE.over ? 'Matchen är avslutad' : v.phase === PHASE.result ? 'Tryck Fortsätt för nästa strid' : '';
-  $('match-label').textContent = `Regler ${v.rulesVersion} · Kortlek ${v.deckVersion} · Strid ${v.battleNumber}`;
-  if (!ONLINE) { $('mode').value = ui.mode; $('strategy').value = ui.strategy; }
+  if (!ONLINE) $('mode').value = ui.mode;
   $('new-match').textContent = ONLINE ? 'Till lobbyn' : 'Ny match';
   $('new-match').hidden = ONLINE && ![PHASE.over, PHASE.error].includes(v.phase);
 
@@ -538,7 +525,6 @@ function render() {
   renderSwapHelp();
   renderStart();
   renderTurnFeedback();
-  renderDev();
 
   // Meddelanden och fokus. Online visas ett väntande drag som notis tills kvittensen kommit.
   const pendingText = v.pending?.status === PENDING.sending ? 'Skickar ditt drag …' : v.pending?.status === PENDING.checking ? 'Kontrollerar om draget registrerades …' : null;
@@ -584,14 +570,13 @@ function runComputerJob(job) {
   const at = { matchId: v.matchId, revision: v.revision };
   let decision;
   try {
-    decision = adapter.local.computerDecision({ strategy: ui.strategy, random: Math.random });
+    decision = adapter.local.computerDecision({ strategy: STRATEGIES.smart, random: Math.random });
   } catch (error) {
     pauseComputer(at, error instanceof DecisionError ? error.message : `Oväntat fel i beslutsfunktionen: ${error.message}`);
     return;
   }
   pendingJob = null;
   ui.thinking = false;
-  ui.computerLog.push(`Strid ${v.battleNumber}, ${v.phase}: ${decision.reason}`);
   const type = decision.choice.type;
   const previousPhase = v.phase;
   const reply = adapter.local.computerSend(decision.choice);
@@ -609,7 +594,6 @@ function pauseComputer(at, reason) {
   pendingJob = null;
   ui.thinking = false;
   ui.decisionError = { matchId: at.matchId, revision: at.revision, reason };
-  ui.computerLog.push(`Strid ${v.battleNumber}, ${v.phase}: beslutsfel – ${reason}`);
   ui.focus = 'actions';
   render();
 }
@@ -673,7 +657,7 @@ function startNewMatch() {
   ui.startPending = null;
   $('start-dialog').close();
   adapter.local.newMatch();
-  Object.assign(ui, { viewer: HUMAN, selected: [], usage: USAGE.normal, confirm: null, decisionError: null, computerLog: [], notice: { text: 'Ny match: ny utdelning och tre liv var. Matchen sparas inte vid omladdning.', kind: 'info' }, focus: 'phase-title' });
+  Object.assign(ui, { viewer: HUMAN, selected: [], usage: USAGE.normal, confirm: null, decisionError: null, notice: { text: 'Ny match – nya kort och tre liv var.', kind: 'info' }, focus: 'phase-title' });
   handKey = null;
   shownIds = new Set();   // hela handen delas ut på nytt
   syncComputerTurn();
@@ -775,8 +759,6 @@ $('usage-simple').addEventListener('click', () => { ui.usage = USAGE.simple; ren
 $('surrender').addEventListener('click', () => { if (!$('surrender').disabled) openConfirmation('surrender'); });
 $('new-match').addEventListener('click', () => { if ([PHASE.over, PHASE.error].includes(v.phase)) startNewMatch(); else openConfirmation('new'); });
 $('mode').addEventListener('change', () => setMode($('mode').value));
-$('strategy').addEventListener('change', () => { ui.strategy = $('strategy').value === STRATEGIES.random ? STRATEGIES.random : STRATEGIES.smart; render(); });
-$('show-both').addEventListener('change', renderDev);
 /* Hjälprutorna: knapparna stänger; när spelförklaringen stängs kan bytesförklaringen öppnas.
    Bytesförklaringen lämnar fokus på första kortet i handen. */
 $('show-help').addEventListener('click', () => $('intro-dialog').showModal());
@@ -815,7 +797,6 @@ async function boot() {
     ui.mode = 'online';
     document.body.classList.add('online');
     $('mode').closest('label').hidden = true;
-    $('strategy').closest('label').hidden = true;
     adapter.pa((lage, extra) => {
       if (lage !== 'ansluten') vantandeByte = null;
       const node = $('connection');

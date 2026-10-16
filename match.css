@@ -25,7 +25,6 @@
 .compact-match .game-view { height: calc(100svh - 64px); min-height: 560px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
 .compact-match .table { flex: none; display: grid; grid-template-columns: 1fr 1fr; }
 .compact-match .table-heading { grid-column: 1 / -1; padding: 8px 18px 0; }
-.compact-match .preview-label { display: none; }
 .compact-match .rampart { grid-row: 2; grid-template-columns: 1fr 82px; min-height: 76px; padding: 0 22px; }
 .compact-match .own-zone { grid-column: 1; }
 .compact-match .enemy-zone { grid-column: 2; border-left: 1px solid #bcbb992e; }
@@ -200,16 +199,7 @@
 .hand .mini-card .swap-mark { position: absolute; top: 8px; right: 8px; font: 600 10px/1 system-ui, sans-serif; color: var(--accent-ink); background: var(--accent); border-radius: 10px; padding: 4px 7px; }
 .confirm-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .confirm-panel p { margin: 0; flex-basis: 100%; font-size: 13px; }
-.log { margin-top: 20px; font-size: 13px; color: var(--muted); }
-.log summary { cursor: pointer; padding: 6px 0; }
-.log ol { margin: 6px 0 0; padding-left: 22px; max-height: 240px; overflow: auto; }
-.log li { margin: 2px 0; }
-.dev-panel { margin-top: 18px; padding: 10px 14px; border: 1px dashed var(--edge); border-radius: 6px; font-size: 12px; color: var(--muted); }
-.dev-panel summary { cursor: pointer; font-weight: 600; }
-.dev-panel label { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--ink); }
-.dev-panel ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 6px 0; padding: 0; }
-.dev-panel li { border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; color: var(--ink); }
-.dev-state { font-family: ui-monospace, monospace; font-size: 11px; }
+.compact-match .page-footer { max-width: none; padding-top: 12px; border-top: 1px solid var(--line); text-align: center; }
 .result .winner { font-size: 15px; margin-top: 6px; }
 .hidden-hand.empty { visibility: hidden; }
 @media (max-width: 680px) { nav button { padding: 8px 10px; } }
@@ -219,8 +209,6 @@
 .thinking { display: inline-flex; align-items: center; gap: 8px; }
 .thinking::before { content: ''; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--muted); border-top-color: transparent; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.dev-panel select { font: 12px system-ui, sans-serif; min-height: 32px; padding: 4px 6px; border-radius: 4px; border: 1px solid var(--edge); background: var(--paper); color: var(--ink); }
-.computer-log { margin: 4px 0 8px; padding-left: 20px; max-height: 160px; overflow: auto; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .thinking::before { animation: none; border-top-color: var(--muted); } }
 
 /* ---- Knappraden på stridsplatsen (anfall, försvar, fortsätt) ---- */
