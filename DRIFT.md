@@ -22,6 +22,7 @@ Filerna i det här paketet:
 | `apache/tornstriden-online.conf` | Apache-proxy för `/api/` (inkluderas i tornstridens virtuella värdar) |
 | `drift/tornstriden-online.service` | systemd-enhet för tjänsten |
 | `drift/tornstriden-online.env` | tjänstens miljö (port, datakatalog, HTTPS-läge, tillåtet ursprung) |
+| `drift/installera.sh` | första installationen på servern i ett svep (avsnitt 1–3), kan köras om |
 | `drift/uppdatera.sh` | planerad uppdatering: underhållsläge → vänta ut matcher → säkerhetskopia → pull, deploy, omstart |
 | `drift/sakerhetskopia.mjs` | konsekvent kopia av databasen medan tjänsten kör; gallrar gamla kopior |
 
@@ -39,6 +40,11 @@ Filerna i det här paketet:
   `/home` skrivskyddat för tjänsten, så den måste finnas innan tjänsten startar).
 
 ## 2. Första installationen av onlinetjänsten
+
+Allt i detta avsnitt och avsnitt 3 görs i ett svep av `sudo drift/installera.sh` (idempotent: kan köras om). Skriptet
+sätter ägarskapet (utcheckning, webbrot, datakatalog → `landy`), kör `deploy.sh` och kontrollen, installerar
+tjänsten och Apache-proxyn, kontrollerar via HTTPS och lägger in den dagliga säkerhetskopian i landys crontab.
+Stegen nedan är samma sak för hand.
 
 Som `landy` i Git-utcheckningen:
 
