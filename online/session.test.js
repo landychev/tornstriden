@@ -43,7 +43,7 @@ test('Nickkrock: samma nick (oavsett skiftläge/mellanslag) avvisas tills sessio
   assert.equal(sessioner.hamta(anna.token), null, 'den gamla token är död');
 });
 
-test('Sessionen förlängs glidande vid aktivitet och går ut efter 24 timmars tystnad', () => {
+test('Sessionen förlängs glidande vid aktivitet och går ut efter fem minuters tystnad', () => {
   const { sessioner, klocka } = setup();
   const { token, session } = sessioner.skapa('Anna');
   klocka.advance(SESSION_TTL_MS - TOUCH_INTERVAL_MS);
@@ -51,7 +51,7 @@ test('Sessionen förlängs glidande vid aktivitet och går ut efter 24 timmars t
   klocka.advance(SESSION_TTL_MS - 1);
   assert.ok(sessioner.hamta(token), 'förlängd av förra aktiviteten');
   klocka.advance(SESSION_TTL_MS + 1);
-  assert.equal(sessioner.hamta(token), null, 'tystnad i 24 h');
+  assert.equal(sessioner.hamta(token), null, 'tystnad i fem minuter');
   assert.equal(sessioner.lobbylista().some(p => p.playerId === session.playerId), false);
 });
 

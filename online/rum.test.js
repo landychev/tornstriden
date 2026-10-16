@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { oppnaLagring } from './lagring.js';
-import { skapaSessioner } from './session.js';
+import { skapaSessioner, SESSION_TTL_MS } from './session.js';
 import { skapaTjanst } from './tjanst.js';
 import { skapaRumshantering, RumsFel, INBJUDAN_TTL_MS, AVBOJ_KARENS_MS, INBJUDAN_MIN_INTERVALL_MS, FRANKOPPLAD_FRIST_MS, INAKTIVT_RUM_MS, STADNING_ALDER_MS } from './rum.js';
 import { ACTIVITY, CONNECTION, INVITATION, ROOM, LOBBY_COMMAND, PROTOCOL_VERSION, RECEIPT } from '../kontrakt.js';
@@ -233,6 +233,8 @@ test('Städning: inaktivt rum stängs och gamla rum/inbjudningar raderas; omstar
   assert.deepEqual(rum.stada(), { utgangna: 0, stangda: 0, raderade: 1 });
   assert.equal(lagring.hamtaRum(roomId), null);
   assert.equal(lagring.listaInbjudningar({ roomId }).length, 0);
+  /* Timmar har gått utan aktivitet: sessionerna hade gått ut (5 min) – återuppliva dem som om spelarna kommit tillbaka. */
+  for (const id of [anna, bo]) lagring.sparaSession({ ...lagring.hamtaSession(id), lastSeenAt: klocka.now(), expiresAt: klocka.now() + SESSION_TTL_MS });
   const nytt = rum.skapa(anna).id;
   rum.bjudIn(anna, nytt, [bo]);
   const nyHantering = skapaRumshantering({ lagring, klocka, ko: tjanst.ko });

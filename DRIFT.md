@@ -221,8 +221,8 @@ Tjänsten avbryter vid starten de matcher som var pågående i kopian (27B) och 
   (antal pågående matcher) och serverns tid. Lämplig för en enkel övervakning (t.ex. `curl -sf … || larm`).
 - `Restart=on-failure` i enheten startar om tjänsten efter en krasch; pågående matcher avbryts då (27B).
 - Gränser i tjänsten: kommandon högst 2 kB (Apache stoppar vid 64 kB), en styrande ström per session (en extra
-  flik tar över), högst ett inbjudningskommando per sekund och värd, sessioner utan livstecken gallras efter
-  24 h, obesvarade inbjudningar efter 2 min, inaktiva rum efter 2 h. Avslutade och avbrutna matcher tas bort ur databasen (händelser och kvittenser också) ett dygn efter att de sist rördes.
+  flik tar över), högst ett inbjudningskommando per sekund och värd, sessioner utan aktivitet gallras efter
+  5 min (en pågående match hinner aldrig drabbas: dess frister är högst 90 s), obesvarade inbjudningar efter 2 min, inaktiva rum efter 2 h. Avslutade och avbrutna matcher tas bort ur databasen (händelser och kvittenser också) ett dygn efter att de sist rördes.
 - Tidsgränser: 90 s per väntande val (varning vid 30 s), 30 s återanslutningsfrist per avbrott och högst 90 s
   sammanlagt per match; 15 s utan livstecken räknas som avbrott, 3 s nåd för omladdning/sidbyte.
 
@@ -255,7 +255,7 @@ Ctrl+C lämnar lobbyn. (Vill du ha den igång jämt: en systemd-enhet med samma 
   inte att starta efter en ändring, prova först att ta bort raderna `ProtectHome`/`ReadWritePaths` och se `journalctl`.
 - Inte provat i drift: riktiga telefoner, Safari/Firefox, nätbyten och lagmatcher (4/6/8) – görs vid provspel med
   människor.
-- Databasen hålls liten: avslutade matcher gallras efter ett dygn, sessioner efter ett dygn utan livstecken, rum efter
+- Databasen hålls liten: avslutade matcher gallras efter ett dygn, sessioner efter fem minuter utan aktivitet, rum efter
   två timmar. `sakerhetskopia.mjs` skriver ut antalet matcher i kopian.
 - Underhållsläget stoppar bara nya starter. Rum som redan är fulla och redo väntar med beskedet på startknappen.
   Efter omstarten står rummen kvar; deltagarna återansluter automatiskt (webbläsaren öppnar strömmen igen) och

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { oppnaLagring } from './lagring.js';
-import { skapaSessioner } from './session.js';
+import { skapaSessioner, SESSION_TTL_MS } from './session.js';
 import { skapaTjanst } from './tjanst.js';
 import { skapaRumshantering } from './rum.js';
 import { skapaDuell, DUELL_EVENT } from './duell.js';
@@ -58,10 +58,12 @@ test('Städning frigör kvarvarande resultatspelare men lämnar nya medlemskap o
     assert.equal(rum.vyFor(anna).rum, null);
     assert.deepEqual(lagring.hamtaSession(bo), ny);
     assert.ok(lagring.hamtaMatch(matchId), 'matchhistoriken finns kvar');
+    /* Över en timme utan aktivitet: sessionerna hade gått ut (5 min) – återuppliva dem som om spelarna kommit tillbaka. */
+    for (const id of [anna, bo]) lagring.sparaSession({ ...lagring.hamtaSession(id), lastSeenAt: klocka.now(), expiresAt: klocka.now() + SESSION_TTL_MS });
     const nyttRum = rum.skapa(anna);
     assert.equal(lagring.hamtaSession(anna).roomId, nyttRum.id);
     rum.lamna(anna, nyttRum.id);
-    lagring.sparaSession({ ...ny, activity: ACTIVITY.idle, roomId: null, matchId: null });
+    lagring.sparaSession({ ...ny, activity: ACTIVITY.idle, roomId: null, matchId: null, lastSeenAt: klocka.now(), expiresAt: klocka.now() + SESSION_TTL_MS });
     const bosRum = rum.skapa(bo);
     rum.bjudIn(bo, bosRum.id, [anna]);
     assert.equal(rum.vyFor(anna).inbjudningar.inkommande.length, 1);

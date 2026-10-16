@@ -106,8 +106,16 @@ function oppnaStrom() {
   strom.onerror = () => {
     if (state.strom !== strom || state.anslutning === 'ersatt' || state.gammal) return;
     sattAnslutning('ateransluter', 'Återansluter …');
-    /* Webbläsaren ger upp för gott om svaret inte är en ström (t.ex. 502 från proxyn): försök igen själv. */
-    if (strom.readyState === EventSource.CLOSED) setTimeout(() => { if (state.strom === strom) oppnaStrom(); }, 3000);
+    /* Webbläsaren ger upp för gott om svaret inte är en ström (t.ex. 502 från proxyn, eller 401 för att sessionen gått ut
+       efter fem minuters frånvaro): fråga servern vem vi är och öppna igen – eller be om ett nytt nick. */
+    if (strom.readyState === EventSource.CLOSED) setTimeout(() => {
+      if (state.strom !== strom) return;
+      api('/api/session').then(vy => {
+        if (state.strom !== strom) return;
+        if (!vy.me) { visaSession(null); $('nick-error').textContent = 'Du har varit borta en stund, så din plats i lobbyn släpptes. Välj nick igen.'; return; }
+        oppnaStrom();
+      }).catch(() => { if (state.strom === strom) oppnaStrom(); });
+    }, 3000);
   };
 }
 

@@ -33,7 +33,7 @@ import { pathToFileURL } from 'node:url';
 import { serveFile, ROOT } from '../server.js';
 import { oppnaLagring } from './lagring.js';
 import { skapaTjanst, systemklocka } from './tjanst.js';
-import { skapaSessioner, SessionsFel, SESSION_TTL_MS } from './session.js';
+import { skapaSessioner, SessionsFel } from './session.js';
 import { skapaRumshantering } from './rum.js';
 import { skapaMatcher } from './matcher.js';
 import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession, MATCH_COMMAND } from '../kontrakt.js';
@@ -46,6 +46,7 @@ const MATCHKOMMANDON = new Set(Object.values(MATCH_COMMAND));
 export const STADNING_MS = 60_000;   // periodisk städning av rum, inbjudningar och sessioner
 export const MATCH_GALLRING_MS = 24 * 60 * 60 * 1000;   // avslutade/avbrutna matcher tas bort ur databasen efter ett dygn (L22)
 export const KAKA = 'tornstriden_session';
+export const KAKA_TTL_MS = 24 * 60 * 60 * 1000;   // kakans livslängd i webbläsaren; själva sessionen går ut efter SESSION_TTL_MS utan aktivitet
 
 export function standardDataDir() { return resolve(ROOT, '..', 'tornstriden-data'); }
 
@@ -87,7 +88,7 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   /* ---- Kakor, session och Origin ---- */
   const kakor = req => Object.fromEntries((req.headers.cookie || '').split(';').map(part => part.trim().split('=')).filter(([k, v]) => k && v !== undefined).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
   const arSaker = req => secure || req.headers['x-forwarded-proto'] === 'https';
-  const sattKaka = (req, token) => `${KAKA}=${token}; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; HttpOnly; SameSite=Lax${arSaker(req) ? '; Secure' : ''}`;
+  const sattKaka = (req, token) => `${KAKA}=${token}; Path=/; Max-Age=${Math.floor(KAKA_TTL_MS / 1000)}; HttpOnly; SameSite=Lax${arSaker(req) ? '; Secure' : ''}`;
   const raderaKaka = req => `${KAKA}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${arSaker(req) ? '; Secure' : ''}`;
   const sessionFor = req => sessioner.hamta(kakor(req)[KAKA]);
   function tillatetUrsprung(req) {

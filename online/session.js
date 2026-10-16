@@ -1,11 +1,13 @@
 /* Gästsessioner (arbetsordning L03, beslut 4A): nick utan konto. Sessionen – inte nicket – är
    identiteten. Klienten har en slumpad token i en HttpOnly-kaka; databasen har bara dess SHA-256.
    Nick är unika (skiftlägesokänsligt) bland sessioner som inte gått ut; utgångna sessioner gallras
-   innan ett nick prövas. Sessionen förlängs glidande vid aktivitet och går ut efter SESSION_TTL_MS. */
+   innan ett nick prövas. Sessionen förlängs glidande vid aktivitet (varje anrop, även livstecknen från strömmen) och
+   går ut efter SESSION_TTL_MS utan aktivitet – fem minuter (L22): en spelare som stängt fliken försvinner ur lobbyn
+   inom några minuter, medan en pågående match aldrig hinner drabbas (dess frister är högst 90 s). */
 import { createHash, randomBytes } from 'node:crypto';
 import { ACTIVITY, CONNECTION, LOBBY_COMMAND, RECEIPT, normalizeNick, publicSession, validateSession } from '../kontrakt.js';
 
-export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+export const SESSION_TTL_MS = 5 * 60 * 1000;   // utan aktivitet; kakan i webbläsaren lever längre (KAKA_TTL_MS i server.js) men är värdelös utan session
 export const TOUCH_INTERVAL_MS = 60 * 1000;   // skriv last_seen högst en gång per minut
 export const MAX_SESSIONS = 200;
 export const hashToken = token => createHash('sha256').update(token).digest('hex');
