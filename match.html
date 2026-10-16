@@ -16,7 +16,7 @@
 <body class="compact-match">
   <header class="masthead">
     <a class="brand" href="spelbord.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
-    <nav aria-label="Huvudmeny"><a href="spelbord.html">Teststrider</a><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="show-help" type="button">Så spelar du</button><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
+    <nav aria-label="Huvudmeny"><a href="spelbord.html">Teststrider</a><a href="textkort.html">Alla 30 kort <span aria-hidden="true">↗</span></a><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="play-online" type="button">Spela online</button><button id="show-help" type="button">Så spelar du</button><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
   </header>
   <main>
     <div class="game-view">
@@ -107,7 +107,7 @@
           </details>
           <p class="help-note">Mot datorn spelar du Södra tornet. Knappen <strong>Så spelar du</strong> i menyn visar den här rutan igen.</p>
         </div>
-        <div class="help-actions"><button type="button" class="primary" id="intro-close">Börja spela</button></div>
+        <div class="help-actions"><button type="button" class="secondary" id="intro-online">Spela online mot andra</button><button type="button" class="primary" id="intro-close">Börja spela</button></div>
       </dialog>
       <!-- Bytesförklaring: öppnas en gång per spelare och match när startbytena börjar. -->
       <dialog id="swap-dialog" class="help-dialog game-popup" aria-labelledby="swap-title">
@@ -153,7 +153,7 @@
         <p>Datorns beslut och skäl:</p><ol id="computer-log" class="computer-log"></ol>
         <p id="dev-state" class="dev-state"></p>
       </details>
-    <footer class="page-footer"><p><a href="spelbord.html">Teststrider</a> · <a href="textkort.html">Alla 30 kort</a></p><p><strong>Lokal duell mot datorn eller mot en spelare vid samma skärm.</strong> Matchen sparas inte: om sidan laddas om eller stängs försvinner den och inget resultat registreras.</p><p>Regler: <code>duell-v1</code>, kortlek <code>duell-50-v1</code> (50 kort), datorstrategi <code>dator-v1</code>. Datorn ser bara sin egen hand och det som ligger öppet på bordet. Onlinespel kommer senare.</p></footer>
+    <footer class="page-footer"><p><a href="spelbord.html">Teststrider</a> · <a href="textkort.html">Alla 30 kort</a></p><p><strong>Lokal duell mot datorn eller mot en spelare vid samma skärm.</strong> Matchen sparas inte: om sidan laddas om eller stängs försvinner den och inget resultat registreras.</p><p>Regler: <code>duell-v1</code>, kortlek <code>duell-50-v1</code> (50 kort), datorstrategi <code>dator-v1</code>. Datorn ser bara sin egen hand och det som ligger öppet på bordet. Vill du möta andra människor: <a href="lobby.html">spela online i lobbyn</a>.</p></footer>
     <noscript><p>Aktivera JavaScript för att spela matchen.</p></noscript>
   </main>
 </body>

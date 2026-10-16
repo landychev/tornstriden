@@ -780,6 +780,8 @@ $('show-both').addEventListener('change', renderDev);
 /* Hjälprutorna: knapparna stänger; när spelförklaringen stängs kan bytesförklaringen öppnas.
    Bytesförklaringen lämnar fokus på första kortet i handen. */
 $('show-help').addEventListener('click', () => $('intro-dialog').showModal());
+/* Vägen till onlinespelet (L22): knappen i menyn och i spelförklaringen; döljs i en onlinematch, där "Till lobbyn" finns. */
+for (const id of ['play-online', 'intro-online']) { $(id).hidden = ONLINE; $(id).addEventListener('click', () => { location.href = 'lobby.html'; }); }
 $('intro-close').addEventListener('click', () => $('intro-dialog').close());
 $('swap-close').addEventListener('click', () => $('swap-dialog').close());
 $('start-play').addEventListener('click', beginFirstBattle);

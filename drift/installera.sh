@@ -61,8 +61,13 @@ printf 'ström:   '; curl -s --max-time 5 "https://$doman/api/handelser"; echo "
 
 steg "Daglig säkerhetskopia (crontab för $agare) och en första kopia"
 rad="17 4 * * * /usr/bin/node $rot/drift/sakerhetskopia.mjs >> $data/sakerhetskopia.log 2>&1"
-crontab -l 2>/dev/null | grep -v sakerhetskopia.mjs | crontab - 2>/dev/null || true      # inte i roots crontab
-( crontab -u "$agare" -l 2>/dev/null | grep -v sakerhetskopia.mjs; echo "$rad" ) | crontab -u "$agare" -
+tmp="$(mktemp)"
+# Inte i roots crontab (om raden råkat hamna där), utan i $agare:s – via tempfil så att en tom crontab inte stoppar skriptet.
+if crontab -l >"$tmp" 2>/dev/null && grep -q sakerhetskopia.mjs "$tmp"; then grep -v sakerhetskopia.mjs "$tmp" | crontab - || true; fi
+{ crontab -u "$agare" -l 2>/dev/null | grep -v sakerhetskopia.mjs || true; echo "$rad"; } >"$tmp"
+crontab -u "$agare" "$tmp"
+rm -f "$tmp"
+crontab -u "$agare" -l | grep sakerhetskopia.mjs
 som node --disable-warning=ExperimentalWarning drift/sakerhetskopia.mjs
 
 steg "Klart"

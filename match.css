@@ -284,7 +284,8 @@
 .chip.magic { --type: var(--type-magic); }
 .art-badge { display: inline-block; font: 600 10px/1 system-ui, sans-serif; color: var(--accent-ink); background: var(--accent); border-radius: 10px; padding: 4px 7px; vertical-align: 1px; }
 .help-note { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
-.help-actions { display: flex; justify-content: flex-end; padding: 18px 32px 26px; }
+.help-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; padding: 18px 32px 26px; }
+.help-actions .secondary { min-height: 52px; padding: 14px 24px; border-radius: 999px; font-size: 15px; }
 .help-actions .primary { min-height: 52px; padding: 14px 32px; border-radius: 999px; font-size: 15px; font-weight: 600; box-shadow: 0 8px 18px #29453840; }
 
 /* Bytesgrafiken i huvudet: tre kort varav två märkta, en pil och draghögen. Färgerna är fasta
@@ -319,7 +320,7 @@
   .help-head img { width: 64px; height: 73px; }
   .help-body { padding: 18px 20px 2px; }
   .help-actions { padding: 14px 20px 20px; }
-  .help-actions .primary { width: 100%; }
+  .help-actions .primary, .help-actions .secondary { width: 100%; }
   .result-dialog .result { padding: 18px 18px 14px; }
   .result-dialog .actions { padding: 12px 18px 18px; }
 }

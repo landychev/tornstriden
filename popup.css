@@ -54,7 +54,7 @@
 .game-popup .secondary { background: #fff9eccc; color: #254e3c; box-shadow: none; }
 .game-popup .secondary:hover { background: #f0e3c6; }
 .game-popup .help-actions, .game-popup > .actions { margin: 0; padding: 18px 28px 24px; gap: 12px; }
-.game-popup .help-actions .primary, .game-popup > .actions .primary { width: 100%; }
+.game-popup .help-actions .primary, .game-popup .help-actions .secondary, .game-popup > .actions .primary { width: 100%; }
 .game-popup .eyebrow { color: #d9bf7f; font-size: 10px; letter-spacing: .16em; }
 .popup-hero { height: 196px; overflow: hidden; background: #214b38; }
 .popup-hero img { width: 100%; height: 100%; object-fit: cover; display: block; object-position: center 45%; }
