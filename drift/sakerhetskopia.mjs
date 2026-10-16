@@ -4,8 +4,7 @@
      node drift/sakerhetskopia.mjs [--data KATALOG] [--till KATALOG] [--behall N]
    Standard: databasen i TORNSTRIDEN_DATA_DIR (annars ../tornstriden-data bredvid utcheckningen), kopior i
    <data>/sakerhetskopior/tornstriden-ÅÅÅÅMMDD-HHMMSS.sqlite, de 14 senaste behålls.
-   Daglig körning (landys crontab, `crontab -e`):
-     17 4 * * * /usr/bin/node /home/landy/github-proj/tornstriden/drift/sakerhetskopia.mjs >> /home/landy/github-proj/tornstriden-data/sakerhetskopia.log 2>&1
+   Körs av drift/uppdatera.sh före varje uppdatering, annars för hand (eller dagligen via `installera.sh --cron`).
    Återställning: se DRIFT.md (stoppa tjänsten, byt ut tornstriden.sqlite, starta). */
 import { backup, DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';

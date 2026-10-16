@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L19 klara 2026-10-15, L20 klar 2026-10-16 (efter rättning av tre granskningspunkter), L21 klar 2026-10-16 – etapp 1–5 är klara och etapp 6 påbörjad; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare, en serveromstart avbryter pågående matcher utan vinnare, ljud och animationer följer serverns händelser – en gång per händelse och tyst för historiken – och hela flödet är provat med 2/4/6/8 separata webbläsare och mot kapacitetsmålet 10 matcher med 80 anslutningar (`TESTBEVIS.md`). Publiceringspaketet är klart (`DRIFT.md`, `drift/`, `apache/tornstriden-online.conf`, `deploy.sh` med onlinesidorna, underhållsläge och versionsbesked till gamla klienter) men inget är installerat på NAS:en. L22 (lansering och driftkontroll på NAS:en) är nästa och kräver en uttrycklig beställning.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L19 klara 2026-10-15, L20 klar 2026-10-16 (efter rättning av tre granskningspunkter), L21 och L22 klara 2026-10-16 – alla sex etapper är klara och spelet är publicerat; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare, en serveromstart avbryter pågående matcher utan vinnare, ljud och animationer följer serverns händelser – en gång per händelse och tyst för historiken – och hela flödet är provat med 2/4/6/8 separata webbläsare och mot kapacitetsmålet 10 matcher med 80 anslutningar (`TESTBEVIS.md`). Onlinespelet är lanserat på `https://tornstriden.landychev.se` (lobby på `/lobby.html`, knappar från startsidan): Node-tjänsten kör som systemd-enhet på NAS:en bakom Apache-proxyn, kapaciteten är mätt där (36/36, 133 MB) och en hel duell är spelad mellan två riktiga webbläsare över internet. Arbetsordningen är därmed genomförd; det som återstår är provspel med människor (`DRIFT.md` §9 och L22-loggen).
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -82,7 +82,7 @@ Aktuell status för varje uppgift anges i tabellen nedan. Beroenden anger lägst
 | L19 | Ljud, animationer och tydliga besked | L15–L18 | Klar 2026-10-15 |
 | L20 | Samlat flödes- och belastningstest | L03–L19 | Klar 2026-10-16 |
 | L21 | Publiceringspaket och driftinstruktion | L20 | Klar 2026-10-16 |
-| L22 | Beställd lansering och driftkontroll | L21 samt aktuell beställning av lansering | Ej startad |
+| L22 | Beställd lansering och driftkontroll | L21 samt aktuell beställning av lansering | Klar 2026-10-16 |
 
 ### L00 – Nuläge och detaljval
 
@@ -1347,3 +1347,25 @@ Tekniska val och eventuella användarsvar:
 Beroenden som nu är klara: L00–L21.
 Rekommenderad nästa uppgift: L22 – Beställd lansering och driftkontroll (kräver beställning och åtkomst till NAS:en: installation enligt `DRIFT.md` §2, kontroll §3, kapacitetsmätning §8).
 Commit: ingen.
+
+### L22 – Beställd lansering och driftkontroll, 2026-10-16
+
+Uppgift och datum: L22 – Beställd lansering och driftkontroll, 2026-10-16 (beställd av användaren i samtalet: "Gå genom nästa punkt L22")
+Status: Klar
+Genomfört och ändrade filer:
+- **Lansering på NAS:en (`debian-nas`, Debian, Apache 2.4.68, Node 22.23.3)** enligt `DRIFT.md` §1–3, utförd av användaren som root med `drift/installera.sh` (ny: hela första installationen i ett svep, idempotent): ägarskap för utcheckning, webbrot och datakatalog till `landy`; `deploy.sh` → `/var/www/tornstriden` (88 filer, kontrollerade med `kontrollera-publicering.mjs`); systemd-enheten `tornstriden-online` (aktiv, `/api/halsa` lokalt); `apache/tornstriden-online.conf` inkluderad i både port 80- och Certbots 443-värd (`Syntax OK`, reload); `/api/halsa`, `lobby.html` (200) och `/api/handelser` (401 utan session) via HTTPS; första säkerhetskopia (90 kB, schemaversion 3) och daglig cron-rad i landys crontab (lades in för hand efter att skriptets första version stannade på det steget – rättat).
+- **Driftkontroller:** lobby → inbjudan → lag → Redo → Starta → fem strider → resultat → Till lobbyn spelad mellan två riktiga webbläsare över internet (Claude i Claude-appens webbläsarpanel, Claude2 i användarens Chrome): sessioner skapade, strömmen genom proxyn stabil ("Ansluten", livstecken 204 var 5:e s), inga konsolfel, `pagaende` 1 → 0, båda tillbaka i lobbyn som LEDIG. Den planerade uppdateringsvägen `drift/uppdatera.sh` kördes skarpt för versionen med lobbyknapparna (underhållsläge → `pagaende: 0` → säkerhetskopia → pull → deploy → omstart); en session som var inne i lobbyn överlevde omstarten (sessionen ligger i databasen) och återanslöt. `deploy.sh` som root första gången gav root-ägd webbrot – `installera.sh` rättar det.
+- **Kapacitet på NAS:en** (`scripts/prova-belastning.mjs`, egen serverprocess): **36/36**, minne 133 MB, CPU medel 40 % (max 128 %), 0 serverfel (200: 5 087, 201: 80, 204: 2 553), 15 avvisningar – alla "Matchläget har ändrats", 0 oväntat stängda strömmar, skur av 200 gamla drag 258 ms, sessionstak 200. Målet (p95 ≤ 250 ms, ≤ 300 MB, inga 5xx) är uppfyllt på driftmaskinen.
+- **Nya/ändrade filer:** `drift/installera.sh`; `match.html`, `matchvy.js`, `match.css`, `popup.css` (väg till lobbyn: knappen "Spela online" i menyn, "Spela online mot andra" i välkomstrutan, länk i sidfoten; döljs i onlinematch); `scripts/lobbybot.mjs` (ny: en motståndare i lobbyn – accepterar inbjudan, fyller det lag som behöver fyllas, Redo, spelar slumpade giltiga drag, lämnar rummet efter matchen; provad lokalt mot tjänsten med en skriptad värd: hel duell till AVSLUTAD, boten LEDIG efteråt); `DRIFT.md` (§2 installera.sh, §8 kapacitet, §9), `README.md`, `TESTBEVIS.md` (42–43), `UTVECKLINGSPLAN.md` (leveranser 3–6 klara).
+Verifiering: se ovan – utskrifter från NAS:en i samtalet (installera.sh, prova-belastning.mjs, sakerhetskopia.mjs), webbläsarkontroller mot `https://tornstriden.landychev.se` (halsa, version `0374d9b`, knappen finns, duell spelad). `npm test` kördes inte om efter knappändringen utöver `klientfiler.test.js` + `match.test.js` (18/18); knapparna provades i Chromium (desktop + 390 px) och i drift.
+Inte verifierat / återstående fel:
+- Riktiga telefoner, Safari/Firefox och nätbyten är fortfarande oprovade; lagmatch (4/6/8) är inte spelad i drift (bara dueller) – görs vid provspel med människor.
+- `Ge upp`-knappen i menyn syns (spärrad) även när matchen är avgjord; kosmetiskt.
+- Avslutade matcher gallras inte (DRIFT §9). Underhållsläget och återgången (`--till`) är provade lokalt men inte skarpt på NAS:en utöver den planerade uppdateringen.
+- `lobbybot.mjs` är provad lokalt, inte på NAS:en, och saknar systemd-enhet; körs för hand: `node scripts/lobbybot.mjs --nick Datorn --bas http://127.0.0.1:8766 --origin https://tornstriden.landychev.se`.
+Tekniska val och eventuella användarsvar:
+- Användaren körde stegen som root; valet blev att låta allt (utcheckning, webbrot, data) ägas av `landy` och tjänsten köra som `landy` – det enklaste som fungerar med `runuser` i skripten. Användaren bad om "ett bash-skript som gör alla stegen" → `drift/installera.sh`.
+- Användaren bad om en knapp till lobbyn från startsidan och om att kunna spela mot sig själv (två spelare) → knapparna och `lobbybot.mjs`.
+Beroenden som nu är klara: L00–L22 – hela arbetsordningen.
+Rekommenderad nästa uppgift: ingen i arbetsordningen. Nästa arbete är provspel med människor (telefoner, lagmatch, balans i 100/150/200-lekarna) och rättningar därefter; eventuellt lobbyn som startsida och gallring av gamla matcher.
+Commit: användaren committar själv (`f270ded` L21, `ec740d7` installera.sh, `0374d9b` knappar); lobbybot.mjs och denna logg är ännu inte committade.

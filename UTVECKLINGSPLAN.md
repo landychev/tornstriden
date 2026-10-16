@@ -8,9 +8,9 @@
 
 ## Nästa steg
 
-Nästa huvudområde är att göra matchen gemensam: en spelserver som kör samma matchmotor, privata matcher 1 mot 1 från olika webbläsare och återanslutning. Därefter lagspel.
+Alla leveranser nedan är klara (2026-10-16): spelet är publicerat på `https://tornstriden.landychev.se` med lobby, dueller och lagmatcher 4/6/8 via servern, återanslutning, serveromstart enligt 27B och kontrollerad drift (`DRIFT.md`). Bygget följde `implementera lobby.md` och `arbetsordning lobby.md` (L00–L22).
 
-Det är en byggordning, inte en ändring av slutmålet. Slutmålet omfattar 1 mot datorn, 1 mot 1 och lagspel upp till 4 mot 4.
+Nästa huvudområde är provspel med människor: riktiga telefoner och webbläsare, lagmatcher i drift och balansen i lagspelets lekar (100/150/200 kort) – se avsnitt 7, Spelprovning och balans. Kända småsaker står i `TESTBEVIS.md` och `DRIFT.md` §9.
 
 ## Vad som redan finns
 
@@ -247,9 +247,9 @@ Inget driftabonnemang, publik publicering eller ny tjänst ingår i denna planä
 | --- | --- |
 | 1. Fullständig lokal match – **klar** | Dela ut, byta kort, spela flera strider, fylla på enligt reglerna och nå ett riktigt slut. |
 | 2. Datorstyrd motståndare – **klar** | Spela en hel duell ensam utan manuella motdrag. |
-| 3. Privat 1 mot 1 online | Bjuda in en annan person och spela från olika webbläsare. |
-| 4. Pålitlig återanslutning | Fortsätta efter omladdning eller nätavbrott och återhämta sparad match efter serveromstart. |
-| 5. Lagspel | Hjälpa lagkamrater i fullständiga 2-mot-2-matcher, därefter större lag. |
-| 6. Publik version | Låta andra spela via en stabil adress med kontrollerad drift. |
+| 3. Privat 1 mot 1 online – **klar** | Bjuda in en annan person och spela från olika webbläsare (lobby, rum, inbjudningar, onlineduell). |
+| 4. Pålitlig återanslutning – **klar** | Fortsätta efter omladdning eller nätavbrott (30/90 s frist); matcher som pågick vid en serveromstart avbryts utan vinnare (27B). |
+| 5. Lagspel – **klar** | Lagmatcher 2 mot 2, 3 mot 3 och 4 mot 4 med egen vy per deltagare, spelarklockor och utslagning. |
+| 6. Publik version – **klar** | `https://tornstriden.landychev.se`: Node-tjänst bakom Apache, planerad uppdatering, säkerhetskopior, kapacitet mätt (`DRIFT.md`). |
 
-**Nästa konkreta koduppgift är leverans 3:** en spelserver som kör samma `match.js`, privata rum och en spelarvy per webbläsare. Börja med avsnitt 2 och 3 ovan; matchmotorn behöver inte skrivas om.
+**Nästa arbete är inte en leverans utan provspel:** spela lagmatcher med riktiga människor på telefoner, samla in vad som känns fel och rätta därefter. `scripts/lobbybot.mjs` ger en motståndare när ingen annan är inne.

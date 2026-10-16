@@ -42,9 +42,23 @@ Filerna i det här paketet:
 ## 2. Första installationen av onlinetjänsten
 
 Allt i detta avsnitt och avsnitt 3 görs i ett svep av `sudo drift/installera.sh` (idempotent: kan köras om). Skriptet
-sätter ägarskapet (utcheckning, webbrot, datakatalog → `landy`), kör `deploy.sh` och kontrollen, installerar
-tjänsten och Apache-proxyn, kontrollerar via HTTPS och lägger in den dagliga säkerhetskopian i landys crontab.
-Stegen nedan är samma sak för hand.
+sätter ägarskapet (utcheckning, webbrot, datakatalog → ägaren), kör `deploy.sh` och kontrollen, fyller i mallarna
+`drift/tornstriden-online.service` och `.env` med sökvägar/ägare/domän och installerar tjänsten, lägger in Apaches
+cache-regler, skapar den virtuella värden för port 80 om den saknas, inkluderar proxyn för `/api/` i port 80- och
+Certbots 443-värd, kontrollerar via webbadressen och tar en första säkerhetskopia (en daglig cron-rad bara med `--cron`).
+
+**Ny server** (Debian/Ubuntu med Apache 2.4, git och Node ≥ 22.5 – se §1):
+
+```sh
+git clone https://github.com/landychev/tornstriden.git /srv/tornstriden
+sudo /srv/tornstriden/drift/installera.sh --doman spel.example.org --agare spel --webb /var/www/spel --certbot
+```
+
+Alla flaggor har standardvärden (utcheckningen = katalogen ovanför `drift/`, ägaren = den som äger utcheckningen
+eller `SUDO_USER`, domänen `tornstriden.landychev.se`, webbroten `/var/www/tornstriden`, databasen
+`<utcheckning>-data`). `--certbot` kör `certbot --apache -d <domän> --redirect` när DNS pekar på servern och port 80
+är öppen; utan flaggan skrivs kommandot ut och skriptet körs om efteråt så att proxyn hamnar i 443-värden också.
+Stegen nedan är samma sak för hand, med värdena för `debian-nas`.
 
 Som `landy` i Git-utcheckningen:
 
@@ -104,11 +118,10 @@ anslutningsstatus står på "Ansluten" och ligger kvar (strömmen går genom pro
 Med fyra deltagare startar en lagmatch på `lagmatch.html`. Loggen (`journalctl -u tornstriden-online -f`)
 visar kommandotyp, kö och status – aldrig kort, händer eller token.
 
-Säkerhetskopian, som `landy`:
+Säkerhetskopian, som `landy` (tas också automatiskt av `uppdatera.sh` före varje uppdatering; ingen cron används):
 
 ```sh
 node drift/sakerhetskopia.mjs
-crontab -e     # daglig: 17 4 * * * /usr/bin/node /home/landy/github-proj/tornstriden/drift/sakerhetskopia.mjs >> /home/landy/github-proj/tornstriden-data/sakerhetskopia.log 2>&1
 ```
 
 ## 4. Uppdatera (planerad publicering)
@@ -165,8 +178,10 @@ arbetsminne.
 
 `drift/sakerhetskopia.mjs` tar en konsekvent kopia med SQLites backup-funktion medan tjänsten kör (ingen
 `sqlite3`-binär behövs), lägger den i `<data>/sakerhetskopior/tornstriden-ÅÅÅÅMMDD-HHMMSS.sqlite` som en enda fil,
-kontrollerar att den går att öppna och behåller de 14 senaste (`--behall N`). Kopiera gärna katalogen vidare med
-NAS:ens vanliga backup.
+kontrollerar att den går att öppna och behåller de 14 senaste (`--behall N`). Den körs av `uppdatera.sh` före varje
+uppdatering och annars för hand; vill du ha en daglig kopia: `installera.sh --cron` (04:17 i ägarens crontab).
+Databasen är spelets arbetsminne (sessioner, rum, matcher), inget av bestående värde. Kopiera gärna katalogen vidare
+med NAS:ens vanliga backup.
 
 Återställning, som root:
 
@@ -206,15 +221,25 @@ behöver Node (ingen webbläsare):
 node scripts/prova-belastning.mjs        # startar en egen serverprocess på en ledig port; rör inte driftdatabasen
 ```
 
-Tills dess ska kapaciteten på NAS:en betraktas som omätt.
+Mätt på NAS:en 2026-10-16 (L22): **36/36 kontroller**, minne 133 MB, CPU medel 40 % (max 128 %), 0 serverfel på 7 720 svar,
+0 oväntat stängda strömmar, en skur av 200 gamla drag på 258 ms, sessionstaket 200. Målet är alltså uppfyllt på driftmaskinen.
+
+En motståndare när ingen annan är inne: `scripts/lobbybot.mjs` går in i lobbyn, accepterar inbjudningar, fyller laget
+och spelar slumpade giltiga drag. På servern, som `landy`:
+
+```sh
+node scripts/lobbybot.mjs --nick Datorn --bas http://127.0.0.1:8766 --origin https://tornstriden.landychev.se
+```
+
+Ctrl+C lämnar lobbyn. (Vill du ha den igång jämt: en systemd-enhet med samma kommando, `Restart=always`.)
 
 ## 9. Känt och inte verifierat (L21)
 
-- Allt ovan är förberett och provat lokalt (tjänst med `TORNSTRIDEN_STATIC=0`, signalerna, säkerhetskopian,
-  `deploy.sh` + `kontrollera-publicering.mjs` mot en separat kopia) men **inte på NAS:en**: Node-versionen där,
-  Apache-proxyn med riktig HTTPS och Certbots värd, systemd-enhetens härdning mot den verkliga katalogstrukturen och
-  kapaciteten är ogjorda tills L22. Går tjänsten inte att starta med härdningen, prova först att ta bort raderna
-  `ProtectHome`/`ReadWritePaths` och se `journalctl`.
+- Installerat och provat på NAS:en 2026-10-16 (L22) med `drift/installera.sh`: tjänsten med härdningen, Apache-proxyn
+  med Certbots HTTPS, en hel duell mellan två webbläsare, `uppdatera.sh` skarpt och kapacitetsmätningen. Går tjänsten
+  inte att starta efter en ändring, prova först att ta bort raderna `ProtectHome`/`ReadWritePaths` och se `journalctl`.
+- Inte provat i drift: riktiga telefoner, Safari/Firefox, nätbyten och lagmatcher (4/6/8) – görs vid provspel med
+  människor.
 - Avslutade matcher, deras händelser och kvittenser sparas tills vidare (ingen gallring). Databasen växer i
   storleksordningen 100 kB per match; `sakerhetskopia.mjs` skriver ut antalet matcher. Gallring kan läggas i
   tjänstens städning senare.
