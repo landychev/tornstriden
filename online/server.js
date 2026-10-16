@@ -34,6 +34,7 @@ import { serveFile, ROOT } from '../server.js';
 import { oppnaLagring } from './lagring.js';
 import { skapaTjanst, systemklocka } from './tjanst.js';
 import { skapaSessioner, SessionsFel } from './session.js';
+import { skapaRegistreringsvakt, klientadress, REGISTRERINGAR_PER_MINUT } from './registrering.js';
 import { skapaRumshantering } from './rum.js';
 import { skapaMatcher } from './matcher.js';
 import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession, MATCH_COMMAND } from '../kontrakt.js';
@@ -50,7 +51,8 @@ export const KAKA_TTL_MS = 24 * 60 * 60 * 1000;   // kakans livslängd i webblä
 
 export function standardDataDir() { return resolve(ROOT, '..', 'tornstriden-data'); }
 
-export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), lagspel = process.env.TORNSTRIDEN_LAGSPEL !== '0', klocka = systemklocka, slump = Math.random, logg = console } = {}) {
+export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(process.env.PORT) || 8766, host = process.env.HOST || '127.0.0.1', dataDir = process.env.TORNSTRIDEN_DATA_DIR || standardDataDir(), statiskt = process.env.TORNSTRIDEN_STATIC !== '0', secure = process.env.TORNSTRIDEN_SECURE === '1', origins = (process.env.TORNSTRIDEN_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean), lagspel = process.env.TORNSTRIDEN_LAGSPEL !== '0', maxRegistreringarPerIp = Number(process.env.TORNSTRIDEN_REGISTRERINGAR_PER_MINUT ?? REGISTRERINGAR_PER_MINUT), klocka = systemklocka, slump = Math.random, logg = console } = {}) {
+  const registrering = skapaRegistreringsvakt({ klocka, maxPerIp: maxRegistreringarPerIp });
   const dbPath = dataDir === ':memory:' ? dataDir : join(resolve(dataDir), 'tornstriden.sqlite');
   if (dbPath !== ':memory:' && resolve(dbPath).startsWith(ROOT)) throw new Error(`Databasen får inte ligga i webbroten: ${dbPath}`);
   const lagring = lagringsfabrik({ path: dbPath, klocka });
@@ -86,7 +88,17 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   }
 
   /* ---- Kakor, session och Origin ---- */
-  const kakor = req => Object.fromEntries((req.headers.cookie || '').split(';').map(part => part.trim().split('=')).filter(([k, v]) => k && v !== undefined).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
+  function kakor(req) {
+    const result = new Map();
+    for (const part of (req.headers.cookie || '').split(';')) {
+      const index = part.indexOf('=');
+      if (index < 1) continue;
+      const key = part.slice(0, index).trim();
+      try { result.set(key, decodeURIComponent(part.slice(index + 1).trim())); }
+      catch { result.delete(key); }   // ogiltig kodning är en ogiltig kaka, inte ett serverfel
+    }
+    return Object.fromEntries(result);
+  }
   const arSaker = req => secure || req.headers['x-forwarded-proto'] === 'https';
   const sattKaka = (req, token) => `${KAKA}=${token}; Path=/; Max-Age=${Math.floor(KAKA_TTL_MS / 1000)}; HttpOnly; SameSite=Lax${arSaker(req) ? '; Secure' : ''}`;
   const raderaKaka = req => `${KAKA}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${arSaker(req) ? '; Secure' : ''}`;
@@ -94,10 +106,8 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   function tillatetUrsprung(req) {
     const origin = req.headers.origin;
     if (!origin) return req.headers['sec-fetch-site'] === 'same-origin' || req.headers['sec-fetch-site'] === 'none';   // äldre klienter utan Origin avvisas om de heller inte säger same-origin
-    if (origins.includes(origin)) return true;
-    let host;
-    try { host = new URL(origin).host; } catch { return false; }
-    return host === req.headers.host;
+    if (origins.length) return origins.includes(origin);
+    return origin === `${arSaker(req) ? 'https' : 'http'}://${req.headers.host}`;
   }
 
   function lasKropp(req) {
@@ -158,10 +168,11 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   matcher.pa(matchId => (matchId ? sandEfterMatch(matchId) : sandAlla()));   // tidsgräns, avbrott och återkomst ändrar matchen utan något kommando
   let stadning = klocka.setTimeout(function stada() {
     try {
-      const r = rum.stada(); sessioner.rensaUtgangna();
+      rum.stada(); sessioner.rensaUtgangna(); registrering.rensa();
       const gallrade = lagring.transaktion(ops => ops.raderaGamlaMatcher(klocka.now() - MATCH_GALLRING_MS));
       if (gallrade) logg.info(`[server] gallring: ${gallrade} avslutad(e) match(er) äldre än ett dygn borttagna.`);
-      if (r.utgangna || r.stangda || r.raderade) sandLobby();
+      // Även utgångna sessioner ändrar spelarlistan. sandLobby skickar bara vyer som faktiskt ändrats.
+      sandLobby();
     } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
   }, STADNING_MS);
@@ -238,6 +249,8 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
 
     if (pathname === '/api/session' && req.method === 'POST') {
       if (session) return json(res, 200, lobbyvy(session));   // befintlig session återupptas före ny nickreservation
+      const vanta = registrering.prova(klientadress(req));
+      if (vanta) return json(res, 429, { message: `För många nya gäster från samma anslutning. Försök igen om ${vanta} sekunder.` }, { 'retry-after': String(vanta) });
       const body = await lasJson(req);
       const { session: ny, token } = sessioner.skapa(body?.nick);
       logg.info(`[session] ny gäst ${ny.playerId}`);

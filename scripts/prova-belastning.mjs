@@ -52,7 +52,9 @@ const percentil = (lista, p) => { if (!lista.length) return null; const s = [...
 const ledigPort = () => new Promise(resolve => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); }); });
 const PORT = await ledigPort();
 const base = `http://127.0.0.1:${PORT}`;
-const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'online/server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), TORNSTRIDEN_DATA_DIR: join(OUT, 'data') }, stdio: ['ignore', 'pipe', 'pipe'] });
+/* Alla simulerade spelare delar loopback-adress. IP-begränsningen provas separat i serverproven;
+   här höjs den bara för den egna testprocessen så att kapaciteten och sessionstaket kan mätas. */
+const server = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'online/server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), TORNSTRIDEN_DATA_DIR: join(OUT, 'data'), TORNSTRIDEN_REGISTRERINGAR_PER_MINUT: '500' }, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverlogg = '';
 server.stdout.on('data', d => { serverlogg += d; });
 server.stderr.on('data', d => { serverlogg += d; });

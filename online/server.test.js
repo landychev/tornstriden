@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startaServer, PING_MS, TYST_MS, OMLADDNING_MS, STADNING_MS, MATCH_GALLRING_MS } from './server.js';
 import { oppnaLagring } from './lagring.js';
+import { SESSION_TTL_MS } from './session.js';
 import { isBlocked, ROOT, skapaFilserver } from '../server.js';
 import { PROTOCOL_VERSION, MATCH_COMMAND, assertNoSecrets, validatePrivateView } from '../kontrakt.js';
 import { styrdKlocka, styrdSlump } from '../teststod.js';
@@ -378,6 +379,30 @@ test('HTML-liknande nick lagras som text och lobbyn/loggen saknar hemligheter', 
   assert.ok(!JSON.stringify(lobby).includes(raw.tokenHash));
 }));
 
+test('Utgångna gäster försvinner ur en öppen lobby utan omladdning eller andra lobbyhändelser', () => medServer(async ({ app, url, klocka }) => {
+  const anna = klient(url), claude1 = klient(url), claude2 = klient(url);
+  await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
+  for (const [client, nick] of [[claude1, 'Claude1'], [claude2, 'Claude2']]) {
+    await client.call('/api/session', { method: 'POST', body: { nick } });
+  }
+  const flik = await strom(url, anna.cookie());
+  try {
+    const initial = await flik.vanta('lobby');
+    assert.deepEqual(initial.players.map(p => p.nick), ['Anna', 'Claude1', 'Claude2']);
+    await flytta(klocka, SESSION_TTL_MS - STADNING_MS, [flik]);
+    assert.equal(flik.events.filter(e => e.event === 'lobby').length, 1, 'oförändrad spelarlista skickas inte igen');
+
+    await flytta(klocka, 2 * STADNING_MS, [flik]);
+    assert.deepEqual(app.sessioner.lobbylista().map(p => p.nick), ['Anna'], 'gäster utan livstecken har gått ut; Annas öppna flik hålls vid liv');
+    const updated = await flik.vanta('lobby', 2);
+    assert.deepEqual(updated.players.map(p => p.nick), ['Anna'], 'den öppna lobbyn får den städade listan automatiskt');
+
+    const count = flik.events.filter(e => e.event === 'lobby').length;
+    await flytta(klocka, STADNING_MS, [flik]);
+    assert.equal(flik.events.filter(e => e.event === 'lobby').length, count, 'nästa städning skickar ingen dubblett');
+  } finally { await flik.stang(); }
+}));
+
 test('Händelseströmmen kräver session, skickar lobbylistan till alla och hanterar extra flik och frånkoppling', () => medServer(async ({ url }) => {
   const anna = klient(url), bo = klient(url);
   await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
@@ -410,6 +435,54 @@ test('Händelseströmmen kräver session, skickar lobbylistan till alla och hant
   assert.equal((await bo.call('/api/lobby')).status, 401);
   await flikA.stang(); await flikA2.stang();
 }));
+
+test('Felaktig cookiekodning ger en ogiltig session, aldrig HTTP 500; andra cookies stör inte en giltig session', () => medServer(async ({ url }) => {
+  const invalid = { cookie: 'tornstriden_session=%ZZ' };
+  const noSession = await fetch(url('/api/session'), { headers: invalid });
+  assert.equal(noSession.status, 200);
+  assert.deepEqual(await noSession.json(), { me: null });
+  assert.equal((await fetch(url('/api/lobby'), { headers: invalid })).status, 401);
+  const anna = klient(url);
+  await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } });
+  const stillValid = await fetch(url('/api/lobby'), { headers: { cookie: `${anna.cookie()}; annan=%ZZ` } });
+  assert.equal(stillValid.status, 200);
+  assert.equal((await stillValid.json()).me.nick, 'Anna');
+}));
+
+test('Konfigurerad Origin-lista matchas exakt: protokoll, port och värd kan inte kringgå listan', () => medServer(async ({ app, url }) => {
+  for (const origin of ['http://tornstriden.landychev.se', 'https://tornstriden.landychev.se:444', 'https://tornstriden.landychev.se.attacker.invalid', 'https://tornstriden.landychev.se/', 'https://user@tornstriden.landychev.se', 'null', url('')]) {
+    const r = await fetch(url('/api/session'), { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: '{"nick":"Anna"}' });
+    assert.equal(r.status, 403, origin);
+  }
+  assert.equal(app.sessioner.lobbylista().length, 0);
+}, { origins: ['https://tornstriden.landychev.se'] }));
+
+test('Utan Origin-lista krävs ändå rätt protokoll för den egna värden', () => medServer(async ({ url }) => {
+  const post = origin => fetch(url('/api/session'), { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: '{"nick":"Anna"}' });
+  assert.equal((await post(url('').replace('http:', 'https:'))).status, 403);
+  assert.equal((await post(url(''))).status, 201);
+}));
+
+test('För många nya gästsessioner får 429 med väntetid; befintliga sessioner och livstecken fungerar', () => medServer(async ({ url, klocka }) => {
+  const anna = klient(url), bo = klient(url), cia = klient(url);
+  assert.equal((await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } })).status, 201);
+  assert.equal((await bo.call('/api/session', { method: 'POST', body: { nick: 'Bo' } })).status, 201);
+  const blocked = await fetch(url('/api/session'), { method: 'POST', headers: { origin: url(''), 'content-type': 'application/json' }, body: '{"nick":"Cia"}' });
+  assert.equal(blocked.status, 429);
+  assert.equal(blocked.headers.get('retry-after'), '60');
+  assert.equal((await anna.call('/api/session', { method: 'POST', body: { nick: 'Anna' } })).status, 200, 'återupptagning förbrukar ingen kvot');
+  assert.equal((await anna.call('/api/livstecken', { method: 'POST' })).status, 204);
+  assert.equal((await bo.call('/api/lobby')).status, 200);
+  klocka.advance(60_000);
+  assert.equal((await cia.call('/api/session', { method: 'POST', body: { nick: 'Cia' } })).status, 201);
+}, { maxRegistreringarPerIp: 2 }));
+
+test('Apaches klientadresser får separata registreringskvoter', () => medServer(async ({ url }) => {
+  const post = (nick, ip) => fetch(url('/api/session'), { method: 'POST', headers: { origin: url(''), 'content-type': 'application/json', 'x-tornstriden-client-ip': ip }, body: JSON.stringify({ nick }) });
+  assert.equal((await post('Anna', '203.0.113.1')).status, 201);
+  assert.equal((await post('Bo', '203.0.113.1')).status, 429);
+  assert.equal((await post('Cia', '203.0.113.2')).status, 201);
+}, { maxRegistreringarPerIp: 1 }));
 
 test('Bakom HTTPS-proxyn godkänns det konfigurerade ursprunget och kakan får Secure', () => medServer(async ({ url }) => {
   const post = headers => fetch(url('/api/session'), { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ nick: 'Anna' }) });

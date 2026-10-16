@@ -172,6 +172,41 @@ pågick innan den öppnar igen, utan vinnare (SERVERAVBROTT, beslut 27B); spelar
 av ett serveravbrott" och vägen till lobbyn. Misslyckas uppstädningen (lagringsfel) startar tjänsten inte alls –
 den låtsas aldrig ha sparat.
 
+### Säkerhetsuppdateringen från 16 oktober 2026
+
+Den här uppdateringen behöver både ny Node-kod och uppdaterad Apache-konfiguration. Efter att ändringarna
+har publicerats i Git körs på servern:
+
+```sh
+sudo /opt/tornstriden/drift/uppdatera.sh
+sudo bash /opt/tornstriden/drift/sakra-apache.sh
+```
+
+Det andra kommandot installerar säkerhetsheaders och ser till att Apache skriver över
+`X-Tornstriden-Client-IP` med besökarens verkliga adress. Det bevarar den konfigurerade API-porten,
+sparar föregående proxyfil, kör `apache2ctl configtest` och laddar om Apache. Vid fel återställs proxyfilen.
+Certbots värdar och certifikat ändras inte. Första installationen via `installera.sh` använder redan den nya
+proxyfilen; steget ovan behövs för befintliga installationer och när samma proxyfil ändras framöver.
+
+Kontrollera sedan:
+
+```sh
+curl -sI https://tornstriden.landychev.se/lobby.html
+curl -s https://tornstriden.landychev.se/api/halsa
+```
+
+HTML-svaret ska ha `Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, `Referrer-Policy` och `Permissions-Policy`. Provspela också en duell och
+kontrollera ljud, bilder och lobbyn. CSP tillåter inline-stilar för kortgrafiken men bara egna skript.
+
+Nya gästsessioner begränsas som standard till **20 försök per klientadress och minut**. HTTP 429 innehåller
+`Retry-After`; även ogiltiga registreringsförsök räknas. En befintlig giltig session återupptas utan att
+förbruka kvoten, och livstecken/speldrag berörs inte. För ett evenemang med många spelare bakom samma IP
+kan `TORNSTRIDEN_REGISTRERINGAR_PER_MINUT` höjas i `/etc/tornstriden-online.env`, följt av en planerad
+omstart. Uppströms IP-header betros bara när anslutningen kommer från loopback. Vid en annan proxyarkitektur
+måste klientadresshanteringen anpassas innan begränsningen används. Det lokala belastningsprovet höjer
+gränsen bara i sin egen serverprocess eftersom alla dess spelare delar loopback-adress.
+
 ## 5. Återgång till föregående version
 
 `uppdatera.sh` skriver ut föregående commit, t.ex. `Uppdaterat 04400bb → 1a2b3c4. Återgång: …`:
