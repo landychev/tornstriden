@@ -16,12 +16,14 @@ target="${1:-${DEPLOY_DIR:-/var/www/tornstriden}}"
 [[ "$target" == /* ]] || fail 'Ange en absolut målkatalog, exempelvis /var/www/tornstriden.'
 source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Explicit lista: Git-data, lokala inställningar och utvecklingsverktyg publiceras inte.
+# Explicit lista: Git-data, lokala inställningar, utvecklingsverktyg, serverkoden i online/ och lagmotorn
+# (lagmatch.js, lagkortlek.js, lagstrid.js, lagvy.js) publiceras inte – de körs bara på servern.
+# Onlinesidorna (lobby.html, lagmatch.html) kräver att Node-tjänsten kör bakom /api/ (se DRIFT.md).
 files=(
-  spelbord.html match.html textkort.html effekter.html
-  spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css popup.css
+  spelbord.html match.html textkort.html effekter.html lobby.html lagmatch.html
+  spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css popup.css lobby.css lagmatch.css
   spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js ljud.js
-  kontrakt.js lokalmatch.js onlinematch.js kortlupp.js nedrakning.js
+  kontrakt.js lokalmatch.js onlinematch.js kortlupp.js nedrakning.js lobby.js lagmatchvy.js
   LICENSE
 )
 for file in "${files[@]}"; do

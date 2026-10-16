@@ -21,9 +21,10 @@ const state = {
   vy: null,                 // senaste lobbyvy från servern: { me, players, rum, start, inbjudningar }
   markerade: new Set(),     // spelar-ID markerade för inbjudan
   strom: null,              // EventSource
-  anslutning: 'ansluter',   // ansluter | ansluten | ateransluter | ersatt
+  anslutning: 'ansluter',   // ansluter | ansluten | ateransluter | ersatt | gammal
   tidsskillnad: 0,          // serverns klocka minus webbläsarens (ms)
-  upptagen: new Set()       // kommandotyper som väntar på kvittens
+  upptagen: new Set(),      // kommandotyper som väntar på kvittens
+  gammal: false             // sidan är äldre än serverns protokoll (L21): bara omladdning hjälper
 };
 const ACTIVITY_TEXT = { [ACTIVITY.idle]: 'Ledig', [ACTIVITY.inRoom]: 'I ett rum', [ACTIVITY.playing]: 'Spelar', [ACTIVITY.finished]: 'Följer avslut' };
 const teamName = id => TEAMS.find(t => t.id === id)?.name ?? 'Utan lag';
@@ -56,6 +57,7 @@ async function api(path, { method = 'GET', body } = {}) {
 
 /* Ett kommando: nytt commandId, väntar på kvittens, visar skäl vid avvisning. Returnerar true om GODKÄND. */
 async function skicka(type, extra = {}) {
+  if (state.gammal) { visaFel('Spelet har uppdaterats. Ladda om sidan.'); return false; }
   if (state.upptagen.has(type)) return false;
   state.upptagen.add(type);
   render();
@@ -82,7 +84,11 @@ function oppnaStrom() {
   strom.addEventListener('halsa', event => {
     const data = JSON.parse(event.data);
     state.tidsskillnad = data.tid - Date.now();
-    if (!data.matchtrafik.oppen) visaNotis(data.matchtrafik.orsak);
+    /* Gammal klient efter en uppdatering (L21): servern talar ett annat protokoll – be om omladdning i stället för att
+       låta varje knapp få ett kontraktsfel. */
+    if (data.protocolVersion !== PROTOCOL_VERSION) { state.gammal = true; strom.close(); sattAnslutning('gammal', 'Ny version finns'); $('outdated').showModal(); return; }
+    /* Hälsningen kommer vid anslutning och när servern växlar underhållsläge: notisen följer läget. */
+    visaNotis(!data.matchtrafik.oppen ? data.matchtrafik.orsak : data.nyaMatcher && !data.nyaMatcher.oppna ? data.nyaMatcher.orsak : '');
   });
   strom.addEventListener('lobby', event => {
     state.vy = JSON.parse(event.data);
@@ -98,7 +104,7 @@ function oppnaStrom() {
     $('replaced').showModal();
   });
   strom.onerror = () => {
-    if (state.strom !== strom || state.anslutning === 'ersatt') return;
+    if (state.strom !== strom || state.anslutning === 'ersatt' || state.gammal) return;
     sattAnslutning('ateransluter', 'Återansluter …');
     /* Webbläsaren ger upp för gott om svaret inte är en ström (t.ex. 502 från proxyn): försök igen själv. */
     if (strom.readyState === EventSource.CLOSED) setTimeout(() => { if (state.strom === strom) oppnaStrom(); }, 3000);
@@ -281,6 +287,8 @@ $('leave-lobby').addEventListener('click', async () => {
 });
 $('take-over').addEventListener('click', () => { $('replaced').close(); oppnaStrom(); });
 $('replaced').addEventListener('cancel', event => event.preventDefault());
+$('reload').addEventListener('click', () => location.reload());
+$('outdated').addEventListener('cancel', event => event.preventDefault());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.vy && state.anslutning === 'ateransluter') api('/api/lobby').then(vy => { state.vy = vy; render(); }).catch(() => {}); });
 
 /* ---- Start: återuppta befintlig session, annars nickformulär ---- */

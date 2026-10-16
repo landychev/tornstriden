@@ -21,7 +21,12 @@
 
    Omstart (L18, beslut 27B): innan servern lyssnar avbryts matcher som var pågående i förra körningen, utan
    vinnare (SERVERAVBROTT), och deltagarna kan gå till lobbyn. Misslyckas det (t.ex. lagringsfel) startar
-   servern inte alls – den låtsas aldrig ha sparat avbrotten och tar inte emot några drag. */
+   servern inte alls – den låtsas aldrig ha sparat avbrotten och tar inte emot några drag.
+
+   Underhållsläge (L21, huvudplan §11): SIGUSR1 stänger nya matchstarter (lobbyn och pågående matcher fortsätter),
+   SIGUSR2 öppnar igen. `/api/halsa` visar läget och antalet pågående matcher, så att en planerad uppdatering kan
+   vänta tills de är klara (drift/uppdatera.sh) innan tjänsten startas om. Läget är inte beständigt: en omstart
+   öppnar alltid. Hälsningen har också protokollversionen, så att en gammal klient kan be om omladdning. */
 import { createServer } from 'node:http';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -67,7 +72,16 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   const strommar = new Set();   // { res, puls, playerId, generation, lastEventId, senast }
 
   const json = (res, status, body, headers = {}) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers }); res.end(JSON.stringify(body)); };
-  const halsa = () => ({ tjanst: TJANST, protocolVersion: PROTOCOL_VERSION, schemaversion: lagring.schemaversion, matchtrafik: { oppen: tjanst.matchtrafik.oppen, orsak: tjanst.matchtrafik.orsak }, tid: klocka.now() });
+  const halsa = () => ({ tjanst: TJANST, protocolVersion: PROTOCOL_VERSION, schemaversion: lagring.schemaversion, matchtrafik: { oppen: tjanst.matchtrafik.oppen, orsak: tjanst.matchtrafik.orsak }, nyaMatcher: { oppna: tjanst.nyaMatcher.oppna, orsak: tjanst.nyaMatcher.orsak }, pagaende: lagring.pagaendeMatcher().length, tid: klocka.now() });
+  /* Underhållsläge: nya starter stängs/öppnas; lobbyn får nytt startbesked direkt. */
+  function underhall(aktivt, orsak = 'Servern uppdateras snart. Nya matcher kan startas igen om en liten stund.') {
+    tjanst.nyaMatcher.oppna = !aktivt;
+    tjanst.nyaMatcher.orsak = aktivt ? orsak : null;
+    logg.warn(aktivt ? `[server] underhållsläge: nya matcher stoppade (${lagring.pagaendeMatcher().length} pågår).` : '[server] underhållsläge avslutat: nya matcher kan startas.');
+    if (!startad) return;
+    for (const strom of strommar) skicka(strom, 'halsa', halsa());   // lobbyns notis följer läget, inte bara startknappen
+    sandLobby();
+  }
 
   /* ---- Kakor, session och Origin ---- */
   const kakor = req => Object.fromEntries((req.headers.cookie || '').split(';').map(part => part.trim().split('=')).filter(([k, v]) => k && v !== undefined).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
@@ -310,7 +324,7 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
     lagring.stang();
   }
 
-  return { server, tjanst, lagring, sessioner, rum, matcher, duell: matcher.duell, klar, stang, strommar, port: () => server.address()?.port, dbPath, get omstart() { return omstart; } };
+  return { server, tjanst, lagring, sessioner, rum, matcher, duell: matcher.duell, klar, stang, strommar, underhall, port: () => server.address()?.port, dbPath, get omstart() { return omstart; } };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -322,4 +336,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const avsluta = () => app.stang().then(() => process.exit(0));
   process.on('SIGINT', avsluta);
   process.on('SIGTERM', avsluta);
+  process.on('SIGUSR1', () => app.underhall(true));    // systemctl kill -s SIGUSR1 tornstriden-online
+  process.on('SIGUSR2', () => app.underhall(false));
 }

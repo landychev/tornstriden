@@ -1,7 +1,7 @@
-/* Klientfilerna (arbetsordning L15): varje fil som en sida laddar – direkt eller via import – måste släppas
+/* Klientfilerna (arbetsordning L15, L21): varje fil som en sida laddar – direkt eller via import – måste släppas
    igenom av utvecklingsservern, och för de publicerade sidorna även finnas i deploy.sh. Annars fungerar
-   sidan lokalt men får 404 efter nästa publicering. Onlinesidorna (lobbyn och lagmatchen) läggs i
-   deploy.sh först när onlinespelet publiceras (L21). */
+   sidan lokalt men får 404 efter nästa publicering. Sedan L21 publiceras även onlinesidorna (lobbyn och
+   lagmatchen); serverkoden och lagmotorn får aldrig hamna i listan. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -29,7 +29,9 @@ function beroenden(start) {
 
 test('Publicerade sidor laddar bara filer som finns i deploy.sh och släpps igenom av servern', () => {
   const sidor = [...deploy].filter(f => f.endsWith('.html'));
-  assert.ok(sidor.includes('match.html'));
+  for (const sida of ['match.html', 'lobby.html', 'lagmatch.html']) assert.ok(sidor.includes(sida), `${sida} publiceras`);
+  for (const fil of deploy) assert.ok(!/^online\//.test(fil) && !/\.test\.js$/.test(fil) && !['lagmatch.js', 'lagkortlek.js', 'lagstrid.js', 'lagvy.js', 'teststod.js', 'server.js', 'preview.js', 'deploy.sh', 'package.json'].includes(fil), `${fil} ska inte publiceras`);
+  for (const fil of deploy) assert.ok(!fil.includes('/'), `${fil}: deploy.sh stämplar bara filer i rotkatalogen (assets kopieras separat)`);
   for (const sida of sidor) for (const fil of beroenden(sida)) {
     assert.ok(deploy.has(fil), `${sida} laddar ${fil}, som saknas i deploy.sh`);
     assert.ok(!isBlocked(`/${fil}`), `${sida} laddar ${fil}, som servern spärrar`);

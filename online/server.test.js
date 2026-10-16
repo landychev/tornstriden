@@ -810,3 +810,55 @@ test('Lagmatch över HTTP: fyra separata klienter med egna kakor och strömmar s
   assert.ok((await anna.call('/api/lobby')).body.players.every(p => p.activity === 'LEDIG'));
   for (const f of flikar) await f.stang();
 }, { lagspel: true, slump: styrdSlump(9) }));
+
+test('Underhållsläge (L21): nya starter stoppas med skäl i lobbyn, pågående matcher och lobbyn fortsätter, och läget syns i hälsningen', () => medServer(async ({ app, url }) => {
+  const ids = nicks => nicks.map(nick => { const { session } = app.sessioner.skapa(nick); app.sessioner.anslut(session.playerId); return session.playerId; });
+  const forbered = spelare => {
+    const room = app.rum.skapa(spelare[0]);
+    app.rum.bjudIn(spelare[0], room.id, [spelare[1]]);
+    app.rum.acceptera(spelare[1], app.rum.vyFor(spelare[1]).inbjudningar.inkommande[0].id);
+    app.rum.valjLag(spelare[0], room.id, 'A'); app.rum.valjLag(spelare[1], room.id, 'B');
+    const rv = app.lagring.hamtaRum(room.id).rosterVersion;
+    for (const id of spelare) app.rum.redo(id, room.id, true, rv);
+    return { room, rv };
+  };
+  const starta = (spelare, { room, rv }, commandId) => app.tjanst.kommando(spelare[0], { protocolVersion: 1, commandId, type: 'STARTA', roomId: room.id, payload: { rosterVersion: rv } });
+  const halsa = async () => (await fetch(url('/api/halsa'))).json();
+
+  const [anna, bo] = ids(['Anna', 'Bo']);
+  assert.equal((await starta([anna, bo], forbered([anna, bo]), 's1')).status, 'GODKÄND');
+  assert.deepEqual((await halsa()).nyaMatcher, { oppna: true, orsak: null });
+  assert.equal((await halsa()).pagaende, 1);
+
+  /* Cia och Dag är klara att starta när underhållsläget slås på. Cias ström får det nya startbeskedet direkt. */
+  const [cia, dag] = ids(['Cia', 'Dag']);
+  const rummet = forbered([cia, dag]);
+  assert.equal(app.rum.vyFor(cia).start.kanStarta, true);
+  const flik = await strom(url, `tornstriden_session=${app.sessioner.skapa('Fia').token}`);
+  assert.equal((await flik.vanta('halsa')).nyaMatcher.oppna, true);
+  app.underhall(true);
+  assert.equal((await flik.vanta('halsa', 2)).nyaMatcher.oppna, false, 'en öppen ström får en ny hälsning när läget växlar');
+  const h = await halsa();
+  assert.equal(h.nyaMatcher.oppna, false);
+  assert.match(h.nyaMatcher.orsak, /uppdateras/);
+  assert.equal(h.pagaende, 1);
+  const kontroll = app.rum.vyFor(cia).start;
+  assert.equal(kontroll.kanStarta, false);
+  assert.deepEqual(kontroll.skal, [h.nyaMatcher.orsak], 'lobbyn visar serverns skäl på startknappen');
+  const avvisad = await starta([cia, dag], rummet, 's2');
+  assert.equal(avvisad.status, 'AVVISAD');
+  assert.equal(avvisad.message, h.nyaMatcher.orsak);
+  assert.equal(app.lagring.hamtaRum(rummet.room.id).status, 'FÖRBEREDELSE', 'rummet står kvar och kan starta senare');
+  /* Pågående match och lobbyn påverkas inte. */
+  const vy = app.matcher.matchFor(anna).view;
+  assert.equal((await app.tjanst.kommando(anna, { protocolVersion: 1, commandId: 'd1', type: 'BEKRÄFTA_BYTE', matchId: vy.matchId, revision: vy.revision, payload: { cards: [] } })).status, 'GODKÄND');
+  const [eva] = ids(['Eva2']);
+  assert.equal((await app.tjanst.kommando(eva, { protocolVersion: 1, commandId: 'r1', type: 'SKAPA_RUM', payload: {} })).status, 'GODKÄND');
+  app.underhall(false);
+  assert.equal((await flik.vanta('halsa', 3)).nyaMatcher.oppna, true);
+  assert.deepEqual((await halsa()).nyaMatcher, { oppna: true, orsak: null });
+  assert.equal(app.rum.vyFor(cia).start.kanStarta, true);
+  assert.equal((await starta([cia, dag], rummet, 's3')).status, 'GODKÄND');
+  assert.equal((await halsa()).pagaende, 2);
+  await flik.stang();
+}));

@@ -10,7 +10,7 @@
    nya drag (”Återansluter …”); efter återkomsten kommer aktuell vy från servern innan något kan väljas.
    Ljud och animationer (L19): lyssnarna får bara händelser som är nya för sidan. Det som hämtas efter en
    (åter)anslutning är historik och levereras utan händelser – vyn uppdateras, men inget spelas upp. */
-import { ADAPTER_MODE, RECEIPT } from './kontrakt.js';
+import { ADAPTER_MODE, RECEIPT, PROTOCOL_VERSION } from './kontrakt.js';
 
 export const PENDING = Object.freeze({ sending: 'SKICKAR', checking: 'KONTROLLERAR' });
 const tomKvittens = (commandId, status, message) => ({ commandId, status, message, revision: null, roomRevision: null, eventId: null, fingerprint: null });
@@ -121,7 +121,15 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     ansluten = false;
     ersatt = false;
     egen.addEventListener('match', event => receive(JSON.parse(event.data)));
-    egen.addEventListener('halsa', event => { const data = JSON.parse(event.data); ansluten = true; paus = 1000; onStatus('ansluten', data.matchtrafik.oppen ? null : data.matchtrafik.orsak); refresh({ tyst: true }); });
+    egen.addEventListener('halsa', event => {
+      const data = JSON.parse(event.data);
+      ansluten = true; paus = 1000;
+      /* Gammal sida efter en uppdatering (L21): dragen skulle avvisas som kontraktsfel – säg det tydligt i stället. Ingen
+         tvingad omladdning mitt i matchen (huvudplan §11); spelaren väljer själv när. */
+      const gammal = data.protocolVersion !== undefined && data.protocolVersion !== PROTOCOL_VERSION;
+      onStatus('ansluten', gammal ? 'Spelet har uppdaterats till en ny version. Ladda om sidan för att fortsätta.' : data.matchtrafik.oppen ? null : data.matchtrafik.orsak);
+      refresh({ tyst: true });
+    });
     egen.addEventListener('ping', event => { fetchFn('/api/livstecken', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: event.data }).catch(() => {}); });
     egen.addEventListener('ersatt', () => { ersatt = true; ansluten = false; egen.close(); onStatus('ersatt'); });
     egen.onerror = () => {

@@ -47,7 +47,7 @@ Alla svar är JSON utom händelseströmmen. Skrivande anrop (POST/DELETE) kräve
 
 | Adress | Utan session | Gör |
 | --- | --- | --- |
-| `GET /api/halsa` | ja | `{tjanst, protocolVersion, schemaversion, matchtrafik{oppen, orsak}, tid}` |
+| `GET /api/halsa` | ja | `{tjanst, protocolVersion, schemaversion, matchtrafik{oppen, orsak}, nyaMatcher{oppna, orsak}, pagaende, tid}` – `nyaMatcher` är underhållsläget (L21: SIGUSR1 stänger nya starter, SIGUSR2 öppnar), `pagaende` antalet pågående matcher |
 | `POST /api/session` `{nick}` | ja | skapar gästsession (201 + kaka) eller återupptar befintlig (200); 409 vid upptaget nick, 400 vid ogiltigt |
 | `GET /api/session` (200 med `{me: null}` utan session), `GET /api/lobby` | nej | `{me, players[], rum, start, inbjudningar{inkommande[], utgaende[]}}` – offentliga sessioner, eget rum (eller null), startstatus för rummet (`{kanStarta, skal[], antal{A,B}, format, tillganglig, tillgangligaFormat[]}`, null utanför förberedelse) och öppna inbjudningar |
 | `DELETE /api/session` | – | lämnar lobbyn (bara när LEDIG), raderar kakan |
@@ -160,6 +160,7 @@ En serveromstart ger ingen falsk vinst och ingen återupplivad match (27B, huvud
 - **Startfel:** är porten upptagen startar servern inte och rör ingenting. En andra instans på samma port kan därför inte avbryta en körande servers matcher. Misslyckas uppstädningen avvisas `klar` med `Uppstädningen efter omstart misslyckades – servern startar inte: …` (ursprungsfelet i `cause`). Porten stängs då innan någon begäran hanterats, och processen avslutas med kod 1. Det som redan sparats står kvar; inget svar eller kvitto låtsas att resten är gjort.
   - Två instanser på olika portar med samma datakatalog skyddas inte. Det hör till driften (L21).
 - **Startspärren från L02 är borttagen.** `matchtrafik` är alltid öppen efter en lyckad start. Strömbrytaren finns kvar i tjänsten men stängs inte av någon kod i dag. Stängd avvisar den matchkommandon och STARTA med sin orsak, men inte lobbyn.
+- **Underhållsläge (L21).** `tjanst.nyaMatcher` stänger bara STARTA: startkontrollen får orsaken som enda skäl (så att lobbyn visar den på startknappen), STARTA avvisas med samma orsak, och pågående matcher och alla lobbykommandon fortsätter. Läget syns i `halsa` (även i strömmens hälsning) och är inte beständigt. Klienten jämför `halsa.protocolVersion` med sin egen: skiljer de sig visar lobbyn "Spelet har uppdaterats – Ladda om" och slutar skicka kommandon, och matchsidan visar ett besked utan att ladda om själv (huvudplan §11).
 - **Sidorna:** sidan ansluter igen av sig själv och får den avbrutna matchens vy. Resultatrutan har rubriken SERVERAVBROTT, titeln "Matchen avbröts" och ett neutralt emblem (`data-outcome="aborted"`).
   - Texten är "Matchen avbröts på grund av ett serveravbrott. Ingen vann.". I lagmatchen står även "Gå till lobbyn för att ordna en ny match.", och den sista striden visas inte, eftersom dess förluster kom före avbrottet.
   - Knappen är Till lobbyn. Ingen förlusttext eller förlustljud.

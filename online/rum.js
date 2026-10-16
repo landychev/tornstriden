@@ -24,6 +24,7 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
   const now = () => klocka.now();
   const timers = new Map();            // 'inbjudan:<id>' | 'frankopplad:<playerId>' -> timer-id
   const motorer = new Map();           // antal deltagare -> fabrik({ ops, room, players, klocka, slump }) => { matchId, rulesVersion, deckVersion }
+  let nyaMatcher = null;   // tjänstens underhållsbrytare (sätts i registrera)
   const senasteInbjudan = new Map();   // värd -> tidpunkt för senaste inbjudningskommando
   let vidAndring = () => {};           // servern hakar på för att skicka nya vyer efter tidsstyrda ändringar
 
@@ -263,6 +264,7 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
     const format = n === 2 ? 'duell' : 'lag';
     const tillganglig = motorer.has(n);
     if (!skal.length && !tillganglig) skal.push(`Matchformatet för ${n} spelare är ännu inte tillgängligt.`);
+    if (!skal.length && nyaMatcher && !nyaMatcher.oppna) skal.push(nyaMatcher.orsak);   // underhållsläge (L21): allt är klart, men servern tar en paus i nya starter
     return { kanStarta: skal.length === 0, skal, antal, format, tillganglig, tillgangligaFormat: MATCH_SIZES.filter(size => motorer.has(size)) };
   }
 
@@ -372,8 +374,10 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
     tjanst.registrera(LOBBY_COMMAND.leave, wrap(({ playerId, command }) => ({ room: lamna(playerId, command.roomId) })));
     tjanst.registrera(LOBBY_COMMAND.team, wrap(({ playerId, command }) => ({ room: valjLag(playerId, command.roomId, command.payload.teamId) })));
     tjanst.registrera(LOBBY_COMMAND.ready, wrap(({ playerId, command }) => ({ room: redo(playerId, command.roomId, command.payload.ready, command.payload.rosterVersion) })));
+    nyaMatcher = tjanst.nyaMatcher ?? null;
     tjanst.registrera(LOBBY_COMMAND.start, wrap(({ playerId, command, slump }) => {
       if (!tjanst.matchtrafik.oppen) throw new RumsFel(tjanst.matchtrafik.orsak);
+      if (nyaMatcher && !nyaMatcher.oppna) throw new RumsFel(nyaMatcher.orsak);
       if (!Number.isInteger(command.payload.rosterVersion)) throw new RumsFel('Start kräver aktuell rosterVersion.');
       return { room: starta(playerId, command.roomId, command.payload.rosterVersion, { slump }) };
     }));

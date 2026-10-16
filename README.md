@@ -16,7 +16,7 @@ Detta repository är projektets huvudsakliga arbetskatalog. Nya filer och framti
 - Ett testbord (`spelbord.html`) för fristående teststrider, en kortkatalog och sex transparenta bildlager med en verkstad.
 - Automatiska tester för kort, strid, regler, matchmotor, dator och ljudets uppspelning/inställningar.
 
-Matchen sparas inte – om sidan laddas om försvinner den. Datorn följer en enkel grundstrategi (fasta försvarsexempel vid anfall, exakt beräkning vid försvar) och kan göra svaga val mot specialkort som Spegelsköld eller Törnesköld; vikterna ligger i `STRATEGY` i `dator.js`. Det finns ingen server för onlinespel. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
+Den lokala matchen mot datorn sparas inte – om sidan laddas om försvinner den (onlinematcher ligger på servern och överlever en omladdning). Datorn följer en enkel grundstrategi (fasta försvarsexempel vid anfall, exakt beräkning vid försvar) och kan göra svaga val mot specialkort som Spegelsköld eller Törnesköld; vikterna ligger i `STRATEGY` i `dator.js`. Onlinespelet (lobby, duell och lagmatcher via servern) beskrivs under Onlineserver nedan. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
 
 ## Öppna prototypen
 
@@ -28,23 +28,24 @@ npm start
 
 Öppna sedan [matchen](http://127.0.0.1:8765/match.html), [spelbordet](http://127.0.0.1:8765/spelbord.html), [kortöversikten](http://127.0.0.1:8765/textkort.html) eller [bildverkstaden](http://127.0.0.1:8765/effekter.html). Servern (`server.js`) har inga beroenden; en annan port väljs med `PORT=8080 npm start`. Den lokala förhandsvisningen är ingen publicering på internet.
 
-### Onlineserver under utveckling
+### Onlineserver
 
-Onlinespelet (lobby och matcher via servern) byggs enligt `arbetsordning lobby.md` och är ännu inte spelbart. Dess server startas separat och kräver Node 22.5 eller nyare:
+Onlinespelet (lobby, dueller och lagmatcher via servern) är byggt enligt `arbetsordning lobby.md` (L00–L20 klara) och publiceras enligt `DRIFT.md`. Dess server startas separat och kräver Node 22.5 eller nyare:
 
 ```sh
 npm run online
 ```
 
-Den lyssnar på <http://127.0.0.1:8766/>, serverar samma statiska filer lokalt och svarar på `/api/halsa`. Lobbyn finns på <http://127.0.0.1:8766/lobby.html> – öppna den i två webbläsare (eller privata fönster), bjud in, välj lag, tryck Redo och låt värden starta: en duell för två spelare spelas då via servern på `match.html?online=1`. Med 4, 6 eller 8 deltagare startar en lagmatch på `lagmatch.html` (matchsidan skickar vidare automatiskt); `TORNSTRIDEN_LAGSPEL=0` stänger lagformaten. `node scripts/prova-lag.mjs` spelar hela lagmatcher för 4/6/8 i separata webbläsarkontexter. Varje val som servern väntar på har 90 sekunder med nedräkning och varning; den som inte hinner slås ut (lagmatch) eller förlorar (duell) – `node scripts/prova-klockor.mjs` provar det med styrd serverklocka. Tappar någon anslutningen får hen 30 sekunder att komma tillbaka (högst 90 sekunder sammanlagt per match) medan de andra spelar vidare – `node scripts/prova-avbrott.mjs` provar det. Startas servern om avbryts matcher som pågick innan den öppnar igen, utan vinnare; sidorna visar "Matchen avbröts på grund av ett serveravbrott" och vägen till lobbyn – `node scripts/prova-omstart.mjs` provar det med en riktig process som dödas. Ljud och animationer följer serverns händelser: varje händelse hörs högst en gång, och en omladdning eller återanslutning är tyst för det som redan hänt – `node scripts/prova-aterkoppling.mjs` provar det. `node scripts/prova-lobby.mjs`, `scripts/prova-online.mjs` och `scripts/prova-match.mjs` kör flödena automatiskt med Playwright (`npm install` först). `node scripts/prova-helflode.mjs` spelar lobby → match → resultat → lobby via gränssnittet med 2+8 och 4+6 deltagare samtidigt (varannan med mobilvy, avbrott med riktigt nätverksbortfall), och `node scripts/prova-belastning.mjs` mäter kapaciteten mot målet 10 samtidiga matcher med 80 anslutningar och provar missbruk och gränser (serverns minne mäts ur `/proc` på Linux och med `ps` på macOS; utan mätvärden faller provet); resultaten och vilka prov som täcker vilken kontrollpunkt står i `TESTBEVIS.md`. Finns Chromium på en egen plats anges den med `PLAYWRIGHT_EXECUTABLE`. Databasen (SQLite, inbyggt i Node) skapas i `../tornstriden-data/` utanför Git-katalogen; `TORNSTRIDEN_DATA_DIR` väljer en annan plats. Serverkoden i `online/` och testfilerna kan inte hämtas via någon av servrarna och ingår inte i `deploy.sh`.
+Den lyssnar på <http://127.0.0.1:8766/>, serverar samma statiska filer lokalt och svarar på `/api/halsa`. Lobbyn finns på <http://127.0.0.1:8766/lobby.html> – öppna den i två webbläsare (eller privata fönster), bjud in, välj lag, tryck Redo och låt värden starta: en duell för två spelare spelas då via servern på `match.html?online=1`. Med 4, 6 eller 8 deltagare startar en lagmatch på `lagmatch.html` (matchsidan skickar vidare automatiskt); `TORNSTRIDEN_LAGSPEL=0` stänger lagformaten. `node scripts/prova-lag.mjs` spelar hela lagmatcher för 4/6/8 i separata webbläsarkontexter. Varje val som servern väntar på har 90 sekunder med nedräkning och varning; den som inte hinner slås ut (lagmatch) eller förlorar (duell) – `node scripts/prova-klockor.mjs` provar det med styrd serverklocka. Tappar någon anslutningen får hen 30 sekunder att komma tillbaka (högst 90 sekunder sammanlagt per match) medan de andra spelar vidare – `node scripts/prova-avbrott.mjs` provar det. Startas servern om avbryts matcher som pågick innan den öppnar igen, utan vinnare; sidorna visar "Matchen avbröts på grund av ett serveravbrott" och vägen till lobbyn – `node scripts/prova-omstart.mjs` provar det med en riktig process som dödas. Ljud och animationer följer serverns händelser: varje händelse hörs högst en gång, och en omladdning eller återanslutning är tyst för det som redan hänt – `node scripts/prova-aterkoppling.mjs` provar det. `node scripts/prova-lobby.mjs`, `scripts/prova-online.mjs` och `scripts/prova-match.mjs` kör flödena automatiskt med Playwright (`npm install` först). `node scripts/prova-helflode.mjs` spelar lobby → match → resultat → lobby via gränssnittet med 2+8 och 4+6 deltagare samtidigt (varannan med mobilvy, avbrott med riktigt nätverksbortfall), och `node scripts/prova-belastning.mjs` mäter kapaciteten mot målet 10 samtidiga matcher med 80 anslutningar och provar missbruk och gränser (serverns minne mäts ur `/proc` på Linux och med `ps` på macOS; utan mätvärden faller provet); resultaten och vilka prov som täcker vilken kontrollpunkt står i `TESTBEVIS.md`. Finns Chromium på en egen plats anges den med `PLAYWRIGHT_EXECUTABLE`. Databasen (SQLite, inbyggt i Node) skapas i `../tornstriden-data/` utanför Git-katalogen; `TORNSTRIDEN_DATA_DIR` väljer en annan plats. Serverkoden i `online/` och testfilerna kan inte hämtas via någon av servrarna och ingår inte i `deploy.sh`. I drift kör tjänsten bakom Apache med `TORNSTRIDEN_STATIC=0` (bara `/api/`), `SIGUSR1`/`SIGUSR2` växlar underhållsläge (inga nya matcher) och `drift/sakerhetskopia.mjs` kopierar databasen – allt i `DRIFT.md`.
 
 ## Uppdatera spelet på servern
 
-Kör från Git-katalogen på servern efter att den senaste koden hämtats:
+Sedan onlinetjänsten finns görs en planerad uppdatering med `sudo drift/uppdatera.sh` (underhållsläge → väntar ut pågående matcher → säkerhetskopia → `git pull --ff-only` → `./deploy.sh` → omstart av tjänsten), se `DRIFT.md`. Enbart de statiska filerna uppdateras från Git-katalogen på servern med:
 
 ```sh
 git pull --ff-only
 ./deploy.sh
+node scripts/kontrollera-publicering.mjs /var/www/tornstriden   # inga saknade filer, allt stämplat, inga serverfiler
 ```
 
 Standardmålet är `/var/www/tornstriden`, bredvid de andra projekten på servern.
@@ -55,7 +56,8 @@ Använd ett konto som har skrivrättigheter i målkatalogen.
 Webbservern behöver redan vara inställd att visa statiska filer därifrån.
 
 Skriptet hittar källfilerna utifrån sin egen plats. Det kopierar spelets HTML,
-CSS, JavaScript, bildresurser och licens samt skapar `index.html` från
+CSS, JavaScript (även lobbyn `lobby.html` och lagmatchen `lagmatch.html`, men aldrig
+serverkoden i `online/` eller lagmotorn), bildresurser och licens samt skapar `index.html` från
 matchen (`match.html`). I de kopierade html-, css- och js-filerna får varje referens
 till skript, stilmallar, moduler och assets tillägget `?v=<Git-hash>` (se
 avsnittet om cachning); källfilerna i Git rörs inte. Befintliga filer med samma namn skrivs över, inklusive `index.html`.
@@ -166,6 +168,7 @@ npm run preview
 
 ## Dokumentation
 
+- [Drift av onlinespelet: installation, uppdatering, återgång, säkerhetskopior](DRIFT.md)
 - [Utvecklingsplan: vad som är gjort och nästa steg](UTVECKLINGSPLAN.md)
 - [Spelregler, inklusive de beslutade duellreglerna i avsnitt 13](SPELREGLER.md)
 - [Plan för webbspel och grafik](WEBBSPEL.md)
@@ -192,6 +195,10 @@ npm run preview
 | `spelbord.html`, `spelbord.css`, `spelbord.js` | Spelbordet: ett `state`-objekt, en `render()` som målar allt, och handlingar som bara ändrar state. |
 | `tokens.css` | Gemensamma färgtokens för ljust och mörkt läge. |
 | `server.js`, `preview.js` | Lokal webbserver och skript som återskapar förhandsvisningsbilderna. |
+| `online/server.js`, `online/*.js` | Onlinetjänsten: HTTP/SSE, sessioner, rum, duell- och lagmotor på servern, klockor, lagring (SQLite). Publiceras aldrig. |
+| `lobby.html`, `lobby.js`, `lobby.css` | Lobbyn: nick, inbjudningar, lag, Redo, start – speglar serverns vy. |
+| `lagmatch.html`, `lagmatchvy.js`, `lagmatch.css`, `onlinematch.js` | Lagmatchens vy och adaptern mot servern (kommandon, kvittenser, återanslutning). |
+| `deploy.sh`, `scripts/kontrollera-publicering.mjs`, `drift/`, `apache/` | Publicering och drift: se `DRIFT.md`. |
 | `textkort.html`, `kortoversikt.js` | Kortkatalogen. |
 | `effekter.html`, `effektverkstad.js`, `effektverkstad.css` | Bildverkstaden. |
 | `bildeffekter.js`, `bildeffekter.css`, `assets/effekter/` | Återanvändbara visuella lager. |

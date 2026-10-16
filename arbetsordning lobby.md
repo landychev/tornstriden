@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L19 klara 2026-10-15, L20 klar 2026-10-16 (efter rättning av tre granskningspunkter) – etapp 1–5 är klara och etapp 6 påbörjad; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare, en serveromstart avbryter pågående matcher utan vinnare, ljud och animationer följer serverns händelser – en gång per händelse och tyst för historiken – och hela flödet är provat med 2/4/6/8 separata webbläsare och mot kapacitetsmålet 10 matcher med 80 anslutningar (`TESTBEVIS.md`). L21 (publiceringspaket och driftinstruktion) är nästa.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L19 klara 2026-10-15, L20 klar 2026-10-16 (efter rättning av tre granskningspunkter), L21 klar 2026-10-16 – etapp 1–5 är klara och etapp 6 påbörjad; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare, en serveromstart avbryter pågående matcher utan vinnare, ljud och animationer följer serverns händelser – en gång per händelse och tyst för historiken – och hela flödet är provat med 2/4/6/8 separata webbläsare och mot kapacitetsmålet 10 matcher med 80 anslutningar (`TESTBEVIS.md`). Publiceringspaketet är klart (`DRIFT.md`, `drift/`, `apache/tornstriden-online.conf`, `deploy.sh` med onlinesidorna, underhållsläge och versionsbesked till gamla klienter) men inget är installerat på NAS:en. L22 (lansering och driftkontroll på NAS:en) är nästa och kräver en uttrycklig beställning.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -81,7 +81,7 @@ Aktuell status för varje uppgift anges i tabellen nedan. Beroenden anger lägst
 | L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Klar 2026-10-15 |
 | L19 | Ljud, animationer och tydliga besked | L15–L18 | Klar 2026-10-15 |
 | L20 | Samlat flödes- och belastningstest | L03–L19 | Klar 2026-10-16 |
-| L21 | Publiceringspaket och driftinstruktion | L20 | Ej startad |
+| L21 | Publiceringspaket och driftinstruktion | L20 | Klar 2026-10-16 |
 | L22 | Beställd lansering och driftkontroll | L21 samt aktuell beställning av lansering | Ej startad |
 
 ### L00 – Nuläge och detaljval
@@ -1312,4 +1312,38 @@ Tekniska val och eventuella användarsvar:
 - Inga användarfrågor behövdes.
 Beroenden som nu är klara: L00–L20.
 Rekommenderad nästa uppgift: L21 – Publiceringspaket och driftinstruktion.
+Commit: ingen.
+
+### L21 – Publiceringspaket och driftinstruktion, 2026-10-16
+
+Uppgift och datum: L21 – Publiceringspaket och driftinstruktion, 2026-10-16
+Status: Klar
+Genomfört och ändrade filer:
+- **`deploy.sh`:** klientfillistan har nu `lobby.html/css/js` och `lagmatch.html/css` + `lagmatchvy.js` (samma lista som utvecklingsserverns `CLIENT_FILES`); serverkoden, lagmotorn och testerna står uttryckligen utanför. Stämplingen av de nya sidornas importer och assets (`assets/torn/*.png`, `assets/popup/valkommen.jpg`) fungerar med befintliga regler; inga klientfiler ligger i underkataloger (bara `assets/`, som kopieras separat).
+- **`scripts/kontrollera-publicering.mjs` (ny):** kontroll av en publiceringskopia – varje sida finns, varje referens (src/href, `from './x.js'`, `assets/…`) pekar på en fil i kopian och är stämplad `?v=`, inga serverfiler/tester/databas/Git-data/`.md`/`package.json`; `--servera` öppnar kopian på en lokal port och hämtar varje sida med sina beroenden över HTTP.
+- **Underhållsläge (`online/tjanst.js`, `online/rum.js`, `online/server.js`):** `tjanst.nyaMatcher` stänger bara STARTA. Startkontrollen får orsaken som enda skäl (lobbyns startknapp visar det), STARTA avvisas med samma orsak, pågående matcher och alla lobbykommandon fortsätter. `SIGUSR1` slår på, `SIGUSR2` av (bara i CLI-läget; `app.underhall(bool)` i tester). Vid växling får alla öppna strömmar en ny `halsa` och lobbyn skickas om. `/api/halsa` har nu `nyaMatcher{oppna, orsak}` och `pagaende` (antal pågående matcher) – det är vad `drift/uppdatera.sh` väntar på.
+- **Versionsbesked till gammal klient (`lobby.js`, `lobby.html`, `onlinematch.js`):** lobbyn jämför `halsa.protocolVersion` med sin egen; vid skillnad stängs strömmen, status blir "Ny version finns", dialogen "Spelet har uppdaterats – Ladda om" visas och inga kommandon skickas. Matchsidan visar "Spelet har uppdaterats till en ny version. Ladda om sidan för att fortsätta." utan att ladda om själv (huvudplan §11). Lobbynotisen följer hälsningen (underhållsbesked visas och tas bort när läget växlar).
+- **Driftpaket:** `apache/tornstriden-online.conf` (ProxyPass `/api/` → 127.0.0.1:8766, ProxyPreserveHost för Origin-kontrollen, X-Forwarded-Proto för Secure-kakan, no-gzip och 64 kB-gräns på `/api/`; inkluderas i värdarna, aktiveras inte globalt), `Include`-raden i `apache/tornstriden.landychev.se.conf`, `drift/tornstriden-online.service` (systemd, körs som `landy` från Git-utcheckningen, `Restart=on-failure`, härdning med `ProtectSystem=strict` och bara datakatalogen skrivbar), `drift/tornstriden-online.env` (`TORNSTRIDEN_STATIC=0`, `SECURE=1`, `ORIGINS`, datakatalog `../tornstriden-data`), `drift/uppdatera.sh` (underhållsläge → vänta på `pagaende: 0`, högst `--vanta` min → säkerhetskopia → `git pull --ff-only` → `deploy.sh` → omstart → hälsokontroll; `--tvinga` hoppar över väntan (27B), `--till COMMIT` är återgången), `drift/sakerhetskopia.mjs` (SQLite-backup via `node:sqlite` medan tjänsten kör, en fil utan WAL, kontroll av schemaversion, gallring till 14).
+- **`DRIFT.md` (ny):** förutsättningar (Node ≥ 22.5, utcheckning och webbrot ägda av `landy`, Apache-moduler, datakatalog), första installation steg för steg, kontroll, planerad uppdatering, tvingad omstart, återgång (inklusive schemaversion och databas), säkerhetskopia/återställning, loggar/övervakning/gränser, kapacitet, känt och inte verifierat.
+- **Dokument:** `README.md` (onlineservern är byggd, uppdateringsavsnittet pekar på `uppdatera.sh`/`DRIFT.md`, nya rader i fillistan), `KONTRAKT.md` (`halsa`-fälten och underhållsläget), `TESTBEVIS.md` (kontrollpunkt 42 ◐), `klientfiler.test.js` (lobby/lagmatch ska publiceras, serverfiler och underkataloger får inte), `online/server.test.js` (+1 prov "Underhållsläge (L21)").
+Verifiering:
+- `npm test` **276/276** på användarens dator (Linux-VM, Node 22.23) och i molnet (Node 22.22).
+- `./deploy.sh <tempkatalog>` + `node scripts/kontrollera-publicering.mjs <tempkatalog> --servera`: **hel – 88 filer, en version, inga serverfiler**; negativt prov (borttagen `lobby.css`, inlagd `online/ko.js`) ger två fel och kod 1.
+- Tjänsten startad som i drift (`TORNSTRIDEN_STATIC=0`, tom datakatalog): `/api/halsa` svarar, `lobby.html` ger 404 från tjänsten (Apache ska ta den), `kill -USR1` → `nyaMatcher.oppna=false` med orsak, `kill -USR2` → öppen, `SIGTERM` → ren avslutning (kod 0); loggraderna som väntat.
+- `drift/sakerhetskopia.mjs` mot den körande tjänsten: tre kopior, gallring till två, varje kopia en enda fil med schemaversion 3.
+- `bash -n drift/uppdatera.sh` och `--help`; `klientfiler.test.js` grönt.
+- Webbläsarprov i molnet (Chromium, patchen från Macen): eget L21-prov **9/9** (ingen notis när allt är öppet; underhållsbesked i lobbyn; startknappen spärrad med serverns skäl för ett rum med två redo spelare; beskedet försvinner när läget avslutas; inga konsolfel; en ström som hälsar med protokollversion 99 ger dialogen "Spelet har uppdaterats", status "Ny version finns", sessionen kvar, och Ladda om ger en fungerande lobby). Regressioner med den slutliga koden: `npm test` 276/276, `prova-lobby.mjs` 24/24, `prova-online.mjs` 9/9, `prova-match.mjs` 13/13, `prova-omstart.mjs` 15/15, `prova-lag.mjs 4` 15/15. Chromium saknas i Macens Linux-VM (nedladdningen är blockerad), därför kördes webbläsarproven i molnet.
+Inte verifierat / återstående fel:
+- **Ingenting är installerat eller provat på NAS:en** (ingen driftåtkomst i uppgiften, och L21 beställer ingen installation): Node-versionen där, Apache-proxyn med riktig HTTPS och Certbots värd (`-le-ssl.conf` måste få `Include`-raden för hand), systemd-härdningen mot den verkliga katalogstrukturen (`ProtectHome=read-only` + `ReadWritePaths`), `runuser`/ägarskap i `uppdatera.sh` och kapaciteten (mäts i L22 med `prova-belastning.mjs`, som bara behöver Node). Apache-konfigurationen är skriven efter dokumentationen, inte körd (ingen Apache i provmiljön).
+- Avslutade matcher, händelser och kvittenser gallras inte (≈100 kB per match); dokumenterat i `DRIFT.md` §9 som senare städning.
+- `index.html` är fortfarande datormatchen; lobbyn nås på `/lobby.html` (`DRIFT.md` §9 visar hur man byter).
+- Tre rester i `.git/` på Macen från ett `git add -N`/`git reset` som inte fick radera låsfiler: `.git/stale-HEAD-lock`, `.git/stale-main-lock`, `.git/stale-tmp_obj_R0KA9V` – ofarliga, kan tas bort. `git status` fungerar.
+Tekniska val och eventuella användarsvar:
+- **Enklaste driften:** tjänsten körs som `landy` från den befintliga utcheckningen med databasen på standardplatsen `../tornstriden-data`; ingen egen systemanvändare eller andra utcheckning. Säkrare variant (egen användare `tornstriden`, kod i `/opt`) nämns inte i `DRIFT.md` – kan läggas till om det önskas. Härdningen i enheten kompenserar.
+- **Publiceringen förblir fil-för-fil** med versionsstämplar (ingen releasekatalog med atomärt byte): kopieringen tar under en sekund och stämplarna hindrar blandning av ny HTML med gamla moduler. Förslaget i huvudplanen om atomärt byte står kvar som möjlig förbättring.
+- **Säkerhetskopia utan `sqlite3`-binär:** `node:sqlite` `backup()` (finns i Node ≥ 22.16) – inget extra paket på NAS:en.
+- **Signaler i stället för en adminadress** för underhållsläget: `systemctl kill -s SIGUSR1` kräver root, ingen extra autentisering behövs och inget nytt exponeras på `/api/`.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L21.
+Rekommenderad nästa uppgift: L22 – Beställd lansering och driftkontroll (kräver beställning och åtkomst till NAS:en: installation enligt `DRIFT.md` §2, kontroll §3, kapacitetsmätning §8).
 Commit: ingen.

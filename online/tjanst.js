@@ -25,6 +25,9 @@ export function skapaTjanst({ lagring, klocka = systemklocka, slump = Math.rando
      innan den öppnar (matcher.avbrytEfterOmstart), och öppnar inte alls om det misslyckas. Spärren finns kvar
      som en strömbrytare (t.ex. för underhåll); den stänger matchkommandon och nya starter, inte lobbyn. */
   const matchtrafik = { oppen: true, orsak: null };
+  /* Underhållsläge (L21): inför en planerad uppdatering stängs bara nya starter – pågående matcher spelas klart
+     och lobbyn fungerar. Växlas av servern (SIGUSR1/SIGUSR2) och syns i startkontrollen och i `halsa`. */
+  const nyaMatcher = { oppna: true, orsak: null };
 
   /* Kön och kvittensen följer kommandotypen: ett lobbykommando med ett extra matchId hör ändå till rummet (L20). */
   const scopeOf = (playerId, command) => isMatchCommand(command.type) ? `match:${command.matchId}` : command.roomId ? `rum:${command.roomId}` : `spelare:${playerId}`;
@@ -78,7 +81,7 @@ export function skapaTjanst({ lagring, klocka = systemklocka, slump = Math.rando
   }
 
   return {
-    klocka, slump, matchtrafik, kommando, status, scopeOf, ko,
+    klocka, slump, matchtrafik, nyaMatcher, kommando, status, scopeOf, ko,
     registrera(typ, fn) { hanterare.set(typ, fn); },
     efterGodkand(fn) { efterGodkand.add(fn); return () => efterGodkand.delete(fn); },
     foreHantering(fn) { foreHantering.add(fn); return () => foreHantering.delete(fn); },
