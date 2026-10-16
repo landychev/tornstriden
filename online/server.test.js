@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startaServer, PING_MS, TYST_MS, OMLADDNING_MS } from './server.js';
+import { startaServer, PING_MS, TYST_MS, OMLADDNING_MS, STADNING_MS, MATCH_GALLRING_MS } from './server.js';
 import { oppnaLagring } from './lagring.js';
 import { isBlocked, ROOT, skapaFilserver } from '../server.js';
 import { PROTOCOL_VERSION, MATCH_COMMAND, assertNoSecrets, validatePrivateView } from '../kontrakt.js';
@@ -861,4 +861,40 @@ test('Underhållsläge (L21): nya starter stoppas med skäl i lobbyn, pågående
   assert.equal((await starta([cia, dag], rummet, 's3')).status, 'GODKÄND');
   assert.equal((await halsa()).pagaende, 2);
   await flik.stang();
+}));
+
+test('Gallring (L22): avslutade matcher tas bort ur databasen efter ett dygn, pågående matcher rörs inte', () => medServer(async ({ app, klocka }) => {
+  const ids = nicks => nicks.map(nick => { const { session } = app.sessioner.skapa(nick); app.sessioner.anslut(session.playerId); return session.playerId; });
+  const duell = async (spelare, commandId) => {
+    const room = app.rum.skapa(spelare[0]);
+    app.rum.bjudIn(spelare[0], room.id, [spelare[1]]);
+    app.rum.acceptera(spelare[1], app.rum.vyFor(spelare[1]).inbjudningar.inkommande[0].id);
+    app.rum.valjLag(spelare[0], room.id, 'A'); app.rum.valjLag(spelare[1], room.id, 'B');
+    const rv = app.lagring.hamtaRum(room.id).rosterVersion;
+    for (const id of spelare) app.rum.redo(id, room.id, true, rv);
+    assert.equal((await app.tjanst.kommando(spelare[0], { protocolVersion: 1, commandId, type: 'STARTA', roomId: room.id, payload: { rosterVersion: rv } })).status, 'GODKÄND');
+    return app.lagring.hamtaRum(room.id).matchId;
+  };
+  const [anna, bo] = ids(['Anna', 'Bo']);
+  const avgjord = await duell([anna, bo], 's1');
+  const vy = app.matcher.matchFor(anna).view;
+  const geUpp = await app.tjanst.kommando(anna, { protocolVersion: 1, commandId: 'g1', type: 'GE_UPP', matchId: avgjord, revision: vy.revision, payload: {} });
+  assert.equal(geUpp.status, 'GODKÄND');
+  assert.equal(app.lagring.hamtaMatch(avgjord).status, 'AVSLUTAD');
+  assert.ok(app.lagring.hamtaHandelser(avgjord).length > 0);
+  /* Drygt ett dygn senare startar Cia och Dag en ny match; den gamla ska gallras vid nästa städning, den nya inte
+     (städningen hinner före den nya matchens 90-sekundersklocka). */
+  klocka.advance(MATCH_GALLRING_MS + 1);
+  const [cia, dag] = ids(['Cia', 'Dag']);
+  const pagaende = await duell([cia, dag], 's2');
+  assert.equal(app.lagring.raknaMatcher(), 2, 'inget gallras förrän städningen körs');
+  klocka.advance(STADNING_MS);   // nästa städning: den avgjorda är nu äldre än MATCH_GALLRING_MS
+  await new Promise(r => setTimeout(r, 20));
+  assert.equal(app.lagring.hamtaMatch(avgjord), null, 'den avgjorda matchen är borta');
+  assert.equal(app.lagring.hamtaHandelser(avgjord).length, 0, 'händelserna är borta');
+  assert.equal(app.tjanst.status(anna, `match:${avgjord}`, 'g1').status, 'OKÄND', 'kvittensen är borta');
+  assert.equal(app.lagring.hamtaSession(anna)?.matchId ?? null, null, 'sessionen pekar inte längre på matchen (eller har själv gått ut efter ett dygn)');
+  assert.equal(app.lagring.hamtaMatch(pagaende).status, 'PÅGÅR', 'den pågående matchen rörs inte');
+  assert.equal(app.lagring.raknaMatcher(), 1);
+  assert.ok(app.matcher.matchFor(cia), 'den pågående matchen kan fortfarande hämtas');
 }));

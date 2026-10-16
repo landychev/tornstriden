@@ -33,9 +33,9 @@ done
 [[ $EUID -eq 0 ]] || { echo "Kör som root (sudo): systemctl och deploy.sh behöver det." >&2; exit 2; }
 rot="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 agare="$(stat -c %U "$rot")"
-# Allt utom systemctl körs som utcheckningens ägare (git vägrar annars "dubious ownership", och deploy.sh
-# skriver till /var/www/tornstriden som ska ägas av samma konto – se DRIFT.md).
-som_agare() { runuser -u "$agare" -- "$@"; }
+# Allt utom systemctl körs som utcheckningens ägare – tjänsteanvändaren `tornstriden` (git vägrar annars
+# "dubious ownership", och deploy.sh skriver till webbroten som ägs av samma konto – se DRIFT.md).
+som_agare() { runuser -u "$agare" -- env HOME="${TORNSTRIDEN_DATA_DIR:-$rot-data}" "$@"; }   # tjänsteanvändaren har inget eget hem
 cd "$rot"
 
 pagaende() { curl -sf --max-time 5 "$halsa_url" | sed -n 's/.*"pagaende":\([0-9]*\).*/\1/p'; }

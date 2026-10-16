@@ -1369,3 +1369,19 @@ Tekniska val och eventuella användarsvar:
 Beroenden som nu är klara: L00–L22 – hela arbetsordningen.
 Rekommenderad nästa uppgift: ingen i arbetsordningen. Nästa arbete är provspel med människor (telefoner, lagmatch, balans i 100/150/200-lekarna) och rättningar därefter; eventuellt lobbyn som startsida och gallring av gamla matcher.
 Commit: användaren committar själv (`f270ded` L21, `ec740d7` installera.sh, `0374d9b` knappar); lobbybot.mjs och denna logg är ännu inte committade.
+
+### Efterarbete efter L22, 2026-10-16 (kväll)
+
+Uppgift och datum: säkerhetsgenomgång och driftjusteringar efter lanseringen, 2026-10-16
+Status: Klar (kod och skript); själva bytet av tjänsteanvändare på NAS:en görs av användaren med `installera.sh --fran-data`
+Genomfört och ändrade filer:
+- **Gallring av matcher** (`online/lagring.js` `raderaGamlaMatcher`/`raknaMatcher`, `online/server.js` `MATCH_GALLRING_MS` = 24 h i den periodiska städningen): avslutade/avbrutna matcher med händelser och kvittenser tas bort efter ett dygn; sessioner som pekade på dem släpps; pågående matcher rörs aldrig. Nytt prov i `online/server.test.js` ("Gallring (L22)"). Motiv: den enda svagheten i genomgången var att databasen annars växer utan gräns (≈100 kB per match).
+- **Egen tjänsteanvändare** i stället för användarens eget konto: `drift/tornstriden-online.service` och `.env` är nu mallar för `tornstriden` (systemanvändare utan inloggning), utcheckning `/opt/tornstriden`, data `/var/lib/tornstriden`, `ProtectHome=yes`. `drift/installera.sh` skapar användaren, klonar utcheckningen (HTTPS, från `--repo` eller skriptets egen fjärr), kopierar en gammal databas med `--fran-data`, fyller i mallarna och kan köras på vilken server som helst (`--doman`, `--rot`, `--data`, `--webb`, `--certbot`, `--cron`). `drift/uppdatera.sh` och `sakerhetskopia.mjs` fungerar för en användare utan hem (HOME = datakatalogen; datakatalogen läses ur `/etc/tornstriden-online.env`).
+- Ingen cron-rad som standard (användarens val); `uppdatera.sh` tar alltid en säkerhetskopia före uppdatering.
+- `DRIFT.md` (§1–2 omskrivna, §7, §9), `KONTRAKT.md` (gallring).
+Verifiering: `npm test` 277/277; mallfyllningen torrkörd; `installera.sh` inte körd på NAS:en i den här versionen (användaren kör `sudo /home/landy/github-proj/tornstriden/drift/installera.sh --fran-data /home/landy/github-proj/tornstriden-data` efter push och pull).
+Inte verifierat / återstående fel: bytet på NAS:en; `useradd`-raden och `runuser … env HOME=` är skrivna efter Debians verktyg, inte provade här.
+Tekniska val och eventuella användarsvar: användaren valde 24 h gallring och att inte använda sitt privata konto för tjänsten (förslaget `www-data` byttes mot en egen användare `tornstriden`, så att Apache och spelet inte delar rättigheter); crontab-raden togs bort på användarens begäran.
+Beroenden som nu är klara: –
+Rekommenderad nästa uppgift: provspel med människor.
+Commit: görs av agenten på användarens begäran, push av användaren.

@@ -80,6 +80,20 @@ export function oppnaLagring({ path, klocka = { now: Date.now } }) {
     pagaendeMatcher() {
       return stmt('SELECT id FROM matcher WHERE status = ? ORDER BY created_at').all(MATCH_STATUS.active).map(row => row.id);
     },
+    /* Gallring (L22): avslutade och avbrutna matcher som inte rörts sedan `uppdateradeFore` tas bort med sina händelser
+       och kvittenser. Pågående matcher rörs aldrig. Sessioner som fortfarande pekar på matchen släpps (de har redan
+       FÖLJER_AVSLUT eller är gamla). Returnerar antalet borttagna matcher. */
+    raderaGamlaMatcher(uppdateradeFore) {
+      const gamla = stmt('SELECT id FROM matcher WHERE status != ? AND updated_at < ?').all(MATCH_STATUS.active, uppdateradeFore).map(row => row.id);
+      for (const id of gamla) {
+        stmt('DELETE FROM handelser WHERE match_id = ?').run(id);
+        stmt('DELETE FROM kvittenser WHERE scope = ?').run(`match:${id}`);
+        stmt('UPDATE sessioner SET match_id = NULL WHERE match_id = ?').run(id);
+        stmt('DELETE FROM matcher WHERE id = ?').run(id);
+      }
+      return gamla.length;
+    },
+    raknaMatcher() { return stmt('SELECT COUNT(*) AS n FROM matcher').get().n; },
     sparaHandelser(events) {
       const insert = stmt('INSERT INTO handelser (match_id, event_id, revision, typ, at, recipient, data) VALUES (?, ?, ?, ?, ?, ?, ?)');
       for (const event of events) insert.run(event.matchId, event.eventId, event.revision, event.type, event.at, event.recipient ?? null, JSON.stringify(event.data));

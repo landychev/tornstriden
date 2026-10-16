@@ -6,8 +6,8 @@ består i drift av tre delar på Debian-servern (`debian-nas`):
 | Del | Var | Sköts av |
 | --- | --- | --- |
 | Sidor, skript, bilder, ljud | `/var/www/tornstriden` (kopia från `./deploy.sh`) | Apache (HTTPS via Certbot) |
-| Onlinetjänsten (`/api/`): lobby, matcher, händelseström | Node-process `tornstriden-online` på `127.0.0.1:8766`, körs från Git-utcheckningen `/home/landy/github-proj/tornstriden` | systemd, Apache skickar `/api/` vidare |
-| Databasen (SQLite, WAL) | `/home/landy/github-proj/tornstriden-data/tornstriden.sqlite` – utanför webbrot och Git | tjänsten; säkerhetskopia med `drift/sakerhetskopia.mjs` |
+| Onlinetjänsten (`/api/`): lobby, matcher, händelseström | Node-process `tornstriden-online` på `127.0.0.1:8766`, körs som systemanvändaren `tornstriden` från dess egen Git-utcheckning `/opt/tornstriden` | systemd, Apache skickar `/api/` vidare |
+| Databasen (SQLite, WAL) | `/var/lib/tornstriden/tornstriden.sqlite` – utanför webbrot och Git | tjänsten; säkerhetskopia med `drift/sakerhetskopia.mjs` |
 
 Tjänsten har inga npm-beroenden och inga hemligheter (sessionstoken slumpas per session och lagras hashad).
 Serverkoden i `online/`, lagmotorn och testerna publiceras aldrig till webbroten; `scripts/kontrollera-publicering.mjs`
@@ -21,23 +21,22 @@ Filerna i det här paketet:
 | `scripts/kontrollera-publicering.mjs` | kontroll av en publiceringskopia: inga saknade filer, allt stämplat, inga serverfiler |
 | `apache/tornstriden-online.conf` | Apache-proxy för `/api/` (inkluderas i tornstridens virtuella värdar) |
 | `drift/tornstriden-online.service` | systemd-enhet för tjänsten |
-| `drift/tornstriden-online.env` | tjänstens miljö (port, datakatalog, HTTPS-läge, tillåtet ursprung) |
-| `drift/installera.sh` | första installationen på servern i ett svep (avsnitt 1–3), kan köras om |
+| `drift/tornstriden-online.env` | tjänstens miljö (port, datakatalog, HTTPS-läge, tillåtet ursprung); mall som `installera.sh` fyller i |
+| `drift/installera.sh` | installationen på en server i ett svep (avsnitt 1–3): systemanvändare, klon, tjänst, Apache, HTTPS; kan köras om |
 | `drift/uppdatera.sh` | planerad uppdatering: underhållsläge → vänta ut matcher → säkerhetskopia → pull, deploy, omstart |
 | `drift/sakerhetskopia.mjs` | konsekvent kopia av databasen medan tjänsten kör; gallrar gamla kopior |
 
 ## 1. Förutsättningar på servern
 
-- **Node 22.5 eller nyare** (`node:sqlite` ingår). Kontrollera med `node -v`. Debians egna `nodejs`-paket är
-  äldre; installera i så fall från NodeSource (`https://deb.nodesource.com`, serien 22.x) eller med nvm för
-  användaren `landy` – vid nvm: ändra `ExecStart` i enheten till nvm:s `node`-sökväg (`which node`).
-  Proven i L20 kördes med Node 22.23.
-- **Git-utcheckningen** `/home/landy/github-proj/tornstriden` ägd av `landy`, ren (`git status` tomt) och på `main`.
-- **Webbroten** `/var/www/tornstriden` ägd av `landy` (`chown -R landy:landy /var/www/tornstriden`), så att
-  `./deploy.sh` och `drift/uppdatera.sh` kan skriva dit utan root. Apache behöver bara läsa.
-- **Apache** med `proxy`, `proxy_http` och `headers`; HTTPS via Certbot enligt `README.md` (redan gjort).
-- **Datakatalogen** `/home/landy/github-proj/tornstriden-data` (skapas i steg 2; systemd gör resten av
-  `/home` skrivskyddat för tjänsten, så den måste finnas innan tjänsten startar).
+- **Node 22.5 eller nyare** (`node:sqlite` ingår), installerad för hela systemet (`/usr/bin/node`) så att
+  tjänsteanvändaren kan köra den – Debians egna `nodejs`-paket är äldre, så installera från NodeSource
+  (`https://deb.nodesource.com`, serien 22.x). En nvm-installation under ett hemkonto fungerar inte för tjänsten.
+  Proven i L20–L22 kördes med Node 22.23.
+- **Apache 2.4** med `proxy`, `proxy_http` och `headers` (skriptet aktiverar dem); HTTPS via Certbot.
+- **git** och en nätväg till GitHub (för klon och `git pull`).
+- **Systemanvändaren `tornstriden`** skapas av skriptet (`useradd --system`, ingen inloggning, hem = datakatalogen).
+  Tjänsten, utcheckningen `/opt/tornstriden`, datakatalogen `/var/lib/tornstriden` och webbroten `/var/www/tornstriden`
+  ägs av den – ditt eget konto används inte av tjänsten. systemd-enheten döljer dessutom hela `/home`.
 
 ## 2. Första installationen av onlinetjänsten
 
@@ -47,36 +46,52 @@ sätter ägarskapet (utcheckning, webbrot, datakatalog → ägaren), kör `deplo
 cache-regler, skapar den virtuella värden för port 80 om den saknas, inkluderar proxyn för `/api/` i port 80- och
 Certbots 443-värd, kontrollerar via webbadressen och tar en första säkerhetskopia (en daglig cron-rad bara med `--cron`).
 
-**Ny server** (Debian/Ubuntu med Apache 2.4, git och Node ≥ 22.5 – se §1):
+**Ny server** (Debian/Ubuntu med Apache 2.4, git och Node ≥ 22.5 – se §1): klona var som helst och kör skriptet –
+det klonar själv tjänstens egen utcheckning till `/opt/tornstriden` från samma fjärr.
 
 ```sh
-git clone https://github.com/landychev/tornstriden.git /srv/tornstriden
-sudo /srv/tornstriden/drift/installera.sh --doman spel.example.org --agare spel --webb /var/www/spel --certbot
+git clone https://github.com/landychev/tornstriden.git ~/tornstriden
+sudo ~/tornstriden/drift/installera.sh --doman spel.example.org --certbot
 ```
 
-Alla flaggor har standardvärden (utcheckningen = katalogen ovanför `drift/`, ägaren = den som äger utcheckningen
-eller `SUDO_USER`, domänen `tornstriden.landychev.se`, webbroten `/var/www/tornstriden`, databasen
-`<utcheckning>-data`). `--certbot` kör `certbot --apache -d <domän> --redirect` när DNS pekar på servern och port 80
-är öppen; utan flaggan skrivs kommandot ut och skriptet körs om efteråt så att proxyn hamnar i 443-värden också.
-Stegen nedan är samma sak för hand, med värdena för `debian-nas`.
+Flaggor (alla har standardvärden): `--doman` (`tornstriden.landychev.se`), `--agare` (`tornstriden`), `--rot`
+(`/opt/tornstriden`), `--data` (`/var/lib/tornstriden`), `--webb` (`/var/www/tornstriden`), `--repo` (fjärren att
+klona; annars samma som skriptets utcheckning), `--fran-data <katalog>` (kopierar en befintlig databas in i den nya
+datakatalogen, t.ex. vid byte av tjänsteanvändare), `--certbot` (kör `certbot --apache -d <domän> --redirect`;
+kräver att DNS pekar på servern och att port 80 är öppen – utan flaggan skrivs kommandot ut och skriptet körs om
+efteråt så att proxyn hamnar i 443-värden), `--cron` (daglig säkerhetskopia 04:17).
 
-Som `landy` i Git-utcheckningen:
+**Byte från en installation som körde som ett vanligt konto** (så gjordes på `debian-nas` 2026-10-16: tjänsten körde
+först som `landy` från `/home/landy/github-proj/tornstriden`):
 
 ```sh
-cd /home/landy/github-proj/tornstriden
-git pull --ff-only
-node -v                                      # 22.5 eller nyare
-install -d -m 700 /home/landy/github-proj/tornstriden-data
-./deploy.sh                                  # klientfilerna, nu med lobby.html och lagmatch.html
+sudo /home/landy/github-proj/tornstriden/drift/installera.sh --fran-data /home/landy/github-proj/tornstriden-data
+```
+
+Det stoppar tjänsten, kopierar databasen till `/var/lib/tornstriden`, klonar `/opt/tornstriden`, skriver om
+enheten och miljöfilen för användaren `tornstriden` och startar om. Den gamla utcheckningen och datakatalogen i
+hemkatalogen rörs inte och kan tas bort efteråt (`rm -r /home/landy/github-proj/tornstriden-data`).
+
+Stegen nedan är samma sak för hand.
+
+Som root (stegen som skriptet gör):
+
+```sh
+useradd --system --user-group --home-dir /var/lib/tornstriden --no-create-home --shell /usr/sbin/nologin tornstriden
+install -d -m 700 -o tornstriden -g tornstriden /var/lib/tornstriden
+install -d -o tornstriden -g tornstriden /opt/tornstriden /var/www/tornstriden
+runuser -u tornstriden -- env HOME=/var/lib/tornstriden git clone https://github.com/landychev/tornstriden.git /opt/tornstriden
+cd /opt/tornstriden
+runuser -u tornstriden -- env HOME=/var/lib/tornstriden ./deploy.sh /var/www/tornstriden
 node scripts/kontrollera-publicering.mjs /var/www/tornstriden
 ```
 
-Som root:
+Tjänsten:
 
 ```sh
-cd /home/landy/github-proj/tornstriden
-install -m 644 drift/tornstriden-online.service /etc/systemd/system/tornstriden-online.service
-install -m 640 -o root -g landy drift/tornstriden-online.env /etc/tornstriden-online.env
+cd /opt/tornstriden
+install -m 644 drift/tornstriden-online.service /etc/systemd/system/tornstriden-online.service   # mallarna gäller som de är för standardvärdena
+install -m 640 -o root -g tornstriden drift/tornstriden-online.env /etc/tornstriden-online.env
 systemctl daemon-reload
 systemctl enable --now tornstriden-online
 systemctl status tornstriden-online --no-pager
@@ -118,7 +133,7 @@ anslutningsstatus står på "Ansluten" och ligger kvar (strömmen går genom pro
 Med fyra deltagare startar en lagmatch på `lagmatch.html`. Loggen (`journalctl -u tornstriden-online -f`)
 visar kommandotyp, kö och status – aldrig kort, händer eller token.
 
-Säkerhetskopian, som `landy` (tas också automatiskt av `uppdatera.sh` före varje uppdatering; ingen cron används):
+Säkerhetskopian, som `tornstriden` (tas också automatiskt av `uppdatera.sh` före varje uppdatering; ingen cron används):
 
 ```sh
 node drift/sakerhetskopia.mjs
@@ -129,9 +144,9 @@ node drift/sakerhetskopia.mjs
 Huvudregel (huvudplan §11): stoppa nya matcher, låt pågående bli klara, uppdatera, öppna igen. Som root:
 
 ```sh
-sudo /home/landy/github-proj/tornstriden/drift/uppdatera.sh            # väntar högst 30 min på pågående matcher
-sudo /home/landy/github-proj/tornstriden/drift/uppdatera.sh --vanta 5  # kortare tålamod
-sudo /home/landy/github-proj/tornstriden/drift/uppdatera.sh --tvinga   # ingen väntan (27B: pågående matcher avbryts utan vinnare)
+sudo /opt/tornstriden/drift/uppdatera.sh            # väntar högst 30 min på pågående matcher
+sudo /opt/tornstriden/drift/uppdatera.sh --vanta 5  # kortare tålamod
+sudo /opt/tornstriden/drift/uppdatera.sh --tvinga   # ingen väntan (27B: pågående matcher avbryts utan vinnare)
 ```
 
 Skriptet gör i tur och ordning: `SIGUSR1` till tjänsten (underhållsläge – lobbyn visar
@@ -143,8 +158,8 @@ Underhållsläget är inte beständigt: en omstart öppnar alltid. Manuellt mots
 ```sh
 systemctl kill -s SIGUSR1 tornstriden-online      # inga nya matcher
 watch -n 20 'curl -s http://127.0.0.1:8766/api/halsa'   # tills "pagaende":0
-runuser -u landy -- node drift/sakerhetskopia.mjs
-runuser -u landy -- git pull --ff-only && runuser -u landy -- ./deploy.sh
+runuser -u tornstriden -- env HOME=/var/lib/tornstriden node drift/sakerhetskopia.mjs
+runuser -u tornstriden -- env HOME=/var/lib/tornstriden git pull --ff-only && runuser -u tornstriden -- env HOME=/var/lib/tornstriden ./deploy.sh
 systemctl restart tornstriden-online
 ```
 
@@ -187,9 +202,9 @@ med NAS:ens vanliga backup.
 
 ```sh
 systemctl stop tornstriden-online
-cd /home/landy/github-proj/tornstriden-data
+cd /var/lib/tornstriden
 mv tornstriden.sqlite tornstriden.sqlite.trasig; rm -f tornstriden.sqlite-wal tornstriden.sqlite-shm
-runuser -u landy -- cp sakerhetskopior/tornstriden-<datum>.sqlite tornstriden.sqlite
+runuser -u tornstriden -- env HOME=/var/lib/tornstriden cp sakerhetskopior/tornstriden-<datum>.sqlite tornstriden.sqlite
 systemctl start tornstriden-online
 ```
 
@@ -207,7 +222,7 @@ Tjänsten avbryter vid starten de matcher som var pågående i kopian (27B) och 
 - `Restart=on-failure` i enheten startar om tjänsten efter en krasch; pågående matcher avbryts då (27B).
 - Gränser i tjänsten: kommandon högst 2 kB (Apache stoppar vid 64 kB), en styrande ström per session (en extra
   flik tar över), högst ett inbjudningskommando per sekund och värd, sessioner utan livstecken gallras efter
-  24 h, obesvarade inbjudningar efter 2 min, inaktiva rum efter 2 h. Avslutade matcher gallras inte (se §9).
+  24 h, obesvarade inbjudningar efter 2 min, inaktiva rum efter 2 h. Avslutade och avbrutna matcher tas bort ur databasen (händelser och kvittenser också) ett dygn efter att de sist rördes.
 - Tidsgränser: 90 s per väntande val (varning vid 30 s), 30 s återanslutningsfrist per avbrott och högst 90 s
   sammanlagt per match; 15 s utan livstecken räknas som avbrott, 3 s nåd för omladdning/sidbyte.
 
@@ -225,7 +240,7 @@ Mätt på NAS:en 2026-10-16 (L22): **36/36 kontroller**, minne 133 MB, CPU medel
 0 oväntat stängda strömmar, en skur av 200 gamla drag på 258 ms, sessionstaket 200. Målet är alltså uppfyllt på driftmaskinen.
 
 En motståndare när ingen annan är inne: `scripts/lobbybot.mjs` går in i lobbyn, accepterar inbjudningar, fyller laget
-och spelar slumpade giltiga drag. På servern, som `landy`:
+och spelar slumpade giltiga drag. På servern (vilken användare som helst som kan läsa utcheckningen):
 
 ```sh
 node scripts/lobbybot.mjs --nick Datorn --bas http://127.0.0.1:8766 --origin https://tornstriden.landychev.se
@@ -240,9 +255,8 @@ Ctrl+C lämnar lobbyn. (Vill du ha den igång jämt: en systemd-enhet med samma 
   inte att starta efter en ändring, prova först att ta bort raderna `ProtectHome`/`ReadWritePaths` och se `journalctl`.
 - Inte provat i drift: riktiga telefoner, Safari/Firefox, nätbyten och lagmatcher (4/6/8) – görs vid provspel med
   människor.
-- Avslutade matcher, deras händelser och kvittenser sparas tills vidare (ingen gallring). Databasen växer i
-  storleksordningen 100 kB per match; `sakerhetskopia.mjs` skriver ut antalet matcher. Gallring kan läggas i
-  tjänstens städning senare.
+- Databasen hålls liten: avslutade matcher gallras efter ett dygn, sessioner efter ett dygn utan livstecken, rum efter
+  två timmar. `sakerhetskopia.mjs` skriver ut antalet matcher i kopian.
 - Underhållsläget stoppar bara nya starter. Rum som redan är fulla och redo väntar med beskedet på startknappen.
   Efter omstarten står rummen kvar; deltagarna återansluter automatiskt (webbläsaren öppnar strömmen igen) och
   värden kan starta när alla åter visas som anslutna. Den som är frånkopplad längre än 60 s tas ur rummet som

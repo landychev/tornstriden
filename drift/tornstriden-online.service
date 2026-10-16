@@ -1,20 +1,19 @@
-# systemd-enhet för Tornstridens onlineserver (arbetsordning L21). Installeras enligt DRIFT.md:
-#   install -m 644 drift/tornstriden-online.service /etc/systemd/system/tornstriden-online.service
-#   install -m 640 -o root -g landy drift/tornstriden-online.env /etc/tornstriden-online.env
-#   systemctl daemon-reload && systemctl enable --now tornstriden-online
-# Tjänsten körs från Git-utcheckningen (den importerar spelmotorn och kontrakt.js därifrån) som samma
-# användare som äger utcheckningen. Databasen ligger i TORNSTRIDEN_DATA_DIR utanför webbrot och Git.
+# systemd-enhet för Tornstridens onlineserver (arbetsordning L21–L22). Mall: drift/installera.sh fyller i sökvägar,
+# användare och node-sökväg och lägger den i /etc/systemd/system/tornstriden-online.service.
+# Tjänsten körs som den egna systemanvändaren `tornstriden` (ingen inloggning, inget hem i /home) från sin egen
+# Git-utcheckning i /opt/tornstriden – den importerar spelmotorn och kontrakt.js därifrån. Databasen ligger i
+# /var/lib/tornstriden, utanför webbrot och Git.
 [Unit]
 Description=Tornstriden onlineserver (lobby och matcher)
-Documentation=file:///home/landy/github-proj/tornstriden/DRIFT.md
+Documentation=file:///opt/tornstriden/DRIFT.md
 After=network.target
 # Apache behöver inte tjänsten för att starta; proxyn svarar 503 tills tjänsten är uppe.
 
 [Service]
 Type=simple
-User=landy
-Group=landy
-WorkingDirectory=/home/landy/github-proj/tornstriden
+User=tornstriden
+Group=tornstriden
+WorkingDirectory=/opt/tornstriden
 EnvironmentFile=/etc/tornstriden-online.env
 ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning online/server.js
 # SIGUSR1 = underhållsläge (inga nya matcher), SIGUSR2 = öppna igen. Se drift/uppdatera.sh.
@@ -26,18 +25,17 @@ RestartSec=3
 # Om tjänsten inte kan starta (t.ex. porten upptagen eller lagringsfel vid uppstädningen) avslutar den med kod 1
 # och systemd försöker igen; journalctl -u tornstriden-online visar orsaken.
 
-# Härdning: bara datakatalogen är skrivbar, inget annat i filsystemet.
+# Härdning: bara datakatalogen är skrivbar, inget annat i filsystemet; /home är helt dolt.
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/home/landy/github-proj/tornstriden-data
+ProtectHome=yes
+ReadWritePaths=/var/lib/tornstriden
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 LockPersonality=yes
-MemoryDenyWriteExecute=no
 # (node behöver JIT; därför inte MemoryDenyWriteExecute=yes)
 
 [Install]

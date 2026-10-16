@@ -7,14 +7,19 @@
    Körs av drift/uppdatera.sh före varje uppdatering, annars för hand (eller dagligen via `installera.sh --cron`).
    Återställning: se DRIFT.md (stoppa tjänsten, byt ut tornstriden.sqlite, starta). */
 import { backup, DatabaseSync } from 'node:sqlite';
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const flagga = (namn, standard) => { const i = args.indexOf(namn); return i === -1 ? standard : args[i + 1]; };
 const rot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dataDir = resolve(flagga('--data', process.env.TORNSTRIDEN_DATA_DIR || join(rot, '..', 'tornstriden-data')));
+/* Datakatalogen: --data, annars TORNSTRIDEN_DATA_DIR, annars tjänstens miljöfil (/etc/tornstriden-online.env), annars
+   ../tornstriden-data bredvid utcheckningen (som `npm run online`). */
+function datakatalogFranMiljofil() {
+  try { return readFileSync('/etc/tornstriden-online.env', 'utf8').match(/^TORNSTRIDEN_DATA_DIR=(.+)$/m)?.[1]?.trim(); } catch { return undefined; }
+}
+const dataDir = resolve(flagga('--data', process.env.TORNSTRIDEN_DATA_DIR || datakatalogFranMiljofil() || join(rot, '..', 'tornstriden-data')));
 const malDir = resolve(flagga('--till', join(dataDir, 'sakerhetskopior')));
 const behall = Number(flagga('--behall', 14));
 const kalla = join(dataDir, 'tornstriden.sqlite');

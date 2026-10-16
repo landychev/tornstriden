@@ -44,6 +44,7 @@ export const TYST_MS = 15_000;   // utan livstecken så här länge räknas ansl
 export const OMLADDNING_MS = 3_000;   // nåd för en stängd ström innan matchen ser ett avbrott (omladdning, sidbyte)
 const MATCHKOMMANDON = new Set(Object.values(MATCH_COMMAND));
 export const STADNING_MS = 60_000;   // periodisk städning av rum, inbjudningar och sessioner
+export const MATCH_GALLRING_MS = 24 * 60 * 60 * 1000;   // avslutade/avbrutna matcher tas bort ur databasen efter ett dygn (L22)
 export const KAKA = 'tornstriden_session';
 
 export function standardDataDir() { return resolve(ROOT, '..', 'tornstriden-data'); }
@@ -155,7 +156,12 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   rum.pa(sandAlla);
   matcher.pa(matchId => (matchId ? sandEfterMatch(matchId) : sandAlla()));   // tidsgräns, avbrott och återkomst ändrar matchen utan något kommando
   let stadning = klocka.setTimeout(function stada() {
-    try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda || r.raderade) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
+    try {
+      const r = rum.stada(); sessioner.rensaUtgangna();
+      const gallrade = lagring.transaktion(ops => ops.raderaGamlaMatcher(klocka.now() - MATCH_GALLRING_MS));
+      if (gallrade) logg.info(`[server] gallring: ${gallrade} avslutad(e) match(er) äldre än ett dygn borttagna.`);
+      if (r.utgangna || r.stangda || r.raderade) sandLobby();
+    } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
   }, STADNING_MS);
   function stangStrom(strom) {
