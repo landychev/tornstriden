@@ -14,7 +14,7 @@ import { cardFace, towerAppearance } from './grafik.js';
 import { popupIcon, resultHeader, battleSummary } from './popup.js';
 import { cardType, PHASE, ACTION, END } from './match.js';
 import { DecisionError, STRATEGIES, STRATEGY } from './dator.js';
-import { GameAudio, bindAudioControls, resultEffect } from './ljud.js';
+import { GameAudio, bindAudioControls, skapaHandelsevakt, handelseljud, resultatljud } from './ljud.js';
 import { skapaLokalMatch, EVENT } from './lokalmatch.js';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
 import { PROTOCOL_VERSION, RECEIPT, MATCH_COMMAND } from './kontrakt.js';
@@ -55,19 +55,34 @@ const ui = {
 let pendingJob = null;  // högst ett väntande datorjobb
 let flying = Promise.resolve();  // senaste kortflygningen; resultatrutan väntar in den
 let dealtSoundMatch = null;
+let vantandeByte = null; // kortkopior för ett skickat byte; bara en ny BYTE-händelse får animera dem
 
+/* Utdelningsljudet en gång per match. Online gäller det hela fliken (sessionStorage), så att en omladdning
+   mitt i bytena inte spelar upp utdelningen igen (L19: återanslutning är tyst för historiken). */
 function playDealSound() {
   if (dealtSoundMatch === v.matchId) return;
   dealtSoundMatch = v.matchId;
+  if (ONLINE) {
+    const nyckel = `tornstriden-utdelning:${v.matchId}`;
+    try { if (sessionStorage.getItem(nyckel)) return; sessionStorage.setItem(nyckel, '1'); } catch { /* utan lagring: en gång per sidladdning */ }
+  }
   sound.playEffect('shuffle');
 }
 
-/* Ljud för bekräftade händelser från adaptern (lokalt nu, serverns händelser i L09/L19). */
+/* Ljud och animationer för bekräftade händelser från adaptern (L19): bara nya händelser, högst en gång per
+   händelse-ID. Det som redan fanns när sidan laddades eller hämtades efter en återanslutning är tyst. */
+const vakt = skapaHandelsevakt();
+let nyaResultat = [];        // nya RESULTAT/MATCHSLUT: resultatrutan ger dem sitt ljud
+let levandeStrid = null;     // "match|strid" för ett resultat som kom som ny händelse: tornen animeras
+let brytsTill = 0;           // hjärtana brister bara strax efter händelsen (CSS-animationen tar 0,7 s)
+const HJARTBROTT_MS = 900;
 function playEvents(events) {
-  for (const e of events) {
-    if (e.type === EVENT.cardPlayed) { sound.playEffect('card'); sound.playEffect(e.data.role === 'attack' ? (e.data.usage !== USAGE.simple && e.data.cardType === 'magic' ? 'magic' : 'attack') : 'defence'); }
-    if ((e.type === EVENT.swap && e.data.count > 0) || e.type === EVENT.refill) sound.playEffect('shuffle');
-  }
+  const nya = vakt.nya(events);
+  for (const name of handelseljud(nya)) sound.playEffect(name);
+  animeraByte(nya);
+  nyaResultat = nya.filter(e => e.type === EVENT.result || e.type === EVENT.matchOver);
+  const strid = nya.findLast(e => e.type === EVENT.result);
+  if (strid) { levandeStrid = `${strid.matchId}|${strid.data.battleNumber}`; brytsTill = Date.now() + HJARTBROTT_MS; }
 }
 
 /* ---- Härledningar (allt ur den privata vyn) ---- */
@@ -115,9 +130,15 @@ const cardHTML = type => cardFace(type);
 const simpleHTML = type => cardFace(type, { simple: true });
 const button = (action, label, { kind = 'primary', disabled = false, id = '' } = {}) => `<button type="button" class="${kind}"${id ? ` id="${id}"` : ''} data-action="${action}" data-revision="${v.revision}"${disabled ? ' disabled' : ''}>${label}</button>`;
 
+/* Hjärtana skrivs bara om när de ändrats: en omritning strax efter (t.ex. när den egna kvittensen kommer)
+   avbryter eller upprepar annars animationen. */
+const skrivet = new Map();
 function hearts(id, count, previous = count) {
   $(id).setAttribute('aria-label', `${count} av ${MAX_LIFE} liv`);
-  $(id).innerHTML = Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < count ? '' : 'lost'}${n >= count && n < previous ? ' just-lost' : ''}">${HEART}</span>`).join('');
+  const markup = Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < count ? '' : 'lost'}${n >= count && n < previous ? ' just-lost' : ''}">${HEART}</span>`).join('');
+  if (skrivet.get(id) === markup) return;
+  skrivet.set(id, markup);
+  $(id).innerHTML = markup;
 }
 
 function slot(id, content, label, extraClass = '') {
@@ -144,14 +165,15 @@ function pileRect() {
 function tower(id) {
   const p = v.players.find(q => q.id === id);
   const r = v.lastResult;
-  const shown = [PHASE.result, PHASE.over].includes(v.phase) && r;
+  /* Skakning, glöd och brutna hjärtan bara för ett resultat som kom som ny händelse – inte vid omladdning. */
+  const shown = [PHASE.result, PHASE.over].includes(v.phase) && r && levandeStrid === `${v.matchId}|${r.battleNumber}`;
   const el = $(`tower-${zone(id)}`);
   towerAppearance(el, p.life);
   el.classList.toggle('damaged', p.life < MAX_LIFE && p.life > 0);
   el.classList.toggle('fallen', p.life === 0);
   el.classList.toggle('held', Boolean(shown && r.defender === id && r.defended));
   el.classList.toggle('hit', Boolean(shown && r.life[id] < r.startLife[id]));
-  hearts(`life-${zone(id)}`, p.life, shown ? r.startLife[id] : p.life);
+  hearts(`life-${zone(id)}`, p.life, shown && Date.now() < brytsTill ? r.startLife[id] : p.life);
   $(`count-${zone(id)}`).textContent = p.life === 0 ? 'Tornet har fallit' : `${p.cardCount} kort på handen`;
 }
 
@@ -345,8 +367,10 @@ function renderResult() {
   const key = `${v.matchId}|${v.revision}|${v.phase}`;
   if (key === resultKey) return;
   resultKey = key;
-  // I tvåspelarläget gäller ljudet spelaren vars hand visas vid resultatet. Vyn har samma fält som resultEffect läser.
-  pendingResultEffect = resultEffect(v, ui.viewer);
+  // Ljudet kommer ur nya händelser (L19): ett resultat eller matchslut som redan fanns är tyst. I tvåspelarläget
+  // gäller det spelaren vars hand visas vid resultatet.
+  pendingResultEffect = resultatljud(nyaResultat, { jag: ui.viewer });
+  nyaResultat = [];
   // Vänta ett varv: en flygning som startas direkt efter render() ska hinna registreras i `flying`.
   setTimeout(() => flying.then(() => { if (resultKey === key) { pendingResultKey = key; openPendingResult(); } }), 0);
 }
@@ -395,6 +419,9 @@ function beginFirstBattle() {
 let feedbackKey = null;
 let feedbackTimer = null;
 let feedbackAnimations = [];
+/* Glöden ligger i ett eget lager under bordets innehåll (L20): att animera själva bordet (box-shadow på elementet
+   med overflow: hidden) gjorde ibland bordet oklickbart i Chromium. */
+const glodlager = farg => { const el = document.querySelector('.table-glow'); el.style.setProperty('--glow', `${farg}90`); return el; };
 function renderTurnFeedback() {
   const banner = $('turn-feedback');
   const active = PLAY_PHASES.includes(v.phase) && !startPending();
@@ -419,7 +446,7 @@ function renderTurnFeedback() {
     const glow = defending ? '#78b8f0' : '#e9b95e';
     feedbackAnimations = [
       banner.animate([{ opacity: 0, translate: '0 -6px' }, { opacity: 1, translate: '0 0', offset: .15 }, { opacity: 1, offset: .8 }, { opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' }),
-      document.querySelector('.table').animate([{ boxShadow: `inset 0 0 0 2px ${glow}00` }, { boxShadow: `inset 0 0 32px 2px ${glow}90`, offset: .25 }, { boxShadow: `inset 0 0 0 2px ${glow}00` }], { duration: 1300, easing: 'ease-out' })
+      glodlager(glow).animate([{ opacity: 0 }, { opacity: 1, offset: .25 }, { opacity: 0 }], { duration: 1300, easing: 'ease-out' })
     ];
   }
   feedbackTimer = setTimeout(() => { banner.hidden = true; }, 1800);
@@ -462,6 +489,7 @@ function render() {
 
   // Torn, liv, högar (online sitter man själv i zon A nederst, motståndaren i zon B)
   for (const p of v.players) tower(p.id);
+  if (![PHASE.result, PHASE.over].includes(v.phase)) levandeStrid = null;   // en ny strid: ett senare matchslut animerar inte den gamla
   const opponent = v.players.find(p => zone(p.id) === 'B');
   $('label-B').textContent = ui.mode === 'computer' ? 'DATORN' : ONLINE ? 'MOTSTÅNDARE' : 'SPELARE B';
   if (ONLINE) { $('name-B').textContent = opponent.name; $('name-A').textContent = nameOf(ui.viewer); $('label-A').textContent = 'DU'; $('opponent-clock').dataset.klocka = opponentOf(ui.viewer); $('opponent-avbrott').dataset.avbrott = opponentOf(ui.viewer); }
@@ -676,11 +704,26 @@ function choose(instanceId) {
 /* Bekräfta bytet: de markerade korten flyger till draghögen och de nya delas ut i handen.
    Med `keep` behålls hela handen – eventuella markeringar ignoreras. */
 async function swapCards({ keep = false } = {}) {
+  if (v.pending) return;
   const marked = keep ? [] : [...$('hand').querySelectorAll('[aria-pressed="true"]')].map(el => [styledCardCopy(el), docRect(el)]);
-  const reply = await send(ACTION.swap, { cards: keep ? [] : [...ui.selected] });
-  if (reply.status !== RECEIPT.ok) return;
+  const byte = { matchId: v.matchId, revision: v.revision, playerId: ui.viewer, marked };
+  vantandeByte = byte;
+  try {
+    await send(ACTION.swap, { cards: keep ? [] : [...ui.selected] });
+  } finally {
+    if (vantandeByte === byte) vantandeByte = null;
+  }
+}
+
+/* Kvittensen startar aldrig en flygning. Händelsen måste gälla det egna väntande bytet och den vy
+   som nu visas. Historik, statuskontroll och återanslutning får inte återuppliva kortkopiorna. */
+function animeraByte(events) {
+  const byte = vantandeByte;
+  if (!byte || !events.some(e => e.type === EVENT.swap && e.matchId === byte.matchId &&
+    e.data.playerId === byte.playerId && e.revision === byte.revision + 1 && e.revision === v.revision)) return;
+  vantandeByte = null;
   const pile = pileRect();
-  flying = Promise.all(marked.map(([el, from], i) => {
+  flying = Promise.all(byte.marked.map(([el, from], i) => {
     // Krymp med bibehållna proportioner in mot högens mitt.
     const height = pile.width * from.height / from.width;
     const to = { left: pile.left, top: pile.top + (pile.height - height) / 2, width: pile.width, height };
@@ -772,6 +815,7 @@ async function boot() {
     $('mode').closest('label').hidden = true;
     $('strategy').closest('label').hidden = true;
     adapter.pa((lage, extra) => {
+      if (lage !== 'ansluten') vantandeByte = null;
       const node = $('connection');
       node.textContent = CONNECTION_TEXT[lage] ?? lage;
       node.classList.toggle('warn', lage !== 'ansluten');
@@ -785,8 +829,10 @@ async function boot() {
   }
   v = adapter.view();
   ui.viewer = adapter.viewer();
+  vakt.historik(v);   // det som redan hänt är tyst
   adapter.subscribe((view, events) => {
     v = view;
+    if (v.pending?.status === PENDING.checking) vantandeByte = null;
     playEvents(events);
     if (ONLINE) { ui.selected = ui.selected.filter(id => cardInHand(id)); render(); }   // motståndarens drag kom via strömmen
   });

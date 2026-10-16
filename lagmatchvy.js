@@ -11,12 +11,15 @@
    Spelarklockor (L16): den som har ett val ser sin nedräkning överst i knappraden, och varje torn visar sin
    spelares tid när servern väntar på hen (nedrakning.js). Servern avgör tidsgränsen.
    Avbrott (L17): en frånkopplad spelares torn visar återstående återanslutningstid; när just hens val behövs
-   säger bordet "Väntar på att … återansluter". Den egna anslutningen visas i sidhuvudet. */
+   säger bordet "Väntar på att … återansluter". Den egna anslutningen visas i sidhuvudet.
+   Ljud och animationer (L19): bara serverns nya händelser, högst en gång per händelse-ID. Egen livsförlust,
+   lagets vunna strid och lagets matchresultat har var sitt ljud; en lagkamrats utslagning eller avhopp ger
+   inget förlustljud. Det som redan hänt (sidladdning, återanslutning) är tyst och animeras inte. */
 import { cards, MAX_LIFE } from './kort.js';
 import { cardFace } from './grafik.js';
 import { resultHeader, popupIcon } from './popup.js';
 import { USAGE } from './matchregler.js';
-import { GameAudio, bindAudioControls } from './ljud.js';
+import { GameAudio, bindAudioControls, skapaHandelsevakt, handelseljud, resultatljud } from './ljud.js';
 import { EVENT } from './lokalmatch.js';
 import { skapaOnlineMatch, PENDING } from './onlinematch.js';
 import { kopplaKortlupp, reduceMotion } from './kortlupp.js';
@@ -131,7 +134,15 @@ function fasText() {
 }
 
 /* ---- Lagbordet ---- */
-const hearts = life => `<span class="hearts" role="img" aria-label="${life} av ${MAX_LIFE} liv">${Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < life ? '' : 'lost'}">${HEART}</span>`).join('')}</span>`;
+/* `forut`: livet före en ny strid – de förlorade hjärtana brister (spelbord.css). */
+const hearts = (life, forut = life) => `<span class="hearts" role="img" aria-label="${life} av ${MAX_LIFE} liv">${Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < life ? '' : 'lost'}${n >= life && n < forut ? ' just-lost' : ''}">${HEART}</span>`).join('')}</span>`;
+/* Livet före stridsresultatet, bara för ett resultat som kom som ny händelse och bara strax efter den. */
+function livForut(p) {
+  const r = v.lastResult;
+  const levande = r && [FAS.result, FAS.over].includes(v.phase) && levandeStrid === `${v.matchId}|${r.battleNumber}` && Date.now() < brytsTill;
+  const d = levande ? r.lifeDelta?.[p.id] ?? 0 : 0;
+  return d < 0 ? p.life - d : p.life;
+}
 
 function chipStatus(p) {
   if (!alive(p)) return ({ [ELIMINATION.left]: 'Lämnade matchen', [ELIMINATION.timeout]: 'Utslagen – tiden tog slut', [ELIMINATION.disconnect]: 'Utslagen – kom inte tillbaka' })[p.eliminationReason] ?? 'Utslagen';
@@ -153,7 +164,7 @@ function chip(p, { valbar }) {
   if (!alive(p)) klass.push('out');
   if (p.connection !== CONNECTION.online) klass.push('offline');
   const status = chipStatus(p);
-  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life)}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span><span class="chip-avbrott" data-avbrott="${html(p.id)}" hidden></span>` : ''}</small></span>`;
+  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life, livForut(p))}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span><span class="chip-avbrott" data-avbrott="${html(p.id)}" hidden></span>` : ''}</small></span>`;
   return valbar
     ? `<li><button type="button" class="${klass.join(' ')} selectable" data-target="${html(p.id)}" aria-pressed="${ui.target === p.id}" aria-label="Välj ${html(p.name)} som måltavla, ${p.life} liv">${inner}</button></li>`
     : `<li class="${klass.join(' ')}">${inner}</li>`;
@@ -222,14 +233,43 @@ function resultatLista(role) {
   }).join('');
 }
 
+/* Uppdatera tornens innehåll på plats. Platsernas ordning är fast inom laget. En ändrad statustext
+   får inte ersätta eller flytta hjärtats DOM-nod, eftersom det startar om dess CSS-animation. */
+function uppdateraTornBarn(nod, mall) {
+  const gamla = [...nod.childNodes], nya = [...mall.childNodes];
+  for (let i = 0; i < Math.max(gamla.length, nya.length); i++) {
+    const fore = gamla[i], efter = nya[i];
+    if (!fore) { nod.append(efter); continue; }
+    if (!efter) { fore.remove(); continue; }
+    if (fore.nodeType !== efter.nodeType || fore.nodeName !== efter.nodeName) {
+      fore.replaceWith(efter);
+      continue;
+    }
+    if (fore.nodeType !== Node.ELEMENT_NODE) {
+      if (fore.nodeValue !== efter.nodeValue) fore.nodeValue = efter.nodeValue;
+      continue;
+    }
+    for (const { name } of [...fore.attributes]) if (!efter.hasAttribute(name)) fore.removeAttribute(name);
+    for (const { name, value } of efter.attributes) if (fore.getAttribute(name) !== value) fore.setAttribute(name, value);
+    uppdateraTornBarn(fore, efter);
+  }
+}
+const skrivet = new Map();
+function skriv(id, markup) {
+  if (skrivet.get(id) === markup) return;
+  skrivet.set(id, markup);
+  const mall = document.createElement('template');
+  mall.innerHTML = markup;
+  uppdateraTornBarn($(id), mall.content);
+}
 function renderBoard() {
   const mitt = v.teamId, fiende = otherTeam(mitt);
   const valbara = new Set(allowedOf(C.target)?.players ?? []);
   const kvar = team => v.teams[team].filter(id => alive(playerOf(id))).length;
   $('enemy-name').textContent = `${teamName(fiende)} · ${kvar(fiende)} av ${v.teams[fiende].length} kvar`;
   $('own-name').textContent = `${teamName(mitt)} · ditt lag · ${kvar(mitt)} av ${v.teams[mitt].length} kvar`;
-  $('enemy-towers').innerHTML = v.teams[fiende].map(id => chip(playerOf(id), { valbar: valbara.has(id) })).join('');
-  $('own-towers').innerHTML = v.teams[mitt].map(id => chip(playerOf(id), { valbar: false })).join('');
+  skriv('enemy-towers', v.teams[fiende].map(id => chip(playerOf(id), { valbar: valbara.has(id) })).join(''));
+  skriv('own-towers', v.teams[mitt].map(id => chip(playerOf(id), { valbar: false })).join(''));
   const { title, text } = phaseText();
   $('phase-title').textContent = title;
   $('phase-description').textContent = text;
@@ -405,14 +445,6 @@ function renderActions() {
    utslagningen står på var sin rad. ---- */
 let resultKey = null;
 let vantandeResultat = false;
-function resultatEffekt(over) {
-  if (over) return v.winnerTeam ? (v.winnerTeam === v.teamId ? 'matchWon' : 'matchLost') : null;
-  const r = v.lastResult;
-  if (r.outcome === UTFALL.aborted) return null;
-  if ((r.lifeDelta[v.viewer] ?? 0) < 0) return 'lifeLost';
-  const vann = r.outcome === UTFALL.hit ? r.attackingTeam : otherTeam(r.attackingTeam);
-  return vann === v.teamId ? 'battleWon' : null;
-}
 const slutUtfall = () => v.endReason === TEAM_END.serverAbort ? 'aborted' : v.winnerTeam && v.winnerTeam === v.teamId ? 'victory' : 'defeat';
 function resultatHTML() {
   const r = v.lastResult;
@@ -463,7 +495,9 @@ function renderResult() {
   const key = over ? `${v.matchId}|slut` : `${v.matchId}|${v.lastResult.battleNumber}`;
   if (key === resultKey) return;
   resultKey = key;
-  const effekt = resultatEffekt(over);
+  /* Ljudet kommer ur nya händelser: ett resultat eller matchslut som redan fanns (sidladdning, återanslutning) är tyst. */
+  const effekt = resultatljud(nyaResultat, { jag: v.viewer, lag: v.teamId });
+  nyaResultat = [];
   if (effekt) { sound.stopEffects(); sound.playEffect(effekt); }
   vantandeResultat = true;
   oppnaResultat();
@@ -501,6 +535,7 @@ function renderTurnFeedback() {
 function render() {
   sound.setPlaying(running());
   renderBoard();
+  if (![FAS.result, FAS.over].includes(v.phase)) levandeStrid = null;   // en ny strid: ett senare matchslut animerar inte den gamla
   renderHand();
   renderActions();
   renderResult();
@@ -538,12 +573,22 @@ function rensaMal() {
   if (!spelarmal.includes(ui.playerTarget)) ui.playerTarget = spelarmal.length === 1 ? spelarmal[0] : null;
 }
 
-/* Ljud för bekräftade händelser från servern (spelade kort, byten och påfyllning). */
+/* Ljud, animation och besked för serverns nya händelser (L19), högst en gång per händelse-ID. */
+const vakt = skapaHandelsevakt();
+let nyaResultat = [];       // nya RESULTAT/MATCHSLUT: resultatrutan ger dem sitt ljud
+let levandeStrid = null;    // "match|strid" för ett resultat som kom som ny händelse: hjärtana brister
+let brytsTill = 0;          // ... men bara strax efter händelsen (CSS-animationen tar 0,7 s)
+const HJARTBROTT_MS = 900;
+const UTSLAG_BESKED = { [ELIMINATION.left]: 'lämnade matchen', [ELIMINATION.timeout]: 'är utslagen – tiden tog slut', [ELIMINATION.disconnect]: 'är utslagen – kom inte tillbaka i tid' };
 function playEvents(events) {
-  for (const e of events) {
-    if (e.type === EVENT.cardPlayed) { sound.playEffect('card'); sound.playEffect(e.data.role === 'attack' ? (e.data.usage !== USAGE.simple && e.data.cardType === 'magic' ? 'magic' : 'attack') : 'defence'); }
-    if ((e.type === EVENT.swap && e.data.count > 0) || e.type === EVENT.refill) sound.playEffect('shuffle');
-  }
+  const nya = vakt.nya(events);
+  for (const name of handelseljud(nya)) sound.playEffect(name);
+  nyaResultat = nya.filter(e => e.type === EVENT.result || e.type === EVENT.matchOver);
+  const strid = nya.findLast(e => e.type === EVENT.result);
+  if (strid) { levandeStrid = `${strid.matchId}|${strid.data.battleNumber}`; brytsTill = Date.now() + HJARTBROTT_MS; }
+  /* Utslagning utanför en strid (avhopp, tid, avbrott): vem och varför. En strids utslagningar visas i resultatrutan. */
+  const besked = nya.filter(e => e.type === EVENT.eliminated && e.data.playerId !== v.viewer && UTSLAG_BESKED[e.data.reason]).map(e => `${playerOf(e.data.playerId)?.name ?? '?'} ${UTSLAG_BESKED[e.data.reason]}.`);
+  if (besked.length) ui.notice = { text: besked.join(' '), kind: 'info' };
 }
 
 /* ---- Handlingar: vyn skickar ett kommando, servern avgör ---- */
@@ -660,6 +705,7 @@ async function boot() {
     if (v) render();
   });
   v = adapter.view();
+  vakt.historik(v);   // det som redan hänt är tyst
   $('intro-size').textContent = `${v.players.length / 2} mot ${v.players.length / 2}. Ett torn var. Tre liv. Ett lag vinner.`;
   adapter.subscribe((view, events) => {
     v = view;

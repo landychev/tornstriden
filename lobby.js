@@ -105,13 +105,15 @@ function oppnaStrom() {
   };
 }
 
-/* Matchen har startat: matchsidan tar över (den öppnar en egen ström). */
+/* Matchen har startat: matchsidan tar över (den öppnar en egen ström). En lagmatch (fler än två i rummet) går
+   direkt till lagsidan – en omdirigering mindre, så att bytet hinner inom nåden för en stängd ström även på en
+   långsam mobil (L20). Lagsidan skickar själv vidare till duellen om formatet skulle vara ett annat. */
 let paVagTillMatch = false;
 function tillMatchen() {
   if (paVagTillMatch) return;
   paVagTillMatch = true;
   state.strom?.close();
-  location.href = 'match.html?online=1';
+  location.href = (state.vy?.rum?.players?.length ?? 2) > 2 ? 'lagmatch.html' : 'match.html?online=1';
 }
 
 /* ---- Vyer ---- */

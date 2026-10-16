@@ -1,5 +1,7 @@
 /* Ljud är presentation: inga ljudhändelser ändrar matchens regler eller turer. */
-import { PHASE } from './match.js';
+import { EVENT } from './lokalmatch.js';
+import { USAGE } from './matchregler.js';
+import { TEAM_OUTCOME } from './kontrakt.js';
 
 export const SOUND_FILES = Object.freeze({
   music: 'strid-musik.mp3', attack: 'anfall.mp3', magic: 'magi.mp3', defence: 'forsvar.mp3',
@@ -8,14 +10,63 @@ export const SOUND_FILES = Object.freeze({
   matchLost: 'forlorad-match.mp3', matchWon: 'vunnen-match.mp3'
 });
 
-export function resultEffect(match, playerId) {
-  if (match.phase === PHASE.over && match.winner) return match.winner === playerId ? 'matchWon' : 'matchLost';
-  const r = match.lastResult;
-  if (match.phase !== PHASE.result || !r) return null;
-  if (r.life[playerId] < r.startLife[playerId]) return 'lifeLost';
-  const winner = r.defended ? r.defender : r.attacker;
-  return winner === playerId ? 'battleWon' : null;
+/* ---- Ljud ur serverbekräftade händelser (arbetsordning L19) ----
+   Effekter spelas bara för händelser som är nya för sidan, högst en gång per händelse-ID. Historik – det som
+   fanns när sidan laddades eller hämtades efter en återanslutning – är tyst. */
+
+/* Händelsevakt: släpper igenom varje händelse högst en gång (per match, i stigande händelse-ID). */
+export function skapaHandelsevakt() {
+  let matchId = null;
+  let senast = 0;
+  return {
+    /* Vyn som redan visas är historik: inget före dess `lastEventId` spelas upp. */
+    historik(view) {
+      if (view.matchId !== matchId) { matchId = view.matchId; senast = 0; }
+      senast = Math.max(senast, view.lastEventId ?? 0);
+    },
+    /* De händelser som inte setts förut, i ordning. */
+    nya(events) {
+      const ut = [];
+      for (const e of events) {
+        if (e.matchId !== matchId) { matchId = e.matchId; senast = 0; }
+        if (e.eventId > senast) { ut.push(e); senast = e.eventId; }
+      }
+      return ut;
+    }
+  };
 }
+
+/* Direkta ljud: spelade kort (anfall, magi, försvar), byten och påfyllning. */
+export function handelseljud(events) {
+  const ljud = [];
+  for (const e of events) {
+    if (e.type === EVENT.cardPlayed) ljud.push('card', e.data.role === 'attack' ? (e.data.usage !== USAGE.simple && e.data.cardType === 'magic' ? 'magic' : 'attack') : 'defence');
+    if ((e.type === EVENT.swap && e.data.count > 0) || e.type === EVENT.refill) ljud.push('shuffle');
+  }
+  return ljud;
+}
+
+/* Resultatljudet för en följd nya händelser, sett från `jag` i laget `lag` (i duellen är lag = plats).
+   Matchslut går före stridsresultat. Egen livsförlust och lagets vunna strid skiljs åt; ett avbrutet
+   resultat, en lagkamrats utslagning eller avhopp och en match utan vinnare ger inget ljud. */
+export function resultatljud(events, { jag, lag = jag }) {
+  const slut = events.findLast(e => e.type === EVENT.matchOver);
+  if (slut) {
+    const vinnare = 'winnerTeam' in slut.data ? slut.data.winnerTeam : slut.data.winner;
+    return vinnare ? (vinnare === lag ? 'matchWon' : 'matchLost') : null;
+  }
+  const r = events.findLast(e => e.type === EVENT.result)?.data;
+  if (!r) return null;
+  if (r.lifeDelta) {   // lagmatch
+    if (r.outcome === TEAM_OUTCOME.aborted) return null;
+    if ((r.lifeDelta[jag] ?? 0) < 0) return 'lifeLost';
+    const vann = r.outcome === TEAM_OUTCOME.hit ? r.attackingTeam : r.attackingTeam === 'A' ? 'B' : 'A';
+    return vann === lag ? 'battleWon' : null;
+  }
+  if (r.life[jag] < r.startLife[jag]) return 'lifeLost';   // duell
+  return (r.defended ? r.defender : r.attacker) === jag ? 'battleWon' : null;
+}
+
 const STORAGE_KEY = 'tornstriden-ljud-v1';
 const volume = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
 
@@ -109,6 +160,8 @@ export class GameAudio {
   }
 
   playEffect(name) {
+    /* Varje begärt effektljud går att iaktta i webbläsaren (prov L19), även när ljudet är av eller inte laddats. */
+    globalThis.dispatchEvent?.(new CustomEvent('tornstriden:ljud', { detail: name }));
     // Ljud som ännu inte laddats köas inte: ett gammalt anfall får inte höras senare.
     const finale = name === 'matchWon' || name === 'matchLost';
     if (!this.audible || (!this.playing && !finale) || !this.effectsVolume || !this.buffers.has(name)) return;

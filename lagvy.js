@@ -17,7 +17,7 @@ import { PROTOCOL_VERSION, CONNECTION, TEAM_FORMAT } from './kontrakt.js';
 
 export const LAG_FORMAT = TEAM_FORMAT;
 /* Samma typer som duellen där det går, plus lagmatchens egna. */
-export const LAG_EVENT = Object.freeze({ ...EVENT, confirm: 'BEKRÄFTELSE', target: 'MÅLVAL', eliminated: 'UTSLAGEN' });
+export const LAG_EVENT = Object.freeze({ ...EVENT, confirm: 'BEKRÄFTELSE', target: 'MÅLVAL' });
 
 const PAGAR = [LAG_FAS.swap, LAG_FAS.start, LAG_FAS.target, LAG_FAS.attack, LAG_FAS.defence, LAG_FAS.result];
 const kortTyp = cardId => cards.find(card => card.id === cardId)?.type ?? null;

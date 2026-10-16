@@ -305,16 +305,24 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
   }
 
   /* Det en spelare ser: eget rum (om något), inkommande öppna inbjudningar och – som värd – utgående. */
+  function vyI(ops, playerId) {
+    const session = ops.hamtaSession(playerId);
+    if (!levande(session)) return { rum: null, inbjudningar: { inkommande: [], utgaende: [] } };
+    const nick = id => ops.hamtaSession(id)?.nick ?? null;
+    const rum = session.roomId ? ops.hamtaRum(session.roomId) : null;
+    const inkommande = ops.listaInbjudningar({ toPlayerId: playerId, status: INVITATION.pending }).map(inv => ({ id: inv.id, roomId: inv.roomId, from: { playerId: inv.fromPlayerId, nick: nick(inv.fromPlayerId) }, expiresAt: inv.expiresAt }));
+    const utgaende = rum && rum.hostPlayerId === playerId ? ops.listaInbjudningar({ roomId: rum.id, status: INVITATION.pending }).map(inv => ({ id: inv.id, to: { playerId: inv.toPlayerId, nick: nick(inv.toPlayerId) }, expiresAt: inv.expiresAt })) : [];
+    return { rum: rum ? validateRoom(rum) : null, start: rum && rum.status === ROOM.preparing ? startkontroll(rum) : null, inbjudningar: { inkommande, utgaende } };
+  }
   function vyFor(playerId) {
+    return lagring.transaktion(ops => { markeraUtgangna(ops); return vyI(ops, playerId); });
+  }
+  /* Vyerna för många spelare på en gång (utskicket till alla strömmar, L20): en transaktion och en
+     genomgång av utgångna inbjudningar i stället för en per spelare. */
+  function vyerFor(playerIds) {
     return lagring.transaktion(ops => {
-      const session = ops.hamtaSession(playerId);
-      if (!levande(session)) return { rum: null, inbjudningar: { inkommande: [], utgaende: [] } };
       markeraUtgangna(ops);
-      const nick = id => ops.hamtaSession(id)?.nick ?? null;
-      const rum = session.roomId ? ops.hamtaRum(session.roomId) : null;
-      const inkommande = ops.listaInbjudningar({ toPlayerId: playerId, status: INVITATION.pending }).map(inv => ({ id: inv.id, roomId: inv.roomId, from: { playerId: inv.fromPlayerId, nick: nick(inv.fromPlayerId) }, expiresAt: inv.expiresAt }));
-      const utgaende = rum && rum.hostPlayerId === playerId ? ops.listaInbjudningar({ roomId: rum.id, status: INVITATION.pending }).map(inv => ({ id: inv.id, to: { playerId: inv.toPlayerId, nick: nick(inv.toPlayerId) }, expiresAt: inv.expiresAt })) : [];
-      return { rum: rum ? validateRoom(rum) : null, start: rum && rum.status === ROOM.preparing ? startkontroll(rum) : null, inbjudningar: { inkommande, utgaende } };
+      return new Map([...new Set(playerIds)].map(id => [id, vyI(ops, id)]));
     });
   }
 
@@ -372,7 +380,7 @@ export function skapaRumshantering({ lagring, klocka, ko, logg = { warn() {} } }
   }
 
   return {
-    skapa, bjudIn, acceptera, avboj, aterkalla, lamna, valjLag, redo, starta, startkontroll, registreraMotor, markeraMatchAvslutad, markeraAnslutning, vyFor, stada, aterstall, registrera,
+    skapa, bjudIn, acceptera, avboj, aterkalla, lamna, valjLag, redo, starta, startkontroll, registreraMotor, markeraMatchAvslutad, markeraAnslutning, vyFor, vyerFor, stada, aterstall, registrera,
     markeraUtgangna: () => lagring.transaktion(markeraUtgangna),
     pa: fn => { vidAndring = fn; },
     timers: () => timers.size,

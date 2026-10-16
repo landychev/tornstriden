@@ -226,3 +226,33 @@ test('Anslutning (L17): drag spärras medan strömmen är borta, ping besvaras m
   klocka.advance(60_000);
   assert.equal(strommar.length, 2);
 });
+
+test('L19: historik efter (åter)anslutning levereras utan händelser; nya händelser levereras en gång', async () => {
+  const klocka = styrdKlocka();
+  const handelse = n => ({ eventId: n, matchId: 'm1', revision: n, type: 'KORT_SPELAT', at: n, data: {}, recipient: null });
+  let serverlage = 3;   // det servern har när sidan hämtar efter en anslutning
+  const adapter = skapaOnlineMatch({ initial: { view: vy() }, klocka, fetchFn: async path => {
+    if (!path.startsWith('/api/match')) return svar(204, null);
+    const efter = Number(new URL(path, 'http://x').searchParams.get('efterEventId'));
+    return svar(200, { view: vy({ revision: serverlage, lastEventId: serverlage }), events: Array.from({ length: serverlage - efter }, (_, i) => handelse(efter + i + 1)) });
+  } });
+  const levererat = [];
+  adapter.subscribe((view, events) => levererat.push({ lastEventId: view.lastEventId, events: events.map(e => e.eventId) }));
+  const { FalskStrom, strommar } = skapaStromfabrik();
+  adapter.connect(FalskStrom);
+  strommar[0].skicka('halsa', halsa);
+  await new Promise(setImmediate); await new Promise(setImmediate);
+  assert.deepEqual(levererat.at(-1), { lastEventId: 3, events: [] }, 'det som hänt före anslutningen är tyst');
+  /* Live: en ny händelse via strömmen – en gång, även om samma vy kommer igen. */
+  strommar[0].skicka('match', { view: vy({ revision: 4, lastEventId: 4 }), events: [handelse(4)] });
+  strommar[0].skicka('match', { view: vy({ revision: 4, lastEventId: 4 }), events: [handelse(4)] });
+  assert.deepEqual(levererat.filter(l => l.events.length).map(l => l.events), [[4]]);
+  /* Avbrott: 5–7 händer medan sidan är borta. Återkomsten hämtar dem tyst; därefter är 8 ny. */
+  strommar[0].fel(false);
+  serverlage = 7;
+  strommar[0].skicka('halsa', halsa);
+  await new Promise(setImmediate); await new Promise(setImmediate);
+  assert.deepEqual(levererat.at(-1), { lastEventId: 7, events: [] }, 'historiken från avbrottet spelas inte upp');
+  strommar[0].skicka('match', { view: vy({ revision: 8, lastEventId: 8 }), events: [handelse(7), handelse(8)] });
+  assert.deepEqual(levererat.at(-1), { lastEventId: 8, events: [8] });
+});

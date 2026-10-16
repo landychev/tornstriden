@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GameAudio, resultEffect } from './ljud.js';
-import { PHASE } from './match.js';
+import { GameAudio, skapaHandelsevakt, handelseljud, resultatljud } from './ljud.js';
+import { EVENT } from './lokalmatch.js';
+import { USAGE } from './matchregler.js';
+import { ELIMINATION, TEAM_OUTCOME } from './kontrakt.js';
 
 function setup({ saved = null, fetchAsset } = {}) {
   const storage = { value: saved, getItem() { return this.value; }, setItem(key, value) { this.value = value; } };
@@ -115,34 +117,55 @@ test('Saknade ljud, trasiga inställningar och otillgänglig lagring stoppar int
 });
 
 
-test('Resultatljud skiljer på träff, lyckat försvar, stoppat anfall och motstöt', () => {
-  const match = { phase: PHASE.result, lastResult: {
-    attacker: 'A', defender: 'B', defended: false,
-    startLife: { A: 3, B: 3 }, life: { A: 3, B: 2 }
-  } };
-  assert.equal(resultEffect(match, 'A'), 'battleWon');
-  assert.equal(resultEffect(match, 'B'), 'lifeLost');
-  match.lastResult.defended = true;
-  match.lastResult.life.B = 3;
-  assert.equal(resultEffect(match, 'A'), null);
-  assert.equal(resultEffect(match, 'B'), 'battleWon');
-  match.lastResult.life.A = 2;
-  assert.equal(resultEffect(match, 'A'), 'lifeLost');
-  assert.equal(resultEffect(match, 'B'), 'battleWon');
-  match.phase = PHASE.attack;
-  assert.equal(resultEffect(match, 'A'), null);
+/* ---- L19: ljud ur serverbekräftade händelser ---- */
+let id = 0;
+const h = (type, data = {}, matchId = 'm1') => ({ eventId: ++id, matchId, revision: 1, type, at: 1, data, recipient: null });
+
+test('Duellens resultatljud ur händelser: träff, lyckat försvar, motstöt; matchslut går före stridsljudet', () => {
+  const strid = (defended, life) => h(EVENT.result, { battleNumber: 1, attacker: 'A', defender: 'B', defended, startLife: { A: 3, B: 3 }, life });
+  assert.deepEqual(['A', 'B'].map(jag => resultatljud([strid(false, { A: 3, B: 2 })], { jag })), ['battleWon', 'lifeLost']);
+  assert.deepEqual(['A', 'B'].map(jag => resultatljud([strid(true, { A: 3, B: 3 })], { jag })), [null, 'battleWon']);
+  assert.deepEqual(['A', 'B'].map(jag => resultatljud([strid(true, { A: 2, B: 3 })], { jag })), ['lifeLost', 'battleWon'], 'motstöt');
+  const slut = [strid(false, { A: 3, B: 0 }), h(EVENT.matchOver, { winner: 'A', endReason: 'TORN_FALLET' })];
+  assert.deepEqual(['A', 'B'].map(jag => resultatljud(slut, { jag })), ['matchWon', 'matchLost']);
+  assert.equal(resultatljud([h(EVENT.matchOver, { winner: null, endReason: 'SERVERAVBROTT' })], { jag: 'A' }), null, 'ingen vinnare: inget slutljud');
+  assert.equal(resultatljud([], { jag: 'A' }), null, 'inga nya händelser (historik): tyst');
 });
 
-test('Matchslut ersätter stridsljudet, även vid uppgiven match med äldre stridsresultat', () => {
-  const match = { phase: PHASE.over, winner: 'A', lastResult: {
-    attacker: 'A', defender: 'B', defended: false,
-    startLife: { A: 3, B: 1 }, life: { A: 3, B: 0 }
-  } };
-  assert.equal(resultEffect(match, 'A'), 'matchWon');
-  assert.equal(resultEffect(match, 'B'), 'matchLost');
-  match.winner = 'B';
-  assert.equal(resultEffect(match, 'A'), 'matchLost');
-  assert.equal(resultEffect(match, 'B'), 'matchWon');
+test('Lagmatchens resultatljud: egen livsförlust, lagets vunna strid och lagets matchresultat skiljs åt; en lagkamrats avhopp ger inget förlustljud', () => {
+  const strid = (outcome, lifeDelta) => h(EVENT.result, { battleNumber: 2, attackingTeam: 'A', target: 'b1', outcome, lifeDelta, life: {}, startLife: {}, eliminated: [] });
+  const traff = [strid(TEAM_OUTCOME.hit, { b1: -2 })];
+  assert.equal(resultatljud(traff, { jag: 'b1', lag: 'B' }), 'lifeLost', 'egen livsförlust');
+  assert.equal(resultatljud(traff, { jag: 'b2', lag: 'B' }), null, 'lagkamratens livsförlust är inte min');
+  assert.equal(resultatljud(traff, { jag: 'a2', lag: 'A' }), 'battleWon', 'lagets vunna strid, även för den som inte spelade');
+  assert.equal(resultatljud([strid(TEAM_OUTCOME.held, { a1: -1 })], { jag: 'b2', lag: 'B' }), 'battleWon', 'försvaret höll');
+  assert.equal(resultatljud([strid(TEAM_OUTCOME.aborted, {})], { jag: 'b2', lag: 'B' }), null, 'avbruten strid (måltavlan lämnade)');
+  /* Lagkamraten lämnar: utslagen, laget spelar vidare – inget ljud alls. */
+  const avhopp = [h(EVENT.surrender, { playerId: 'a2' }), h(EVENT.eliminated, { playerId: 'a2', reason: ELIMINATION.left })];
+  assert.equal(resultatljud(avhopp, { jag: 'a1', lag: 'A' }), null);
+  assert.deepEqual(handelseljud(avhopp), []);
+  /* Lagets förlust hörs bara när servern meddelar matchslut. */
+  const slut = [...avhopp, h(EVENT.matchOver, { winnerTeam: 'B', endReason: 'LAG_UTSLAGET' })];
+  assert.deepEqual([resultatljud(slut, { jag: 'a1', lag: 'A' }), resultatljud(slut, { jag: 'b1', lag: 'B' })], ['matchLost', 'matchWon']);
+  assert.equal(resultatljud([h(EVENT.matchOver, { winnerTeam: null, endReason: 'SERVERAVBROTT' })], { jag: 'a1', lag: 'A' }), null);
+});
+
+test('Direkta ljud: kortspel (anfall, magi, enkel attack, försvar), byte och påfyllning', () => {
+  const kort = (role, cardType, usage = USAGE.normal) => h(EVENT.cardPlayed, { role, cardType, usage });
+  assert.deepEqual(handelseljud([kort('attack', 'attack'), kort('attack', 'magic'), kort('attack', 'magic', USAGE.simple), kort('defence', 'defence')]), ['card', 'attack', 'card', 'magic', 'card', 'attack', 'card', 'defence']);
+  assert.deepEqual(handelseljud([h(EVENT.swap, { count: 0 }), h(EVENT.swap, { count: 2 }), h(EVENT.refill, { count: 5 }), h(EVENT.log, { text: 'x' })]), ['shuffle', 'shuffle']);
+});
+
+test('Händelsevakten: varje händelse högst en gång, historiken är tyst och en ny match börjar om', () => {
+  const vakt = skapaHandelsevakt();
+  vakt.historik({ matchId: 'm1', lastEventId: 5 });
+  const e = n => ({ eventId: n, matchId: 'm1', type: EVENT.log, data: {} });
+  assert.deepEqual(vakt.nya([e(4), e(5)]).map(x => x.eventId), [], 'det som fanns vid sidladdningen');
+  assert.deepEqual(vakt.nya([e(6), e(7)]).map(x => x.eventId), [6, 7]);
+  assert.deepEqual(vakt.nya([e(7), e(6), e(8)]).map(x => x.eventId), [8], 'samma händelse två gånger (ström och hämtning) spelas en gång');
+  vakt.historik({ matchId: 'm1', lastEventId: 20 });   // återanslutning: 9–20 hände medan sidan var borta
+  assert.deepEqual(vakt.nya([e(12), e(21)]).map(x => x.eventId), [21]);
+  assert.deepEqual(vakt.nya([{ eventId: 1, matchId: 'm2', type: EVENT.log, data: {} }]).map(x => x.eventId), [1], 'ny match (lokalt) börjar om på 1');
 });
 
 test('Slutljud fungerar efter att musiken stannat och följer av/på, volym och flikbyte', async () => {

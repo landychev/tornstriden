@@ -670,6 +670,63 @@ test('Avbrott över HTTP: en ström som stängs strax före turtidens slut skydd
   await flikar.A.stang(); await flikar.B.stang();
 }));
 
+test('Utskick (L20): ett matchdrag skickar inte lobbyn till alla igen, och bara matchens strömmar får matchvyn; matchslutet når lobbyn', () => medServer(async ({ url }) => {
+  const [anna, bo, cy] = [klient(url), klient(url), klient(url)];
+  const id = {};
+  for (const [k, nick] of [[anna, 'Anna'], [bo, 'Bo'], [cy, 'Cy']]) id[nick] = (await k.call('/api/session', { method: 'POST', body: { nick } })).body.me.playerId;
+  const [flikA, flikB, flikC] = [await strom(url, anna.cookie()), await strom(url, bo.cookie()), await strom(url, cy.cookie())];
+  await flikC.vanta('lobby');
+  let n = 0;
+  const kommando = (k, type, extra = {}) => k.call('/api/kommando', { method: 'POST', body: { protocolVersion: 1, commandId: `u${++n}`, type, payload: {}, ...extra } });
+  await kommando(anna, 'SKAPA_RUM');
+  const roomId = (await anna.call('/api/lobby')).body.rum.id;
+  await kommando(anna, 'BJUD_IN', { roomId, payload: { playerIds: [id.Bo] } });
+  await kommando(bo, 'ACCEPTERA', { payload: { invitationId: (await bo.call('/api/lobby')).body.inbjudningar.inkommande[0].id } });
+  await kommando(anna, 'VÄLJ_LAG', { roomId, payload: { teamId: 'A' } });
+  await kommando(bo, 'VÄLJ_LAG', { roomId, payload: { teamId: 'B' } });
+  const v = (await bo.call('/api/lobby')).body.rum.rosterVersion;
+  for (const k of [anna, bo]) await kommando(k, 'REDO', { roomId, payload: { ready: true, rosterVersion: v } });
+  assert.equal((await kommando(anna, 'STARTA', { roomId, payload: { rosterVersion: v } })).body.status, 'GODKÄND');
+  await flikA.vanta('match'); await flikB.vanta('match');
+  await new Promise(r => setTimeout(r, 30));
+  const lobbyFore = flikC.events.filter(e => e.event === 'lobby').length;
+  /* Byten och startbekräftelser: matchens två strömmar får vyer; Cy i lobbyn får varken lobby eller match. */
+  for (const k of [anna, bo, anna, bo]) { const m = (await k.call('/api/match')).body.view; assert.equal((await kommando(k, 'BEKRÄFTA_BYTE', { matchId: m.matchId, revision: m.revision, payload: { cards: [] } })).body.status, 'GODKÄND'); }
+  for (const k of [anna, bo]) { const m = (await k.call('/api/match')).body.view; await kommando(k, 'BEKRÄFTA_START', { matchId: m.matchId, revision: m.revision }); }
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(flikC.events.filter(e => e.event === 'lobby').length, lobbyFore, 'oförändrad lobby skickas inte igen');
+  assert.equal(flikC.events.filter(e => e.event === 'match').length, 0, 'den som inte spelar får ingen matchvy');
+  assert.ok(flikA.events.filter(e => e.event === 'match').length >= 6 && flikB.events.filter(e => e.event === 'match').length >= 6);
+  /* Matchslut (Ge upp) ändrar lobbylistan: nu får alla den nya lobbyn. */
+  const m = (await anna.call('/api/match')).body.view;
+  assert.equal((await kommando(anna, 'GE_UPP', { matchId: m.matchId, revision: m.revision })).body.status, 'GODKÄND');
+  await new Promise(r => setTimeout(r, 30));
+  const senaste = flikC.events.filter(e => e.event === 'lobby').at(-1).data;
+  assert.ok(flikC.events.filter(e => e.event === 'lobby').length > lobbyFore, 'matchslutet syns i lobbyn');
+  assert.deepEqual(['Anna', 'Bo'].map(nick => senaste.players.find(p => p.nick === nick).activity), ['FÖLJER_AVSLUT', 'FÖLJER_AVSLUT']);
+  for (const f of [flikA, flikB, flikC]) await f.stang();
+}));
+
+test('Utskick (L20): kommandotypen avgör utskicket – en inbjudan med ett extra matchId når ändå mottagaren', () => medServer(async ({ url }) => {
+  const [anna, bo] = [klient(url), klient(url)];
+  const id = {};
+  for (const [k, nick] of [[anna, 'Anna'], [bo, 'Bo']]) id[nick] = (await k.call('/api/session', { method: 'POST', body: { nick } })).body.me.playerId;
+  const flikB = await strom(url, bo.cookie());
+  await flikB.vanta('lobby');
+  const kommando = (k, type, extra = {}) => k.call('/api/kommando', { method: 'POST', body: { protocolVersion: 1, commandId: `x${type}`, type, payload: {}, ...extra } });
+  await kommando(anna, 'SKAPA_RUM');
+  const roomId = (await anna.call('/api/lobby')).body.rum.id;
+  await new Promise(r => setTimeout(r, 30));
+  const fore = flikB.events.filter(e => e.event === 'lobby').length;
+  const svar = await kommando(anna, 'BJUD_IN', { roomId, matchId: 'm-finns-inte', payload: { playerIds: [id.Bo] } });
+  assert.equal(svar.body.status, 'GODKÄND');
+  const inbjudan = await flikB.vanta('lobby', fore + 1);
+  assert.equal(inbjudan?.inbjudningar?.inkommande?.length, 1, 'Bo ser inbjudan direkt');
+  /* Kvittensen hör till rummet, inte till det påhittade matchId:t. */
+  assert.equal((await anna.call(`/api/status?commandId=xBJUD_IN&scope=${encodeURIComponent(`rum:${roomId}`)}`)).body.status, 'GODKÄND');
+  await flikB.stang();
+}));
+
 /* ---- L14: lagmatch över HTTP ---- */
 
 /* En testklients val ur sin egen vy (lagmatch): byt inget, välj mål, spela eller avstå. */

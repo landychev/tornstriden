@@ -26,7 +26,8 @@ export function skapaTjanst({ lagring, klocka = systemklocka, slump = Math.rando
      som en strömbrytare (t.ex. för underhåll); den stänger matchkommandon och nya starter, inte lobbyn. */
   const matchtrafik = { oppen: true, orsak: null };
 
-  const scopeOf = (playerId, command) => command.matchId ? `match:${command.matchId}` : command.roomId ? `rum:${command.roomId}` : `spelare:${playerId}`;
+  /* Kön och kvittensen följer kommandotypen: ett lobbykommando med ett extra matchId hör ändå till rummet (L20). */
+  const scopeOf = (playerId, command) => isMatchCommand(command.type) ? `match:${command.matchId}` : command.roomId ? `rum:${command.roomId}` : `spelare:${playerId}`;
   const kvittens = (commandId, status, message, extra = {}) => validateReceipt({ commandId, status, message, revision: null, roomRevision: null, eventId: null, fingerprint: null, ...extra });
 
   async function kommando(playerId, raw) {

@@ -1,6 +1,6 @@
 # Arbetsordning för AI-agent – lobby och onlinespel
 
-Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L18 klara 2026-10-15 – etapp 1–4 är klara; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare och en serveromstart avbryter pågående matcher utan vinnare. L19 (ljud, animationer och tydliga besked) är nästa.
+Status: L00–L15 klara 2026-10-14 (granskningsfelen R01–R06 och de sex bristerna från granskningen av L10–L15 rättade), L16–L19 klara 2026-10-15, L20 klar 2026-10-16 (efter rättning av tre granskningspunkter) – etapp 1–5 är klara och etapp 6 påbörjad; separata webbläsare kan spela lagmatcher för 4/6/8 med egen vy för varje deltagare, varje väntande val har 90 sekunders spelarklocka, ett personligt nätavbrott ger 30/90 sekunders återanslutningsfrist medan de andra spelar vidare, en serveromstart avbryter pågående matcher utan vinnare, ljud och animationer följer serverns händelser – en gång per händelse och tyst för historiken – och hela flödet är provat med 2/4/6/8 separata webbläsare och mot kapacitetsmålet 10 matcher med 80 anslutningar (`TESTBEVIS.md`). L21 (publiceringspaket och driftinstruktion) är nästa.
 Skapad: 2026-10-13.
 Projekt: `/Users/landy/Documents/Claude/Projects/kort-spel/tornstriden`.
 Regelunderlag: [implementera lobby.md](<implementera lobby.md>), beslut 1–27.
@@ -79,8 +79,8 @@ Aktuell status för varje uppgift anges i tabellen nedan. Beroenden anger lägst
 | L16 | Spelarklockor och gemensamma bekräftelser | L14, L15 | Klar 2026-10-15 |
 | L17 | Återanslutning med fortsatt spel | L16 | Klar 2026-10-15 |
 | L18 | Matchavbrott vid serveromstart | L02, L14, L17 | Klar 2026-10-15 |
-| L19 | Ljud, animationer och tydliga besked | L15–L18 | Ej startad |
-| L20 | Samlat flödes- och belastningstest | L03–L19 | Ej startad |
+| L19 | Ljud, animationer och tydliga besked | L15–L18 | Klar 2026-10-15 |
+| L20 | Samlat flödes- och belastningstest | L03–L19 | Klar 2026-10-16 |
 | L21 | Publiceringspaket och driftinstruktion | L20 | Ej startad |
 | L22 | Beställd lansering och driftkontroll | L21 samt aktuell beställning av lansering | Ej startad |
 
@@ -1127,4 +1127,189 @@ Inte verifierat / återstående fel: en omladdning under den sista 3 s av turtid
 Tekniska val och eventuella användarsvar: nåden behålls för omladdningar. Den behöver bara ge vika när turklockan annars skulle gå ut innan avbrottet hinner registreras.
 Beroenden som nu är klara: L00–L18.
 Rekommenderad nästa uppgift: L19 – Ljud, animationer och tydliga besked.
+Commit: ingen.
+
+Uppgift och datum: L19 – Ljud, animationer och tydliga besked, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- `ljud.js`: återkopplingen kommer ur händelser i stället för ur vyns läge.
+  - `skapaHandelsevakt()`: varje händelse högst en gång per match, i stigande händelse-ID. Det som fanns vid sidladdningen markeras som historik.
+  - `handelseljud(händelser)`: kortspel (kort plus anfall, magi eller försvar), byte och påfyllning.
+  - `resultatljud(händelser, {jag, lag})`: ersätter den vybaserade `resultEffect`. Matchslut går före stridsresultat. Egen livsförlust och lagets vunna strid skiljs åt. En avbruten strid, en lagkamrats utslagning eller avhopp och en match utan vinnare ger inget.
+  - `playEffect` skickar fönsterhändelsen `tornstriden:ljud` för varje begärt ljud, så att prov kan räkna dem.
+- `onlinematch.js`: vyn som hämtas efter en (åter)anslutning, eller medan strömmen är borta, levereras utan händelser. Historiken från ett avbrott spelas alltså aldrig upp.
+- `matchvy.js` (duell online, mot datorn och två spelare vid samma skärm):
+  - Ljud ur nya händelser.
+  - Tornens skakning och glöd samt brustna hjärtan bara för ett resultat som kom som ny händelse. Hjärtana brister strax efter händelsen och skrivs bara om när de ändrats; tidigare bröts de om vid varje ny ritning och vid omladdning.
+  - Utdelningsljudet en gång per match och flik.
+  - Bytets kortflygning bara när kvittensen gäller det senaste läget.
+- `lagmatchvy.js`:
+  - Ljud ur nya händelser.
+  - Brustna hjärtan på de torn som förlorade liv i en ny strid. Tornen skrivs bara om när de ändrats.
+  - Besked om vem som slogs ut utanför en strid och varför ("Cy lämnade matchen.").
+- `lokalmatch.js`: `EVENT.eliminated` (`UTSLAGEN`) delas med lagvyn. `lagvy.js` definierar den inte längre separat.
+- Tester:
+  - `ljud.test.js`: resultatljud för duell och lagmatch, direkta ljud och händelsevakten. Ersätter de gamla `resultEffect`-proven.
+  - `onlinematch.test.js`: tyst historik efter anslutning och efter avbrott, och en händelse som kommer två gånger levereras en gång.
+- Nytt prov: `scripts/prova-aterkoppling.mjs`.
+- `KONTRAKT.md` (avsnittet "Ljud, animationer och besked"), `README.md`.
+Verifiering (bara tester som rör uppgiften):
+- `ljud.test.js`, `onlinematch.test.js`, `klientfiler.test.js`, `lagvy.test.js`, `lokalmatch.test.js`, `online/lagspel.test.js`, `online/duell.test.js`: **47/47**.
+- Det nya `onlinematch`-provet faller mot adaptern före ändringen, som spelade upp avbrottets historik.
+- `scripts/prova-aterkoppling.mjs` **24/24** (Chromium, styrd serverklocka, drag via HTTP och via sidornas egna knappar):
+  - Duell: byte, anfallskort och resultat ger sitt ljud en gång hos rätt spelare. Tornet skakar och hjärtat brister, också hos den som själv avgjorde striden. En senare ritning bryter inte hjärtat igen.
+  - Omladdning mitt i bytena och i resultatläget är tyst och utan animation.
+  - Ljudinställningen sparas över omladdning, och långtryck öppnar kortet.
+  - Lagmatch med fyra: måltavlan hör livsförlust och dess lagkamrat inget. Det anfallande laget hör vunnen strid, och hjärtat brister hos alla. Omladdning är tyst.
+  - När en lagkamrat lämnar hörs inget, och beskedet "Cy lämnade matchen." visas. Matchvinst och matchförlust hörs en gång, först vid matchslut. Omladdning efter matchslut är tyst.
+  - Lokalt mot datorn stämmer resultatljudet med striden.
+  - Inga sid- eller konsolfel.
+- Samma prov mot de gamla vyerna (med bara ljudräkningen tillagd) gav 14/21. Där spelade omladdningen upp utdelning, livsförlust och matchvinst igen, hjärtat bröts om vid nästa ritning, lagvyn saknade hjärtanimation och beskedet om avhopp saknades. Att en lagkamrats avhopp är tyst gällde redan och är nu skyddat av provet.
+- `prova-match.mjs` (lokalt läge) 13/13 två gånger.
+- **Oberoende granskning:** en separat agent granskade ändringen mot kravtexten. Den hittade två fel, som båda är rättade:
+  - Hjärtats animation avbröts direkt hos den som själv avgjorde striden, eftersom kvittensen ritade om tornen. Nu skrivs tornen bara om när de ändrats.
+  - Tornet kunde skaka igen för en gammal strid när matchen senare tog slut utan ny strid (t.ex. Ge upp). Nu nollställs läget när en ny strid börjar.
+  - Den påpekade också att `send()` kunde hämta avbrottshistorik med ljud. Även den hämtningen är nu tyst när strömmen är borta.
+Inte verifierat / återstående fel:
+- Riktiga högtalare och mobiler är inte provade. Provet räknar begärda ljud (`tornstriden:ljud`), inte vad som hörs.
+- Ett besked om en lagkamrats avhopp kan skrivas över om ens eget drag godkänns i samma ögonblick. Tornet visar ändå orsaken.
+- Ett drag som görs under den korta hämtningen efter en återanslutning kan bli tyst. Den kan aldrig spelas två gånger.
+- "Gammal kvittens animerar inte" är provat i koden (revisionskontrollen före kortflygningen), inte i webbläsaren.
+Tekniska val och eventuella användarsvar:
+- **Effekterna kommer ur händelser, inte ur vyns läge.** Då kan historik vara tyst utan specialfall per sida.
+- **Egen utslagning har inget eget ljud.** Inga nya ljud skulle skapas. Livsförlusten hörs i striden, och utslagningen visas i text.
+- **Utdelningsljudet en gång per flik (sessionStorage).** Utan lagring blir det en gång per sidladdning.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L19.
+Rekommenderad nästa uppgift: L20 – Samlat flödes- och belastningstest.
+Commit: ingen.
+
+### L19 – rättning av granskningspunkt 1, 2026-10-15
+
+- Beställd omfattning: sen kvittens får inte starta en gammal bytesanimation.
+- `matchvy.js`: de markerade kortens kopior sparas medan bytet skickas. En ny `BYTE`-händelse med rätt match, spelare och revision startar flygningen och förbrukar kopiorna. Kvittensen startar ingen animation. Statuskontroll, anslutningsavbrott och avslutat kommando rensar väntande kopior.
+- `scripts/prova-aterkoppling.mjs`: tre nya kontroller för animation innan kvittensen, tappad kvittens som återhämtas utan ny animation samt vanligt byte med direkt kvittens. Det avsiktligt avbrutna kommandots nätverksfel undantas från testets konsolfel, endast under detta prov och för den aktuella adressen.
+- `KONTRAKT.md`: beskrivningen av bytesanimationen uppdaterad; enbart lika revision är inte längre skyddet.
+- Verifiering: `npm test` **273/273**. De tre nya webbläsarkontrollerna **3/3** i Chrome. Hela `prova-aterkoppling.mjs` **26/27**: den tidigare kontrollen av kvarvarande `just-lost`-klass fallerar fortfarande. Den kontrollen mäter inte om animationen faktiskt startats om.
+- `prova-match.mjs`: **9/10** kontroller före avbrott. Kortbyte, en hel datormatch och ny match fungerade; tvåspelarlägets fortsatta prov stoppades när `.game-view` blockerade klick på `#usage-simple`. Hela detta prov är alltså inte verifierat grönt.
+- Granskningspunkt 2 (upprepad hjärtanimation i lagmatch) ingår inte i denna rättning och kvarstår.
+- Ingen commit eller push utförd.
+
+### L19 – rättning av granskningspunkt 2, 2026-10-15
+
+- `lagmatchvy.js`: tornens DOM uppdateras på plats i lagets fasta platsordning. Ändrad statustext eller anslutningsstatus ersätter inte hjärtats nod, så en snabb Fortsätt-bekräftelse avbryter eller upprepar inte hjärtanimationen. Strukturändringar, till exempel valbar måltavla, hanteras fortfarande.
+- `scripts/prova-aterkoppling.mjs`: räknar faktiska `heart-break`-starter. Måltavlan och lagkamraten bekräftar inom 900 ms; samtliga fyra sidor kontrollerar en enda animationsstart, bevarad hjärtnod och uppdaterad statustext. Duellens tidigare tidsberoende kontroll av en kvarvarande CSS-klass har ersatts med kontroll av faktiska animationsstarter.
+- `KONTRAKT.md`: beskriver att hjärtats nod bevaras vid statusändringar.
+- Verifiering: `npm test` **273/273**; `prova-aterkoppling.mjs` **30/30** i Chrome. Det ursprungliga oberoende reproduktionsprovet registrerar nu en animationsstart både före och efter snabb bekräftelse, mot tidigare två.
+- Lagvyns regressionsprov `prova-lag.mjs 4`: **15/15**, inklusive riktat kortmålsprov och en hel fyrspelarmatch med 23 strider, målval, turbyten, mobilvy och korrekta slutresultat.
+- Ingen commit eller push utförd.
+
+### L20 – Samlat flödes- och belastningstest, 2026-10-15
+
+Uppgift och datum: L20 – Samlat flödes- och belastningstest, 2026-10-15
+Status: Klar
+Genomfört och ändrade filer:
+- **`TESTBEVIS.md` (ny):** alla 43 kontrollpunkter i huvudplan §13 och besluten 1–27 kopplade till prov, med körningarna, kapacitetsmätningen och kvarvarande fel. 41 punkter är verifierade, punkt 42 (verklig deploykopia) hör till L21/L22 och punkt 43 (riktiga enheter, NAS) är delvis klar.
+- **Nya prov:**
+  - `scripts/prova-helflode.mjs`: hela flödet nick → lobby → inbjudan → lagval → Redo → Starta → match → resultat → lobby via gränssnittet. Varje deltagare har en egen webbläsarkontext, och varannan är mobil (iPhone 13). Två matcher spelas samtidigt: duell + 8, sedan 4 + 6.
+    - Verkliga avbrott: offline i 25 s (8), hårt stängd webbläsare som ger 2 mot 3 (6), omladdning och en andra flik (4).
+    - Alla API-svar kontrolleras mot hemlighetsregeln.
+    - En vakt läser serverns deadline och fäller provet om en sida låter mer än halva turtiden gå.
+  - `scripts/prova-belastning.mjs`: 80 klienter med egna kakor och strömmar spelar 10 lagmatcher samtidigt mot en riktig serverprocess, med två matcher 1 mot 4, ett strömavbrott och ett tyst avbrott.
+    - Mätning: svarstider, utskick, ping, CPU och minne mot det dokumenterade målet.
+    - Läckkontroll per revision.
+    - Missbruk och gränser: statiska sökvägar, ursprung, storlek, påstådd identitet, främmande match, återanvänt commandId, skur av gamla drag, andras kvittens, flera strömmar, sessionstaket och token i loggen.
+  - `online/server.test.js`: nytt prov "Utskick (L20)".
+- **Rättat fel 1 – servern skickade för mycket vid varje drag** (`online/server.js`, `online/rum.js`):
+  - Felet: varje godkänt matchdrag skickade hela lobbyn till alla 80 strömmar, med en transaktion per spelare, och byggde matchvyer också för andra matchers spelare.
+  - Följden vid målet: svaren på ping dröjde upp till 16 s, och servern stängde 58 strömmar för anslutna spelare. 14 slogs ut av avbrottshanteringen.
+  - Rättning: ett drag går bara till den matchens strömmar som saknar senaste händelsen. Lobbyn skickas bara när spelarlistan ändrats, alla lobbyvyer byggs i en transaktion (`vyerFor`) och en ström får bara en lobbyvy som skiljer sig från den förra.
+- **Rättat fel 2 – duellbordet kunde bli oklickbart** (`matchvy.js`, `match.html`, `match.css`):
+  - Felet: turbeskedets glöd animerade `box-shadow` på själva bordet (`overflow: hidden`). Webbläsarens träffprov missade då ibland hela bordet, så "Enkel attack 1" och andra knappar på bordet inte gick att klicka (sett i Chromium; ett manuellt klick är inte provat). Samma fel har fått `prova-match.mjs` att falla sedan L15.
+  - Rättning: glöden ligger i ett eget lager under bordets innehåll och tonas in och ut. Den ser likadan ut.
+- `lobby.js`: lobbyn går direkt till rätt matchsida (lagmatch eller duell), ett sidbyte färre vid start.
+- Provskript:
+  - `prova-lobby.mjs`, `prova-online.mjs`, `prova-match.mjs` och `prova-regressioner.mjs` tar webbläsaren från `PLAYWRIGHT_EXECUTABLE`/`PLAYWRIGHT_CHANNEL`. Den hårdkodade sökvägen i `prova-regressioner.mjs` är borta.
+  - `prova-match.mjs`: klicket på bordets Fortsätt ger efter om resultatrutan öppnas samtidigt.
+- `KONTRAKT.md`: utskicket (bara matchens strömmar; lobbyn bara vid ändring), och nåden gäller sidbyten som ansluter inom 3 s. `README.md`: de nya proven.
+Verifiering (molnet, ett prov i taget, med L19-rättningarna från användarens dator inlästa):
+- `npm test` **274/274**.
+- `prova-helflode.mjs`: omgång 1 **13/13** och omgång 2 **12/12**. Ingen slogs ut på tid, och inget val dröjde mer än halva turtiden. Omgång 1 kördes före glödrättningen.
+- `prova-belastning.mjs` **33/33**, med alla mål uppfyllda:
+  - matchkommandon p95 101 ms och max 1,1 s;
+  - utskick p95 106 ms;
+  - minne 134 MB;
+  - 0 serverfel och 0 oväntat stängda strömmar.
+  - Före rättningen 30/33.
+- `prova-match.mjs` **13/13 i 8 av 8** körningar. Före glödrättningen föll 6 av 9 körningar. Med bara bordsanimationen bortkopplad föll 0 av 6.
+- `prova-online.mjs` 9/9, `prova-regressioner.mjs` 5/5, `prova-lobby.mjs` 24/24, `prova-lag.mjs` 4/6/8: 15/15, 18/18, 18/18, `prova-klockor.mjs` 26/26, `prova-avbrott.mjs` 21/21, `prova-omstart.mjs` 15/15.
+- `prova-aterkoppling.mjs`: 30/30 i 2 av 5 körningar. Annars faller bara tidsförutsättningen (två bekräftelser inom 900 ms); med servern från före L20 föll den 4 av 4.
+- Utskicksprovet faller mot koden före rättningen.
+- På användarens dator efter synkningen: `npm test` **274/274** (Node 22.23).
+- **Provets egna fel, rättade före slutkörningen:** den första versionen av helflödesprovet lät tre datorspelare slås ut på tid.
+  - Boten valde om i varje varv, så knappen ritades om och gungade hela tiden.
+  - Den agerade en sida i taget.
+  - Klickväntan var kortare än knappens gungning.
+  - Inget av detta var ett spelfel.
+Inte verifierat / återstående fel (detaljer i `TESTBEVIS.md`):
+- Kapaciteten är mätt i molnet, inte på NAS:en (görs i L21/L22 med samma skript). Riktiga telefoner och nät är inte provade.
+- 340 lobbykommandon på några sekunder ger p95 3–4 s.
+- Ett sidbyte som tar över 3 s vid matchstart blir ett kort avbrott. I helflödesprovet, med tio webbläsare på två kärnor, hände det vid varje start (3,7–5,5 s). Spelet påverkades inte, men "Frånkopplad" syntes en kort stund, och tiden drogs från budgeten.
+- Knappraden ritas om vid varje ny vy. En primärknapp börjar då om sin gungning, och tangentbordsfokus tappas när någon annan gör ett drag.
+Tekniska val och eventuella användarsvar:
+- **Kapacitetsmålet** 10 matcher med 80 anslutningar fick mätbara gränser:
+  - p95 ≤ 250 ms och max ≤ 2 s för matchkommandon;
+  - p95 ≤ 500 ms för utskick;
+  - ≤ 300 MB minne;
+  - inga 5xx, oväntade strömslut eller läckor.
+- **Nåden på 3 s behålls.** En längre nåd ändrar hur snabbt de andra ser ett verkligt avbrott och bör bestämmas efter provspel på riktiga telefoner. Förslaget är 5–8 s om korta startavbrott syns där.
+- **Knappraden ändras inte i L20.** `matchvy.js` och `lagmatchvy.js` rättas samtidigt i L19-granskningen. Förslaget, att bara skriva om knappraden när innehållet ändrats, står i `TESTBEVIS.md`.
+- Användaren valde "Fortsätt som planerat" när arbetstiden ifrågasattes; inga andra frågor behövdes.
+Beroenden som nu är klara: L00–L20.
+Rekommenderad nästa uppgift: L21 – Publiceringspaket och driftinstruktion.
+Commit: ingen.
+
+### L20 – rättning av tre granskningspunkter, 2026-10-16
+
+Uppgift och datum: L20 – rättning av användarens tre granskningspunkter, 2026-10-16
+Status: Klar
+Genomfört och ändrade filer:
+- **1. Godkända lobbyändringar kunde bli osynliga.**
+  - Felet: servern valde utskick efter om klienten skickat med ett `matchId`, inte efter kommandotypen. En inbjudan med ett extra `matchId` godkändes och sparades, men mottagaren fick inget besked.
+  - Rättning: `online/server.js` väljer utskick efter kommandotypen (`MATCH_COMMAND`). Ett godkänt matchkommando har ett prövat `matchId`; allt annat ger lobbyutskick. `online/tjanst.js` väljer kö och kvittensens scope efter typen på samma sätt, så att en inbjudan med extra `matchId` ligger i rummets kö (`rum:<roomId>`).
+  - Nytt prov: `online/server.test.js: Utskick (L20): kommandotypen avgör utskicket …`. Det faller mot koden före rättningen ("Bo ser inbjudan direkt").
+- **2. Minnesprovet kunde bli falskt godkänt.** Rättat i `scripts/prova-belastning.mjs`:
+  - Felet: mätningen läste bara `/proc`; på macOS misslyckades den tyst och gav 0 MB, godkänt.
+  - Mätningen tar nu `/proc` på Linux och `ps` (minne och CPU-tid) på andra system.
+  - Varje misslyckat mätprov medan servern lever räknas. Utan minst 10 mätvärden, eller med misslyckade prov, blir kontrollen "EJ VERIFIERAT" och provet faller.
+  - `TORNSTRIDEN_MATNING=proc|ps|ingen` väljer sätt för provning.
+- **3. Uteblivna utskick kunde döljas.** Rättat i `scripts/prova-belastning.mjs`:
+  - Nyckeln är händelse-ID ur kvittensen, inte revision, eftersom en bekräftelse ger ett nytt händelse-ID men samma revision.
+  - Varje godkänt drag räknas som levererat, släppt eller saknat. Släppt betyder att alla väntade mottagare lämnade matchen eller tappade strömmen avsiktligt. Saknade utskick när matchen är slut fäller provet.
+  - Alla anslutna måste ha fått matchens sista händelse över strömmen.
+  - Max ≤ 2 s gäller nu också utskick.
+  - En duell prövar att en bekräftelse når båda strömmarna inom 1 s utan att något annat händer.
+  - Även latensen för kommandon klassas nu efter kommandotyp, inte efter `matchId`.
+- `KONTRAKT.md`: utskick, kö och scope följer kommandotypen. `README.md`: mätningen på macOS. `TESTBEVIS.md`: körningarna, de nya godkännandegränserna och mutationsproven.
+Verifiering (molnet):
+- `npm test` **275/275**.
+- Det nya serverprovet faller mot koden före rättningen.
+- `prova-belastning.mjs` (10 × 8) **36/36** på den rättade koden:
+  - 3 673 av 3 673 godkända drag levererades till alla anslutna, 0 saknas;
+  - utskick p95 52 ms och max 366 ms;
+  - minne 137 MB ur 253 mätprov.
+- Mätvägarna: med `TORNSTRIDEN_MATNING=ps` godkändes minnet (78 MB, 81 prov). Med `=ingen` föll kontrollen med "EJ VERIFIERAT – 0 mätvärden".
+- Mutationsprov med felinjicerad server:
+  - **A, bekräftelser hålls kvar till nästa händelse:** det gamla provet gav 33/33. Det nya föll: bekräftelsen nådde inte fram inom 1 s. I en liten körning (2 × 2) blev även utskickens max 90 s.
+  - **B, en spelare per match får aldrig sista vyn:** det gamla provet föll bara indirekt, på 654 avvisade drag från en bot med gammal vy, och kraschade sedan innan sammanfattningen. Det nya föll direkt: "10 saknas" och "M1-A har 213, matchen 222". Det avslutades med 33/36.
+- Provet kraschar inte längre när en bot med gammal vy skickar drag efter att servern stängts. Botarna slutar agera, och ett misslyckat drag räknas som brist.
+Inte verifierat / återstående fel:
+- Mätvägen med `ps` är nu även verifierad på användarens Mac (lokal omkontroll 2026-10-16, Node 26.3.1): 284 mätvärden utan fel, högst 194 MB. `npm test` passerade 275/275 och belastningsprovet 36/36 med 10 matcher och 80 anslutningar; 3 784 av 3 784 uppmätta utskick levererades, p95 13 ms och max 25 ms. Inbjudan med extra `matchId` nådde mottagaren direkt även i ett separat omprov. Se `TESTBEVIS.md`.
+- Övrigt som i L20-överlämningen och `TESTBEVIS.md`.
+Tekniska val och eventuella användarsvar:
+- **Kommandotypen avgör.** Ett lobbykommando med ett extra `matchId` avvisas inte. Fältet saknar betydelse för lobbykommandon, och det enklaste skyddet är att aldrig läsa det där.
+- **"Släppt" i stället för "levererat".** När alla väntade mottagare lämnade eller tappade strömmen avsiktligt räknas utskicket som släppt. Det hindrar att avsiktliga avbrott syns som falska fel. Oavsiktliga strömslut fäller provet för sig.
+- Inga användarfrågor behövdes.
+Beroenden som nu är klara: L00–L20.
+Rekommenderad nästa uppgift: L21 – Publiceringspaket och driftinstruktion.
 Commit: ingen.

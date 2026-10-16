@@ -11,6 +11,11 @@
 .compact-match .turn-feedback[data-tone='defence'] { background: #1b3045f5; color: #d5edff; border-color: #86b8e3; }
 .compact-match .turn-feedback small { display: block; font-size: 10px; font-weight: 400; letter-spacing: .1em; margin-bottom: 3px; }
 @media (max-width: 680px) { .compact-match .turn-feedback { font-size: 14px; padding: 8px 14px; } }
+/* Bordets glöd när turen skiftar (L20): ett eget lager under bordets innehåll som tonas in och ut. Bordet självt
+   animeras inte – en box-shadow-animation på elementet med overflow: hidden lämnade i Chromium ibland hela bordet
+   oklickbart (träffprovet gav .game-view) tills bordets stil ändrades. */
+.table:has(> .table-glow) { isolation: isolate; }
+.table-glow { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; box-shadow: inset 0 0 32px 2px var(--glow, #e9b95e90); }
 .compact-match .masthead { height: 64px; padding: 8px 24px; }
 .compact-match .brand { font-size: 22px; }
 .compact-match .brand-mark { padding: 6px 10px; }

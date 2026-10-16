@@ -21,7 +21,7 @@ await new Promise(r => setTimeout(r, 1200));
 const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? 'OK ' : 'FEL'} ${name}${extra ? ' – ' + extra : ''}`); };
 const base = `http://127.0.0.1:${PORT}`;
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined, executablePath: process.env.PLAYWRIGHT_EXECUTABLE || undefined });
 const consoleErrors = [];
 const responses = { Anna: [], Bo: [] };
 

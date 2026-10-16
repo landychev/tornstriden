@@ -7,7 +7,9 @@
    Spelarklockor (L16): vyn har `serverTime`; `serverNu()` ger serverns tid enligt skillnaden när vyn togs emot,
    så att nedräkningen inte beror på att datorns klocka går rätt.
    Anslutning (L17): strömmen svarar på serverns `ping` med ett livstecken. Medan strömmen är borta skickas inga
-   nya drag (”Återansluter …”); efter återkomsten kommer aktuell vy från servern innan något kan väljas. */
+   nya drag (”Återansluter …”); efter återkomsten kommer aktuell vy från servern innan något kan väljas.
+   Ljud och animationer (L19): lyssnarna får bara händelser som är nya för sidan. Det som hämtas efter en
+   (åter)anslutning är historik och levereras utan händelser – vyn uppdateras, men inget spelas upp. */
 import { ADAPTER_MODE, RECEIPT } from './kontrakt.js';
 
 export const PENDING = Object.freeze({ sending: 'SKICKAR', checking: 'KONTROLLERAR' });
@@ -28,11 +30,12 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
   const current = () => ({ ...view, pending });
   const notify = events => { const c = current(); for (const listener of listeners) listener(c, events); };
 
-  /* Ny vy från servern: bara om den är nyare än den vi har. Händelser som redan setts filtreras bort. */
-  function receive({ view: nv, events = [], status } = {}) {
+  /* Ny vy från servern: bara om den är nyare än den vi har. Händelser som redan setts filtreras bort;
+     `tyst` (historik efter en återanslutning) levererar vyn utan händelser. */
+  function receive({ view: nv, events = [], status } = {}, { tyst = false } = {}) {
     if (!nv || nv.matchId !== view.matchId) return false;
     if (nv.lastEventId < view.lastEventId || nv.revision < view.revision) return false;
-    const fresh = events.filter(e => e.eventId > view.lastEventId);
+    const fresh = tyst ? [] : events.filter(e => e.eventId > view.lastEventId);
     const changed = nv.lastEventId !== view.lastEventId || nv.revision !== view.revision || JSON.stringify(nv.confirm) !== JSON.stringify(view.confirm);
     view = nv;
     matTid(nv);
@@ -67,9 +70,10 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     if (!response.ok) throw Object.assign(new Error(data?.message ?? `Servern svarade ${response.status}.`), { status: response.status });
     return data;
   }
+  const historik = () => Boolean(strom) && !ansluten;   // hämtat medan strömmen är borta: tyst (L19)
   const getStatus = commandId => api(`/api/status?commandId=${encodeURIComponent(commandId)}&scope=${encodeURIComponent(`match:${view.matchId}`)}`);
-  async function refresh() {
-    try { receive(await api(`/api/match?efterEventId=${view.lastEventId}`)); } catch { /* strömmen kommer med nästa vy */ }
+  async function refresh({ tyst = false } = {}) {
+    try { receive(await api(`/api/match?efterEventId=${view.lastEventId}`), { tyst }); } catch { /* strömmen kommer med nästa vy */ }
   }
 
   async function send(command) {
@@ -90,12 +94,12 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
         let known = null;
         try { known = await getStatus(command.commandId); } catch (error) { if (error.final) return tomKvittens(command.commandId, RECEIPT.rejected, error.message); continue; }
         if (known.status !== RECEIPT.unknown) { receipt = known; break; }
-        await refresh();
+        await refresh({ tyst: historik() });
         if (view.revision !== command.revision) return tomKvittens(command.commandId, RECEIPT.rejected, 'Matchläget har ändrats – välj igen.');
         try { receipt = await api('/api/kommando', command); } catch (error) { if (error.final) return tomKvittens(command.commandId, RECEIPT.rejected, error.message); }
       }
       if (!receipt) return tomKvittens(command.commandId, RECEIPT.error, message ?? 'Ingen kontakt med servern. Kontrollera anslutningen och försök igen.');
-      if (receipt.status === RECEIPT.ok && receipt.revision !== null && view.revision < receipt.revision) await refresh();
+      if (receipt.status === RECEIPT.ok && receipt.revision !== null && view.revision < receipt.revision) await refresh({ tyst: historik() });
       return receipt;
     } finally {
       pending = null;
@@ -117,7 +121,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
     ansluten = false;
     ersatt = false;
     egen.addEventListener('match', event => receive(JSON.parse(event.data)));
-    egen.addEventListener('halsa', event => { const data = JSON.parse(event.data); ansluten = true; paus = 1000; onStatus('ansluten', data.matchtrafik.oppen ? null : data.matchtrafik.orsak); refresh(); });
+    egen.addEventListener('halsa', event => { const data = JSON.parse(event.data); ansluten = true; paus = 1000; onStatus('ansluten', data.matchtrafik.oppen ? null : data.matchtrafik.orsak); refresh({ tyst: true }); });
     egen.addEventListener('ping', event => { fetchFn('/api/livstecken', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: event.data }).catch(() => {}); });
     egen.addEventListener('ersatt', () => { ersatt = true; ansluten = false; egen.close(); onStatus('ersatt'); });
     egen.onerror = () => {
@@ -125,7 +129,7 @@ export function skapaOnlineMatch({ initial, fetchFn = (...args) => fetch(...args
       ansluten = false;
       onStatus('ateransluter');
       if (egen.readyState !== 2) return;   // CONNECTING: webbläsaren försöker själv
-      nyttForsok = klocka.setTimeout(async () => { await refresh(); if (strom === egen && !ersatt) connect(EventSourceCtor); }, paus);
+      nyttForsok = klocka.setTimeout(async () => { await refresh({ tyst: true }); if (strom === egen && !ersatt) connect(EventSourceCtor); }, paus);
       paus = Math.min(paus * 2, 30_000);
     };
     return egen;

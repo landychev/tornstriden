@@ -16,7 +16,7 @@ await new Promise(r => setTimeout(r, 800));
 
 const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? 'OK ' : 'FEL'} ${name}${extra ? ' – ' + extra : ''}`); };
-const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined, executablePath: process.env.PLAYWRIGHT_EXECUTABLE || undefined });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const consoleErrors = [];
 const missing = [];
@@ -72,7 +72,8 @@ try {
   while (steps++ < 400) {
     if (await visible('#dialog-new') || (await page.locator('#result-dialog[open]').count() && await visible('#dialog-new'))) break;
     if (await visible('#dialog-next')) { await page.click('#dialog-next'); battles++; continue; }
-    if (await visible('#confirm-next')) { await page.click('#confirm-next'); battles++; continue; }
+    /* Resultatrutan kan öppnas medan bordets Fortsätt klickas; då gäller rutans knapp i nästa varv. */
+    if (await visible('#confirm-next')) { if (await page.click('#confirm-next', { timeout: 2000 }).then(() => true, () => false)) battles++; continue; }
     if (await visible('#confirm-attack')) {
       const usable = page.locator('#hand button.mini-card:not(.unusable):not(.inactive)');
       if (await usable.count()) { await usable.first().click(); }

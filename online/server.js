@@ -31,12 +31,13 @@ import { skapaTjanst, systemklocka } from './tjanst.js';
 import { skapaSessioner, SessionsFel, SESSION_TTL_MS } from './session.js';
 import { skapaRumshantering } from './rum.js';
 import { skapaMatcher } from './matcher.js';
-import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession } from '../kontrakt.js';
+import { PROTOCOL_VERSION, MAX_COMMAND_BYTES, CONNECTION, ContractError, publicSession, MATCH_COMMAND } from '../kontrakt.js';
 
 export const TJANST = 'tornstriden-online';
 export const PING_MS = 5_000;    // ping i strömmen; håller också proxyn från att stänga tysta anslutningar
 export const TYST_MS = 15_000;   // utan livstecken så här länge räknas anslutningen som avbruten (huvudplan §10)
 export const OMLADDNING_MS = 3_000;   // nåd för en stängd ström innan matchen ser ett avbrott (omladdning, sidbyte)
+const MATCHKOMMANDON = new Set(Object.values(MATCH_COMMAND));
 export const STADNING_MS = 60_000;   // periodisk städning av rum, inbjudningar och sessioner
 export const KAKA = 'tornstriden_session';
 
@@ -99,16 +100,33 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
   }
 
   /* ---- Händelseström (SSE) och utskick ---- */
-  const skicka = (strom, event, data) => { if (!strom.res.writableEnded) strom.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
+  const skickaText = (strom, event, json) => { if (!strom.res.writableEnded) strom.res.write(`event: ${event}\ndata: ${json}\n\n`); };
+  const skicka = (strom, event, data) => skickaText(strom, event, JSON.stringify(data));
   /* Allt en spelare behöver för lobbyn och sitt rum; skickas i sin helhet vid varje ändring. */
   const lobbyvy = session => ({ me: publicSession(session), players: sessioner.lobbylista(), ...rum.vyFor(session.playerId) });
-  function sandLobby() {
+  /* Utskick till många samtidigt (belastningsprovet i L20): alla lobbyvyer byggs i en transaktion, och en ström
+     får bara en lobbyvy som skiljer sig från den förra. `omAndrad`: ett matchdrag ändrar aldrig rum eller
+     inbjudningar, bara ibland sessioner (matchslut, avhopp, avbrott) – då räcker det att jämföra lobbylistan. */
+  let senasteLista = null;
+  function sandLobby({ omAndrad = false } = {}) {
     const players = sessioner.lobbylista();
-    for (const strom of strommar) skicka(strom, 'lobby', { me: players.find(p => p.playerId === strom.playerId) ?? null, players, ...rum.vyFor(strom.playerId) });
-  }
-  /* Matchvy till varje deltagare som har en ström: egen privat vy + händelser sedan strömmens senaste. */
-  function sandMatch() {
+    const lista = JSON.stringify(players);
+    if (omAndrad && lista === senasteLista) return;
+    senasteLista = lista;
+    const vyer = rum.vyerFor([...strommar].map(s => s.playerId));
     for (const strom of strommar) {
+      const json = JSON.stringify({ me: players.find(p => p.playerId === strom.playerId) ?? null, players, ...vyer.get(strom.playerId) });
+      if (json === strom.lobbyJson) continue;
+      strom.lobbyJson = json;
+      skickaText(strom, 'lobby', json);
+    }
+  }
+  /* Matchvy till varje deltagare som har en ström: egen privat vy + händelser sedan strömmens senaste.
+     Med `matchId` bara den matchens strömmar, och bara de som inte redan har senaste händelsen. */
+  function sandMatch(matchId = null) {
+    const senast = matchId ? lagring.hamtaMatch(matchId)?.match.lastEventId : null;
+    for (const strom of strommar) {
+      if (matchId && (strom.matchId !== matchId || strom.lastEventId === senast)) continue;
       const m = matcher.matchFor(strom.playerId, { efterEventId: strom.lastEventId });
       if (!m) { strom.lastEventId = 0; continue; }
       if (strom.lastEventId === m.view.lastEventId && strom.matchId === m.view.matchId) continue;
@@ -118,8 +136,10 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
     }
   }
   const sandAlla = () => { sandLobby(); sandMatch(); };
+  /* Efter en ändring i en match: matchens strömmar, och lobbyn bara om lobbylistan ändrades. */
+  const sandEfterMatch = matchId => { sandMatch(matchId); sandLobby({ omAndrad: true }); };
   rum.pa(sandAlla);
-  matcher.pa(sandAlla);   // tidsgräns, avbrott och återkomst ändrar matchen utan något kommando
+  matcher.pa(matchId => (matchId ? sandEfterMatch(matchId) : sandAlla()));   // tidsgräns, avbrott och återkomst ändrar matchen utan något kommando
   let stadning = klocka.setTimeout(function stada() {
     try { const r = rum.stada(); sessioner.rensaUtgangna(); if (r.utgangna || r.stangda || r.raderade) sandLobby(); } catch (error) { logg.warn(`[server] städning: ${error.message}`); }
     stadning = klocka.setTimeout(stada, STADNING_MS);
@@ -227,8 +247,14 @@ export function startaServer({ lagringsfabrik = oppnaLagring, port = Number(proc
     }
     if (pathname === '/api/kommando' && req.method === 'POST') {
       const { playerId } = kravSession();
-      const receipt = await tjanst.kommando(playerId, await lasJson(req));
-      if (receipt.status === 'GODKÄND') sandAlla();   // nickbyte, rum och matchdrag syns för alla berörda
+      const kommando = await lasJson(req);
+      const receipt = await tjanst.kommando(playerId, kommando);
+      /* Nickbyte, rum och matchdrag syns för alla berörda. Kommandotypen avgör utskicket, inte om klienten skickat
+         med ett matchId: ett godkänt matchkommando har ett giltigt matchId (motorn har prövat medlemskapet), medan
+         ett lobbykommando med ett extra matchId ändå är en lobbyändring. */
+      if (receipt.status === 'GODKÄND') {
+        if (MATCHKOMMANDON.has(kommando.type)) sandEfterMatch(kommando.matchId); else sandAlla();
+      }
       return json(res, 200, receipt);
     }
     if (pathname === '/api/match' && req.method === 'GET') {

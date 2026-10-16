@@ -22,7 +22,7 @@ const app = startaServer({ port: 0, dataDir: ':memory:', klocka, slump: styrdSlu
 await app.klar;
 let browser;
 try {
-  browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined, executablePath: process.env.PLAYWRIGHT_EXECUTABLE || undefined });
   const base = `http://127.0.0.1:${app.port()}`;
   const nick = '<b onclick=top.z=1>';
   const a = app.sessioner.skapa(nick), b = app.sessioner.skapa('" onclick=top.z=2 x=');

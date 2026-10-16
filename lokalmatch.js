@@ -7,8 +7,9 @@ import { newMatch, process, playerView, allowedActions, cardType, PHASE, ACTION,
 import { decide, packAction, DecisionError } from './dator.js';
 import { PROTOCOL_VERSION, ADAPTER_MODE, RECEIPT, PLAYER_STATUS, CONNECTION, commandFingerprint } from './kontrakt.js';
 
-/* Händelsetyper som vyn och ljudet reagerar på (L19 knyter samma typer till serverns händelser). */
-export const EVENT = Object.freeze({ log: 'LOGG', cardPlayed: 'KORT_SPELAT', pass: 'AVSTÅ', swap: 'BYTE', refill: 'PÅFYLLNING', firstAttacker: 'STARTSPELARE', result: 'RESULTAT', matchOver: 'MATCHSLUT', surrender: 'GE_UPP', next: 'FORTSÄTT' });
+/* Händelsetyper som vyn och ljudet reagerar på (L19 knyter dem till serverns händelser). `eliminated` finns
+   bara i lagmatchen (lagvy.js). */
+export const EVENT = Object.freeze({ log: 'LOGG', cardPlayed: 'KORT_SPELAT', pass: 'AVSTÅ', swap: 'BYTE', refill: 'PÅFYLLNING', firstAttacker: 'STARTSPELARE', result: 'RESULTAT', matchOver: 'MATCHSLUT', surrender: 'GE_UPP', next: 'FORTSÄTT', eliminated: 'UTSLAGEN' });
 
 /* Privat vy enligt kontraktet, byggd av motorns playerView + allowedActions. I duellen är spelare A lag A och B lag B. */
 export function privatVy(match, playerId, { lastEventId = 0, pending = null } = {}) {
