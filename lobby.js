@@ -1,3 +1,5 @@
+import { initLanguage } from './sprakval.js';
+import { t as tr, source, message, onLanguageChange } from './sprak.js';
 /* Lobbyn (arbetsordning L06): nick, spelarlista, inbjudningar, rum, lagval, Redo och värdens start.
    Klienten har inga spelregler: allt som visas är serverns senaste lobbyvy (SSE-händelsen `lobby`),
    och varje knapp skickar ett kommando enligt kontrakt.js och visar serverns kvittens/skäl.
@@ -26,17 +28,19 @@ const state = {
   upptagen: new Set(),      // kommandotyper som väntar på kvittens
   gammal: false             // sidan är äldre än serverns protokoll (L21): bara omladdning hjälper
 };
-const ACTIVITY_TEXT = { [ACTIVITY.idle]: 'Ledig', [ACTIVITY.inRoom]: 'I ett rum', [ACTIVITY.playing]: 'Spelar', [ACTIVITY.finished]: 'Följer avslut' };
-const teamName = id => TEAMS.find(t => t.id === id)?.name ?? 'Utan lag';
+const ACTIVITY_TEXT = () => ({ [ACTIVITY.idle]: tr('Ledig'), [ACTIVITY.inRoom]: tr('I ett rum'), [ACTIVITY.playing]: tr('Spelar'), [ACTIVITY.finished]: tr('Följer avslut') });
+const teamName = id => tr(TEAMS.find(team => team.id === id)?.name ?? 'Utan lag');
 const serverNu = () => Date.now() + state.tidsskillnad;
+const nickError = text => { $('nick-error').dataset.message = text; $('nick-error').textContent = message(text); };
 
 /* ---- Meddelanden ---- */
-function visaFel(text, { fokus } = {}) { $('error').textContent = text ?? ''; if (fokus) fokus.focus(); }
-function visaNotis(text) { $('notice').textContent = text ?? ''; }
+function visaFel(text, { fokus } = {}) { $('error').dataset.message = text ?? ''; $('error').textContent = message(text ?? ''); if (fokus) fokus.focus(); }
+function visaNotis(text) { $('notice').dataset.message = text ?? ''; $('notice').textContent = message(text ?? ''); }
 function sattAnslutning(lage, text) {
   state.anslutning = lage;
   const node = $('connection');
-  node.textContent = text;
+  node.dataset.message = text;
+  node.textContent = message(text);
   node.classList.toggle('warn', lage !== 'ansluten');
   render();
 }
@@ -51,7 +55,7 @@ async function api(path, { method = 'GET', body } = {}) {
   }
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
-  if (!response.ok) throw Object.assign(new Error(data?.message ?? `Servern svarade ${response.status}.`), { status: response.status, data });
+  if (!response.ok) throw Object.assign(new Error(data?.message ?? source`Servern svarade ${response.status}.`), { status: response.status, data });
   return data;
 }
 
@@ -67,7 +71,7 @@ async function skicka(type, extra = {}) {
     visaFel(receipt.message ?? 'Servern avvisade kommandot.');
     return false;
   } catch (error) {
-    if (error.status === 401) { visaSession(null); visaFel(''); $('nick-error').textContent = 'Din session har gått ut. Välj nick igen.'; }
+    if (error.status === 401) { visaSession(null); visaFel(''); nickError('Din session har gått ut. Välj nick igen.'); }
     else visaFel(error.message);
     return false;
   } finally {
@@ -112,7 +116,7 @@ function oppnaStrom() {
       if (state.strom !== strom) return;
       api('/api/session').then(vy => {
         if (state.strom !== strom) return;
-        if (!vy.me) { visaSession(null); $('nick-error').textContent = 'Du har varit borta en stund, så din plats i lobbyn släpptes. Välj nick igen.'; return; }
+        if (!vy.me) { visaSession(null); nickError('Du har varit borta en stund, så din plats i lobbyn släpptes. Välj nick igen.'); return; }
         oppnaStrom();
       }).catch(() => { if (state.strom === strom) oppnaStrom(); });
     }, 3000);
@@ -156,9 +160,9 @@ function render() {
   const kanBjudas = p => p.activity === ACTIVITY.idle && p.connection === CONNECTION.online;
   const bortfall = [...state.markerade].filter(id => !andra.some(p => p.playerId === id && kanBjudas(p)));
   if (bortfall.length) {
-    const namn = bortfall.map(id => vy.players.find(p => p.playerId === id)?.nick ?? 'En spelare');
+    const namn = bortfall.map(id => vy.players.find(p => p.playerId === id)?.nick ?? tr('En spelare'));
     for (const id of bortfall) state.markerade.delete(id);
-    visaNotis(`${namn.join(', ')} kan inte längre bjudas in och har avmarkerats.`);
+    visaNotis(source`${namn.join(', ')} kan inte längre bjudas in och har avmarkerats.`);
   }
   const jagArVard = vy.rum && vy.rum.hostPlayerId === vy.me.playerId;
   const kanMarkera = ansluten && (!vy.rum || jagArVard);
@@ -167,14 +171,14 @@ function render() {
     const id = `pick-${p.playerId}`;
     const box = el('input', { type: 'checkbox', id, disabled: !kanMarkera || mig || !kanBjudas(p) ? '' : null, onchange: e => { e.target.checked ? state.markerade.add(p.playerId) : state.markerade.delete(p.playerId); render(); } });
     box.checked = state.markerade.has(p.playerId);
-    const status = mig ? 'Det är du' : p.connection !== CONNECTION.online ? 'Frånkopplad' : ACTIVITY_TEXT[p.activity];
+    const status = mig ? tr('Det är du') : p.connection !== CONNECTION.online ? tr('Frånkopplad') : ACTIVITY_TEXT()[p.activity];
     return el('li', { class: `${mig ? 'me-row' : ''}${!kanMarkera ? ' no-pick' : ''}` },
       el('label', { for: id }, box, el('span', { class: 'nick' }, p.nick)),
       el('span', { class: `status${p.connection === CONNECTION.online && !mig ? ' online' : ''}${p.activity !== ACTIVITY.idle && !mig ? ' busy' : ''}` }, status));
   }));
   const antal = state.markerade.size;
   const invite = $('invite');
-  invite.textContent = vy.rum ? `Bjud in till mitt rum${antal ? ` (${antal})` : ''}` : `Skapa rum och bjud in${antal ? ` (${antal})` : ''}`;
+  invite.textContent = vy.rum ? tr`Bjud in till mitt rum${antal ? ` (${antal})` : ''}` : tr`Skapa rum och bjud in${antal ? ` (${antal})` : ''}`;
   invite.disabled = !kanMarkera || antal === 0 || state.upptagen.has(LOBBY_COMMAND.invite) || state.upptagen.has(LOBBY_COMMAND.createRoom);
   invite.hidden = Boolean(vy.rum) && !jagArVard;
   $('create-room').hidden = Boolean(vy.rum);
@@ -182,9 +186,9 @@ function render() {
 
   /* Inkommande inbjudningar */
   $('invitations').replaceChildren(...vy.inbjudningar.inkommande.map(inv => el('div', { class: 'invitation', id: `inv-${inv.id}` },
-    el('p', {}, el('strong', {}, inv.from.nick), ' bjuder in dig till sitt rum. ', el('span', { class: 'time', dataset: { expires: inv.expiresAt } }, tidKvar(inv.expiresAt))),
-    el('button', { type: 'button', class: 'primary', id: `accept-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.accept, { payload: { invitationId: inv.id } }) }, 'Acceptera'),
-    el('button', { type: 'button', class: 'secondary', id: `decline-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.decline, { payload: { invitationId: inv.id } }) }, 'Avböj'))));
+    el('p', {}, el('strong', {}, inv.from.nick), tr(' bjuder in dig till sitt rum. '), el('span', { class: 'time', dataset: { expires: inv.expiresAt } }, tidKvar(inv.expiresAt))),
+    el('button', { type: 'button', class: 'primary', id: `accept-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.accept, { payload: { invitationId: inv.id } }) }, tr('Acceptera')),
+    el('button', { type: 'button', class: 'secondary', id: `decline-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.decline, { payload: { invitationId: inv.id } }) }, tr('Avböj')))));
 
   renderRum(vy, ansluten, jagArVard);
   if (fokusId && document.activeElement?.id !== fokusId) document.getElementById(fokusId)?.focus();
@@ -198,11 +202,11 @@ function renderRum(vy, ansluten, jagArVard) {
   const vard = rum.players.find(p => p.playerId === rum.hostPlayerId);
   const avslutat = rum.status !== 'FÖRBEREDELSE';
   $('room').classList.toggle('finished', avslutat);
-  $('room-heading').textContent = rum.status === 'STARTAD' ? 'Matchen pågår – du är utslagen' : avslutat ? 'Matchen är slut' : jagArVard ? 'Du är värd' : `${vard?.nick ?? 'Någon'} är värd`;
-  $('room-count').textContent = `${rum.players.length} av högst 8 deltagare`;
+  $('room-heading').textContent = rum.status === 'STARTAD' ? tr('Matchen pågår – du är utslagen') : avslutat ? tr('Matchen är slut') : jagArVard ? tr('Du är värd') : tr`${vard?.nick ?? tr('Någon')} är värd`;
+  $('room-count').textContent = tr`${rum.players.length} av högst 8 deltagare`;
   const medlem = p => el('li', { class: `member${p.playerId === vy.me.playerId ? ' me-row' : ''}` },
-    el('span', {}, p.nick, p.playerId === rum.hostPlayerId ? el('span', { class: 'host' }, '(värd)') : null),
-    el('span', { class: `ready-state${p.ready ? ' is-ready' : ''}` }, p.connection !== CONNECTION.online ? 'Frånkopplad' : p.ready ? 'Redo' : 'Inte redo'));
+    el('span', {}, p.nick, p.playerId === rum.hostPlayerId ? el('span', { class: 'host' }, tr('(värd)')) : null),
+    el('span', { class: `ready-state${p.ready ? ' is-ready' : ''}` }, p.connection !== CONNECTION.online ? tr('Frånkopplad') : p.ready ? tr('Redo') : tr('Inte redo')));
   for (const team of TEAMS) $(`team-${team.id}`).replaceChildren(...rum.players.filter(p => p.teamId === team.id).map(medlem));
   const utanLag = rum.players.filter(p => p.teamId === null);
   $('no-team-wrap').hidden = utanLag.length === 0;
@@ -215,14 +219,14 @@ function renderRum(vy, ansluten, jagArVard) {
   }
   const ready = $('ready');
   ready.setAttribute('aria-pressed', String(Boolean(me?.ready)));
-  ready.textContent = me?.ready ? 'Redo ✓ (ångra)' : 'Redo';
+  ready.textContent = me?.ready ? tr('Redo ✓ (ångra)') : tr('Redo');
   ready.disabled = !ansluten || state.upptagen.has(LOBBY_COMMAND.ready) || (!me?.ready && me?.teamId === null);
-  ready.title = me?.teamId === null ? 'Välj lag först' : '';
+  ready.title = me?.teamId === null ? tr('Välj lag först') : '';
   ready.onclick = () => skicka(LOBBY_COMMAND.ready, { roomId: rum.id, payload: { ready: !me?.ready, rosterVersion: rum.rosterVersion } });
   for (const button of document.querySelectorAll('.pick-team')) button.hidden = avslutat;
   ready.hidden = avslutat;
   $('start-box').hidden = avslutat;
-  $('leave-room').textContent = avslutat ? 'Tillbaka till lobbyn' : 'Lämna rummet';
+  $('leave-room').textContent = avslutat ? tr('Tillbaka till lobbyn') : tr('Lämna rummet');
   $('leave-room').disabled = !ansluten || state.upptagen.has(LOBBY_COMMAND.leave);
   $('leave-room').onclick = () => { state.markerade.clear(); skicka(LOBBY_COMMAND.leave, { roomId: rum.id }); };
 
@@ -231,10 +235,10 @@ function renderRum(vy, ansluten, jagArVard) {
   const status = $('start-status');
   const startButton = $('start');
   if (start?.kanStarta) {
-    status.textContent = jagArVard ? 'Alla är redo. Du kan starta matchen.' : 'Alla är redo. Väntar på att värden startar.';
+    status.textContent = jagArVard ? tr('Alla är redo. Du kan starta matchen.') : tr('Alla är redo. Väntar på att värden startar.');
     status.className = 'can-start';
   } else {
-    status.textContent = start?.skal.join(' ') ?? '';
+    status.textContent = start?.skal.map(reason => message(reason)).join(' ') ?? '';
     status.className = '';
   }
   startButton.hidden = !jagArVard;
@@ -242,13 +246,13 @@ function renderRum(vy, ansluten, jagArVard) {
   startButton.onclick = () => skicka(LOBBY_COMMAND.start, { roomId: rum.id, payload: { rosterVersion: rum.rosterVersion } });
 
   $('outgoing').replaceChildren(...(jagArVard ? vy.inbjudningar.utgaende.map(inv => el('div', { class: 'outgoing-row', id: `out-${inv.id}` },
-    el('span', {}, 'Inbjudan till ', el('strong', {}, inv.to.nick), ' väntar på svar. ', el('span', { class: 'time', dataset: { expires: inv.expiresAt } }, tidKvar(inv.expiresAt))),
-    el('button', { type: 'button', class: 'secondary', id: `revoke-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.revoke, { roomId: rum.id, payload: { invitationId: inv.id } }) }, 'Återkalla'))) : []));
+    el('span', {}, tr('Inbjudan till '), el('strong', {}, inv.to.nick), tr(' väntar på svar. '), el('span', { class: 'time', dataset: { expires: inv.expiresAt } }, tidKvar(inv.expiresAt))),
+    el('button', { type: 'button', class: 'secondary', id: `revoke-${inv.id}`, disabled: !ansluten ? '' : null, onclick: () => skicka(LOBBY_COMMAND.revoke, { roomId: rum.id, payload: { invitationId: inv.id } }) }, tr('Återkalla')))) : []));
 }
 
 function tidKvar(expiresAt) {
   const sekunder = Math.max(0, Math.round((expiresAt - serverNu()) / 1000));
-  return `Gäller ${sekunder} s till.`;
+  return tr`Gäller ${sekunder} s till.`;
 }
 setInterval(() => { for (const node of document.querySelectorAll('.time[data-expires]')) node.textContent = tidKvar(Number(node.dataset.expires)); }, 1000);
 
@@ -257,14 +261,14 @@ $('nick-form').addEventListener('submit', async event => {
   event.preventDefault();
   const nick = $('nick').value.trim();
   const fel = $('nick-error');
-  if ([...nick].length < NICK.min || [...nick].length > NICK.max) { fel.textContent = `Nicket måste vara ${NICK.min}–${NICK.max} tecken.`; $('nick').focus(); return; }
-  fel.textContent = '';
+  if ([...nick].length < NICK.min || [...nick].length > NICK.max) { nickError(source`Nicket måste vara ${NICK.min}–${NICK.max} tecken.`); $('nick').focus(); return; }
+  nickError('');
   try {
     const vy = await api('/api/session', { method: 'POST', body: { nick } });
     visaSession(vy);
     oppnaStrom();
   } catch (error) {
-    fel.textContent = error.status === 409 ? `${error.message} ` : error.message;
+    nickError(error.message);
     $('nick').focus();
     $('nick').select();
   }
@@ -300,4 +304,12 @@ $('outdated').addEventListener('cancel', event => event.preventDefault());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.vy && state.anslutning === 'ateransluter') api('/api/lobby').then(vy => { state.vy = vy; render(); }).catch(() => {}); });
 
 /* ---- Start: återuppta befintlig session, annars nickformulär ---- */
-api('/api/session').then(vy => { if (vy?.me) { visaSession(vy); oppnaStrom(); } else visaSession(null); }).catch(() => visaSession(null));
+initLanguage().then(() => api('/api/session')).then(vy => { if (vy?.me) { visaSession(vy); oppnaStrom(); } else visaSession(null); }).catch(() => visaSession(null));
+
+onLanguageChange(() => {
+  render();
+  for (const id of ['error', 'notice', 'connection', 'nick-error']) {
+    const node = $(id);
+    if (node.dataset.message) node.textContent = message(node.dataset.message);
+  }
+});

@@ -1,3 +1,4 @@
+import { t as tr } from './sprak.js';
 /* Nedräkning för serverns spelarklockor (arbetsordning L16) – delas av duellvyn (matchvy.js) och lagvyn
    (lagmatchvy.js). Servern äger tiden: vyn har `clocks` { [spelare]: deadline } i serverns tid och klienten
    räknar bara ned. Ingen klocka ändras här, och ingen tidsgräns avgörs i webbläsaren – vid 0:00 väntar sidan
@@ -17,7 +18,7 @@ export const mmss = ms => {
 
 const attr = text => String(text).replace(/[&<>"']/g, ch => `&#${ch.charCodeAt(0)};`);
 /* En nedräkningsrad för en spelare; fylls och visas av tick(). */
-export const klockrad = (playerId, { etikett = 'kvar att välja', varning = null } = {}) =>
+export const klockrad = (playerId, { etikett = tr('kvar att välja'), varning = null } = {}) =>
   `<p class="turn-clock" data-klocka="${attr(playerId)}" data-etikett="${attr(etikett)}"${varning ? ` data-varning="${attr(varning)}"` : ''} hidden></p>`;
 
 export function kopplaNedrakning({ klockor, avbrott = () => null, nu, egen, varna = () => {}, rot = document, intervall = 250 }) {
@@ -30,7 +31,7 @@ export function kopplaNedrakning({ klockor, avbrott = () => null, nu, egen, varn
       const varning = kvar < VARNING_MS;
       el.hidden = false;
       el.classList.toggle('warn', varning);
-      el.textContent = `${mmss(kvar)} ${(varning ? el.dataset.varning : null) ?? el.dataset.etikett ?? ''}`.trim();
+      el.textContent = `${mmss(kvar)} ${tr((varning ? el.dataset.varning : null) ?? el.dataset.etikett ?? '')}`.trim();
     }
   };
   function tick() {
@@ -42,7 +43,7 @@ export function kopplaNedrakning({ klockor, avbrott = () => null, nu, egen, varn
     const minAt = clocks[mig];
     if (Number.isFinite(minAt) && minAt - now < VARNING_MS && minAt - now > 0 && !varnade.has(`${mig}|${minAt}`)) {
       varnade.add(`${mig}|${minAt}`);
-      varna(`Mindre än ${VARNING_MS / 1000} sekunder kvar att välja.`);
+      varna(tr`Mindre än ${VARNING_MS / 1000} sekunder kvar att välja.`);
     }
   }
   setInterval(tick, intervall);

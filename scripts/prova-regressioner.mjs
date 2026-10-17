@@ -50,6 +50,7 @@ try {
   const context = await browser.newContext({ reducedMotion: 'reduce' });
   await context.addCookies([{ name: 'tornstriden_session', value: b.token, url: base }]);
   const page = await context.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });

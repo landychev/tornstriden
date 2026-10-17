@@ -28,6 +28,7 @@ const consoleErrors = [];
 async function gast(namn, options = {}) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(`${namn}: ${m.text()} (${m.location().url})`); });
   page.on('pageerror', e => consoleErrors.push(`${namn}: ${e.message}`));
   await page.goto(url);
@@ -49,6 +50,7 @@ try {
   /* Fel: upptaget nick visas i formuläret med fokus kvar i fältet */
   const inkraktare = await browser.newContext();
   const ip = await inkraktare.newPage();
+  await ip.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   await ip.goto(url);
   await ip.getByLabel('Ditt nick').fill('anna');
   await ip.getByRole('button', { name: 'Gå in i lobbyn' }).click();
@@ -141,6 +143,7 @@ try {
 
   /* Extra flik: Annas andra flik tar över, första fliken visar dialogen */
   const anna2 = await anna.context.newPage();
+  await anna2.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   await anna2.goto(url);
   await anna2.locator('#lobby-section:not([hidden])').waitFor();
   await anna.page.locator('#replaced[open]').waitFor();

@@ -17,7 +17,8 @@ spelbord.css match.css bildeffekter.css effektverkstad.css tokens.css grafik.css
 spelbord.js kort.js strid.js matchregler.js match.js matchvy.js dator.js lobby.js
 bildeffekter.js kortoversikt.js effektverkstad.js grafik.js popup.js ljud.js
 kontrakt.js lokalmatch.js onlinematch.js LICENSE
-lagmatch.html lagmatch.css lagmatchvy.js kortlupp.js nedrakning.js`.split(/\s+/));
+lagmatch.html lagmatch.css lagmatchvy.js kortlupp.js nedrakning.js
+sprak.js sprakval.js sprak-en.js sprak-sv.js sprak-meddelanden.js sprak.css`.split(/\s+/));
 const canonicalPath = path => posix.normalize('/' + path.replace(/^\/+/, ''));
 export const isBlocked = path => {
   const canonical = canonicalPath(path);

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Tornstriden – match</title>
+  <title data-i18n="Tornstriden – match">Tornstriden – match</title>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="spelbord.css">
   <link rel="stylesheet" href="bildeffekter.css">
@@ -12,140 +12,141 @@
   <script type="module" src="matchvy.js"></script>
   <link rel="stylesheet" href="grafik.css">
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="sprak.css">
 </head>
 <body class="compact-match">
   <header class="masthead">
-    <a class="brand" href="match.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small>KAMPEN OM BORGEN</small></span></a>
-    <nav aria-label="Huvudmeny"><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="play-online" type="button">Spela online</button><button id="show-help" type="button">Så spelar du</button><button id="surrender" type="button">Ge upp</button><button id="new-match" type="button">Ny match</button></nav>
+    <a class="brand" href="match.html"><span class="brand-mark" aria-hidden="true">T</span><span>Tornstriden<small data-i18n="KAMPEN OM BORGEN">KAMPEN OM BORGEN</small></span></a>
+    <nav aria-label="Huvudmeny" data-i18n-aria-label="Huvudmeny"><span id="connection" class="connection" role="status" aria-live="polite"></span><button id="play-online" type="button" data-i18n="Spela online">Spela online</button><button id="show-help" type="button" data-i18n="Så spelar du">Så spelar du</button><button id="surrender" type="button" data-i18n="Ge upp">Ge upp</button><button id="new-match" type="button" data-i18n="Ny match">Ny match</button></nav>
   </header>
   <main>
     <div class="game-view">
-    <section class="table" aria-label="Spelbord med två torn">
+    <section class="table" aria-label="Spelbord med två torn" data-i18n-aria-label="Spelbord med två torn">
       <div id="turn-feedback" class="turn-feedback" role="status" aria-live="polite" hidden></div>
       <div class="table-glow" aria-hidden="true"></div>
-      <div class="table-heading"><span class="eyebrow">MATCH · DUELL</span><div class="heading-tools"><label class="opponent-pick">Motståndare <select id="mode"><option value="computer">Datorn</option><option value="hotseat">Två spelare vid samma skärm</option></select></label></div></div>
+      <div class="table-heading"><span class="eyebrow" data-i18n="MATCH · DUELL">MATCH · DUELL</span><div class="heading-tools"><label class="opponent-pick"><span data-i18n="Motståndare">Motståndare</span> <select id="mode"><option value="computer" data-i18n="Datorn">Datorn</option><option value="hotseat" data-i18n="Två spelare vid samma skärm">Två spelare vid samma skärm</option></select></label></div></div>
       <div class="rampart enemy-zone">
-        <div class="player-info"><span class="eyebrow" id="label-B">DATORN</span><h1 id="name-B">Norra tornet</h1><p id="life-B" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-B">10 kort på handen</p><p class="turn-clock" id="opponent-clock" data-etikett="kvar för motståndaren" hidden></p><p class="turn-clock opponent-avbrott" id="opponent-avbrott" data-etikett="kvar för motståndaren att återansluta" hidden></p></div>
-        <div class="tower-wrap" id="tower-B"><img src="assets/torn/torn-bla.png" alt="Norra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
+        <div class="player-info"><span class="eyebrow" id="label-B" data-i18n="DATORN">DATORN</span><h1 id="name-B" data-i18n="Norra tornet">Norra tornet</h1><p id="life-B" class="hearts" aria-label="3 av 3 liv" data-i18n-aria-label="3 av 3 liv"></p><p class="remaining" id="count-B" data-i18n="10 kort på handen">10 kort på handen</p><p class="turn-clock" id="opponent-clock" data-etikett="kvar för motståndaren" hidden data-i18n-data-etikett="kvar för motståndaren"></p><p class="turn-clock opponent-avbrott" id="opponent-avbrott" data-etikett="kvar för motståndaren att återansluta" hidden data-i18n-data-etikett="kvar för motståndaren att återansluta"></p></div>
+        <div class="tower-wrap" id="tower-B"><img src="assets/torn/torn-bla.png" alt="Norra tornet, ett medeltida stentorn" width="280" height="320" data-i18n-alt="Norra tornet, ett medeltida stentorn"><span class="tower-emblem enemy-emblem" aria-hidden="true">N</span></div>
         <div class="hidden-hand" id="hidden-B" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
       </div>
       <div class="battle" id="battle">
-        <div class="battle-copy"><span class="eyebrow" id="battle-eyebrow">STRIDSPLATSEN</span><h2 id="phase-title" tabindex="-1">Startbyten</h2><p id="phase-description"></p></div>
-        <div class="combat-cards"><div class="slot" id="attack-slot" aria-label="Attackkort"></div><span class="versus" aria-hidden="true">mot</span><div class="slot" id="defence-slot" aria-label="Försvarskort"></div></div>
-        <div class="piles"><div class="deck-stack" id="draw-number" aria-label="Kort i draghögen">30</div><span>Draghög</span><div class="discard-stack" id="discard-number" aria-label="Kort i slänghögen">0</div><span>Slänghög</span></div>
+        <div class="battle-copy"><span class="eyebrow" id="battle-eyebrow" data-i18n="STRIDSPLATSEN">STRIDSPLATSEN</span><h2 id="phase-title" tabindex="-1" data-i18n="Startbyten">Startbyten</h2><p id="phase-description"></p></div>
+        <div class="combat-cards"><div class="slot" id="attack-slot" aria-label="Attackkort" data-i18n-aria-label="Attackkort"></div><span class="versus" aria-hidden="true" data-i18n="mot">mot</span><div class="slot" id="defence-slot" aria-label="Försvarskort" data-i18n-aria-label="Försvarskort"></div></div>
+        <div class="piles"><div class="deck-stack" id="draw-number" aria-label="Kort i draghögen" data-i18n-aria-label="Kort i draghögen">30</div><span data-i18n="Draghög">Draghög</span><div class="discard-stack" id="discard-number" aria-label="Kort i slänghögen" data-i18n-aria-label="Kort i slänghögen">0</div><span data-i18n="Slänghög">Slänghög</span></div>
         <div class="battle-actions" id="battle-actions" hidden>
-          <div id="selection-info" class="selection-info"><h3>Välj ditt kort</h3><p></p></div>
-          <div id="usage" class="hand-sets usage" role="group" aria-label="Hur kortet används" hidden><button id="usage-normal" type="button" aria-pressed="true">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false">Enkel attack 1 – utan specialeffekt</button><span>Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.</span></div>
+          <div id="selection-info" class="selection-info"><h3 data-i18n="Välj ditt kort">Välj ditt kort</h3><p></p></div>
+          <div id="usage" class="hand-sets usage" role="group" aria-label="Hur kortet används" hidden data-i18n-aria-label="Hur kortet används"><button id="usage-normal" type="button" aria-pressed="true" data-i18n="Vanlig attack">Vanlig attack</button><button id="usage-simple" type="button" aria-pressed="false" data-i18n="Enkel attack 1 – utan specialeffekt">Enkel attack 1 – utan specialeffekt</button><span data-i18n="Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.">Enkel attack räknas som vanlig attack med styrka 1. Magisk barriär stoppar den.</span></div>
           <div id="actions" class="actions"></div>
         </div>
       </div>
       <div class="rampart own-zone">
-        <div class="player-info"><span class="eyebrow" id="label-A">SPELARE A</span><h2 id="name-A">Södra tornet</h2><p id="life-A" class="hearts" aria-label="3 av 3 liv"></p><p class="remaining" id="count-A">10 kort på handen</p></div>
-        <div class="tower-wrap" id="tower-A"><img src="assets/torn/torn-rod.png" alt="Södra tornet, ett medeltida stentorn" width="280" height="320"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
+        <div class="player-info"><span class="eyebrow" id="label-A" data-i18n="SPELARE A">SPELARE A</span><h2 id="name-A" data-i18n="Södra tornet">Södra tornet</h2><p id="life-A" class="hearts" aria-label="3 av 3 liv" data-i18n-aria-label="3 av 3 liv"></p><p class="remaining" id="count-A" data-i18n="10 kort på handen">10 kort på handen</p></div>
+        <div class="tower-wrap" id="tower-A"><img src="assets/torn/torn-rod.png" alt="Södra tornet, ett medeltida stentorn" width="280" height="320" data-i18n-alt="Södra tornet, ett medeltida stentorn"><span class="tower-emblem own-emblem" aria-hidden="true">S</span></div>
         <div class="turn-label"><span class="turn-dot" aria-hidden="true"></span><span id="turn-label"></span></div>
       </div>
     </section>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <p id="clock-alert" class="visually-hidden" role="alert"></p>
     <section class="hand-area" aria-labelledby="hand-heading">
-      <div class="hand-header"><div><span class="eyebrow" id="hand-owner">SÖDRA TORNETS KORT</span><h2 id="hand-heading">Välj kort</h2></div><div class="hand-tools"><p id="hand-count">10 kort</p><button type="button" id="sound-settings" class="secondary" aria-haspopup="dialog">♫ Ljud</button></div></div>
+      <div class="hand-header"><div><span class="eyebrow" id="hand-owner" data-i18n="SÖDRA TORNETS KORT">SÖDRA TORNETS KORT</span><h2 id="hand-heading" data-i18n="Välj kort">Välj kort</h2></div><div class="hand-tools"><p id="hand-count" data-i18n="10 kort">10 kort</p><button type="button" id="sound-settings" class="secondary" aria-haspopup="dialog" data-i18n="♫ Ljud">♫ Ljud</button></div></div>
       <!-- Bytesraden ligger ovanför handen så att knapparna syns utan att man behöver scrolla. -->
       <div class="swap-bar" id="hand-bar" hidden>
         <div id="hand-info" class="selection-info"></div>
         <div id="hand-actions" class="actions"></div>
       </div>
-      <div id="hand" class="hand" aria-label="Dina kort på handen"></div>
-      <p class="hand-hint"><span class="hand-help">Tryck på ett kort för att välja det.</span> <span class="hold-hint">Håll in ett kort för att läsa hur det fungerar.</span> <span class="swipe-hint">Svep i sidled för fler kort.</span></p>
+      <div id="hand" class="hand" aria-label="Dina kort på handen" data-i18n-aria-label="Dina kort på handen"></div>
+      <p class="hand-hint"><span class="hand-help" data-i18n="Tryck på ett kort för att välja det.">Tryck på ett kort för att välja det.</span> <span class="hold-hint" data-i18n="Håll in ett kort för att läsa hur det fungerar.">Håll in ett kort för att läsa hur det fungerar.</span> <span class="swipe-hint" data-i18n="Svep i sidled för fler kort.">Svep i sidled för fler kort.</span></p>
       <!-- Kortet förstorat: öppnas med ett långt tryck på ett kort i handen eller på stridsplatsen. -->
       <dialog id="card-dialog" class="card-dialog game-popup" aria-labelledby="card-title">
         <div class="card-sheet">
-          <button type="button" class="popup-close" data-close-dialog="card-dialog" aria-label="Stäng kortet" autofocus>×</button>
-          <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden></p>
+          <button type="button" class="popup-close" data-close-dialog="card-dialog" aria-label="Stäng kortet" autofocus data-i18n-aria-label="Stäng kortet">×</button>
+          <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden data-i18n-data-etikett="kvar att välja" data-i18n-data-varning="kvar – välj nu, annars förlorar du matchen"></p>
           <div id="card-detail" class="card-detail"></div>
         </div>
       </dialog>
       <dialog id="sound-dialog" class="sound-dialog game-popup confirm-dialog" aria-labelledby="sound-title">
-        <button type="button" id="sound-close" class="popup-close" aria-label="Stäng ljudinställningar" autofocus>×</button>
-        <header class="popup-heading"><span class="eyebrow">STÄMNING & STRID</span><h3 id="sound-title">Ljud</h3></header>
-        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden></p>
+        <button type="button" id="sound-close" class="popup-close" aria-label="Stäng ljudinställningar" autofocus data-i18n-aria-label="Stäng ljudinställningar">×</button>
+        <header class="popup-heading"><span class="eyebrow" data-i18n="STÄMNING &amp; STRID">STÄMNING & STRID</span><h3 id="sound-title" data-i18n="Ljud">Ljud</h3></header>
+        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden data-i18n-data-etikett="kvar att välja" data-i18n-data-varning="kvar – välj nu, annars förlorar du matchen"></p>
         <div class="sound-controls">
-          <label class="sound-switch"><input type="checkbox" id="sound-enabled" checked> Ljud på</label>
-          <label for="music-volume">Musik <output id="music-level" for="music-volume">30 %</output></label>
+          <label class="sound-switch"><input type="checkbox" id="sound-enabled" checked> <span data-i18n="Ljud på">Ljud på</span></label>
+          <label for="music-volume"><span data-i18n="Musik">Musik</span> <output id="music-level" for="music-volume">30 %</output></label>
           <input id="music-volume" type="range" min="0" max="100" value="30">
-          <label for="effects-volume">Ljudeffekter <output id="effects-level" for="effects-volume">65 %</output></label>
+          <label for="effects-volume"><span data-i18n="Ljudeffekter">Ljudeffekter</span> <output id="effects-level" for="effects-volume">65 %</output></label>
           <input id="effects-volume" type="range" min="0" max="100" value="65">
           <p id="sound-status" role="status"></p>
         </div>
       </dialog>
       <dialog id="result-dialog" class="result-dialog game-popup" aria-labelledby="result-title">
-        <button type="button" class="popup-close" data-close-dialog="result-dialog" aria-label="Stäng resultatet" autofocus>×</button>
+        <button type="button" class="popup-close" data-close-dialog="result-dialog" aria-label="Stäng resultatet" autofocus data-i18n-aria-label="Stäng resultatet">×</button>
         <div id="result" class="result" aria-live="polite" aria-atomic="true"></div>
         <div id="dialog-actions" class="actions"></div>
       </dialog>
       <!-- Spelförklaring: öppnas när sidan laddas och via knappen Så spelar du. -->
       <dialog id="intro-dialog" class="help-dialog game-popup" aria-labelledby="intro-title">
-        <button type="button" class="popup-close" data-close-dialog="intro-dialog" aria-label="Stäng spelförklaringen" autofocus>×</button>
-        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden></p>
+        <button type="button" class="popup-close" data-close-dialog="intro-dialog" aria-label="Stäng spelförklaringen" autofocus data-i18n-aria-label="Stäng spelförklaringen">×</button>
+        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden data-i18n-data-etikett="kvar att välja" data-i18n-data-varning="kvar – välj nu, annars förlorar du matchen"></p>
         <div class="popup-hero" aria-hidden="true"><img src="assets/popup/valkommen.jpg" alt="" width="1440" height="480"></div>
         <div class="popup-welcome-title">
-          <span class="eyebrow">VÄLKOMMEN TILL</span><h3 id="intro-title">Tornstriden</h3><p>Två torn. Tre liv. En vinnare.</p>
+          <span class="eyebrow" data-i18n="VÄLKOMMEN TILL">VÄLKOMMEN TILL</span><h3 id="intro-title">Tornstriden</h3><p data-i18n="Två torn. Tre liv. En vinnare.">Två torn. Tre liv. En vinnare.</p>
         </div>
         <div class="help-body">
-          <ol class="popup-steps" aria-label="Spelets tre grundsteg">
-            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#cards"></use></svg><strong>Välj kort</strong><small>Tio kort på handen</small></li>
-            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#swords"></use></svg><strong>Anfall</strong><small>Slå mot tornet</small></li>
-            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#shield"></use></svg><strong>Försvara</strong><small>Skydda dina liv</small></li>
+          <ol class="popup-steps" aria-label="Spelets tre grundsteg" data-i18n-aria-label="Spelets tre grundsteg">
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#cards"></use></svg><strong data-i18n="Välj kort">Välj kort</strong><small data-i18n="Tio kort på handen">Tio kort på handen</small></li>
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#swords"></use></svg><strong data-i18n="Anfall">Anfall</strong><small data-i18n="Slå mot tornet">Slå mot tornet</small></li>
+            <li><svg class="popup-icon" viewBox="0 0 96 96" aria-hidden="true"><use href="assets/popup/emblem.svg#shield"></use></svg><strong data-i18n="Försvara">Försvara</strong><small data-i18n="Skydda dina liv">Skydda dina liv</small></li>
           </ol>
-          <details class="popup-rules"><summary>Så går en match till – läs spelreglerna</summary>
+          <details class="popup-rules"><summary data-i18n="Så går en match till – läs spelreglerna">Så går en match till – läs spelreglerna</summary>
           <ol class="help-steps">
-            <li><span class="step-no" aria-hidden="true">1</span><div><strong>Målet.</strong> Båda tornen har tre liv <span class="help-hearts" aria-hidden="true">♥♥♥</span>. Den som först tar motståndarens tre liv vinner matchen.</div></li>
-            <li><span class="step-no" aria-hidden="true">2</span><div><strong>Korten.</strong> Du har tio kort på handen. <span class="chip attack">Röda</span> anfaller, <span class="chip defence">blå</span> försvarar, <span class="chip hybrid">gröna</span> kan göra båda och <span class="chip magic">lila</span> är magi med en specialeffekt. Siffran är kortets styrka.</div></li>
-            <li><span class="step-no" aria-hidden="true">3</span><div><strong>Startbyten.</strong> Innan striderna börjar får du i två omgångar byta upp till två kort mot nya från draghögen.</div></li>
-            <li><span class="step-no" aria-hidden="true">4</span><div><strong>Striderna.</strong> Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.</div></li>
-            <li><span class="step-no" aria-hidden="true">5</span><div><strong>Bra att veta.</strong> Håll in ett kort en stund för att läsa hur det fungerar. Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</div></li>
+            <li><span class="step-no" aria-hidden="true">1</span><div><strong data-i18n="Målet.">Målet.</strong> <span data-i18n="Båda tornen har tre liv">Båda tornen har tre liv</span> <span class="help-hearts" aria-hidden="true">♥♥♥</span><span data-i18n=". Den som först tar motståndarens tre liv vinner matchen.">. Den som först tar motståndarens tre liv vinner matchen.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">2</span><div><strong data-i18n="Korten.">Korten.</strong> <span data-i18n="Du har tio kort på handen.">Du har tio kort på handen.</span> <span class="chip attack" data-i18n="Röda">Röda</span> <span data-i18n="anfaller,">anfaller,</span> <span class="chip defence" data-i18n="blå">blå</span> <span data-i18n="försvarar,">försvarar,</span> <span class="chip hybrid" data-i18n="gröna">gröna</span> <span data-i18n="kan göra båda och">kan göra båda och</span> <span class="chip magic" data-i18n="lila">lila</span> <span data-i18n="är magi med en specialeffekt. Siffran är kortets styrka.">är magi med en specialeffekt. Siffran är kortets styrka.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">3</span><div><strong data-i18n="Startbyten.">Startbyten.</strong> <span data-i18n="Innan striderna börjar får du i två omgångar byta upp till två kort mot nya från draghögen.">Innan striderna börjar får du i två omgångar byta upp till två kort mot nya från draghögen.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">4</span><div><strong data-i18n="Striderna.">Striderna.</strong> <span data-i18n="Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.">Spelarna turas om att anfalla. Anfallaren spelar ett kort och försvararen svarar med ett kort eller avstår. Är försvaret minst lika starkt som attacken håller tornet – annars förlorar försvararen ett liv.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">5</span><div><strong data-i18n="Bra att veta.">Bra att veta.</strong> <span data-i18n="Håll in ett kort en stund för att läsa hur det fungerar. Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.">Håll in ett kort en stund för att läsa hur det fungerar. Spelade kort slängs. Vilket kort som helst kan spelas som enkel attack 1. En tom hand fylls på med fem nya kort.</span></div></li>
           </ol>
           </details>
-          <p class="help-note">Mot datorn spelar du Södra tornet. Knappen <strong>Så spelar du</strong> i menyn visar den här rutan igen.</p>
+          <p class="help-note"><span data-i18n="Mot datorn spelar du Södra tornet. Knappen">Mot datorn spelar du Södra tornet. Knappen</span> <strong data-i18n="Så spelar du">Så spelar du</strong> <span data-i18n="i menyn visar den här rutan igen.">i menyn visar den här rutan igen.</span></p>
         </div>
-        <div class="help-actions"><button type="button" class="secondary" id="intro-online">Spela online mot andra</button><button type="button" class="primary" id="intro-close">Börja spela</button></div>
+        <div class="help-actions"><button type="button" class="secondary" id="intro-online" data-i18n="Spela online mot andra">Spela online mot andra</button><button type="button" class="primary" id="intro-close" data-i18n="Börja spela">Börja spela</button></div>
       </dialog>
       <!-- Bytesförklaring: öppnas en gång per spelare och match när startbytena börjar. -->
       <dialog id="swap-dialog" class="help-dialog game-popup" aria-labelledby="swap-title">
-        <button type="button" class="popup-close" data-close-dialog="swap-dialog" aria-label="Stäng bytesförklaringen" autofocus>×</button>
-        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden></p>
-        <header class="popup-heading"><span class="eyebrow">STARTBYTEN</span><h3 id="swap-title">Dags att byta kort</h3></header>
+        <button type="button" class="popup-close" data-close-dialog="swap-dialog" aria-label="Stäng bytesförklaringen" autofocus data-i18n-aria-label="Stäng bytesförklaringen">×</button>
+        <p class="turn-clock dialog-clock" data-etikett="kvar att välja" data-varning="kvar – välj nu, annars förlorar du matchen" hidden data-i18n-data-etikett="kvar att välja" data-i18n-data-varning="kvar – välj nu, annars förlorar du matchen"></p>
+        <header class="popup-heading"><span class="eyebrow" data-i18n="STARTBYTEN">STARTBYTEN</span><h3 id="swap-title" data-i18n="Dags att byta kort">Dags att byta kort</h3></header>
         <div class="popup-card-exchange" aria-hidden="true">
           <div class="popup-card-fan"><span class="popup-sample-card"><img src="assets/kort/stormning.jpg" alt="" width="600" height="900"></span><span class="popup-sample-card"><img src="assets/kort/bagskytt.jpg" alt="" width="600" height="900"></span><span class="popup-sample-card"><img src="assets/kort/tornvakt.jpg" alt="" width="600" height="900"></span></div>
           <span class="popup-exchange-arrow">⇄</span>
           <span class="popup-deck"><svg class="popup-icon" viewBox="0 0 96 96"><use href="assets/popup/emblem.svg#cards"></use></svg></span>
         </div>
         <div class="help-body">
-          <p class="swap-instruction">Byt upp till två kort.</p>
+          <p class="swap-instruction" data-i18n="Byt upp till två kort.">Byt upp till två kort.</p>
           <ol class="help-steps">
-            <li><span class="step-no" aria-hidden="true">1</span><div>Titta på din hand. Tryck på upp till <strong>två kort</strong> du vill bli av med – de får märket <span class="art-badge">Byts</span>. Tryck igen för att ångra.</div></li>
-            <li><span class="step-no" aria-hidden="true">2</span><div>Tryck på den stora knappen <strong>Byt kort</strong> ovanför handen. Du får lika många nya kort från draghögen.</div></li>
-            <li><span class="step-no" aria-hidden="true">3</span><div>Vill du behålla alla dina kort? Tryck på <strong>Behåll handen</strong>.</div></li>
+            <li><span class="step-no" aria-hidden="true">1</span><div><span data-i18n="Titta på din hand. Tryck på upp till">Titta på din hand. Tryck på upp till</span> <strong data-i18n="två kort">två kort</strong> <span data-i18n="du vill bli av med – de får märket">du vill bli av med – de får märket</span> <span class="art-badge" data-i18n="Byts">Byts</span><span data-i18n=". Tryck igen för att ångra.">. Tryck igen för att ångra.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">2</span><div><span data-i18n="Tryck på den stora knappen">Tryck på den stora knappen</span> <strong data-i18n="Byt kort">Byt kort</strong> <span data-i18n="ovanför handen. Du får lika många nya kort från draghögen.">ovanför handen. Du får lika många nya kort från draghögen.</span></div></li>
+            <li><span class="step-no" aria-hidden="true">3</span><div><span data-i18n="Vill du behålla alla dina kort? Tryck på">Vill du behålla alla dina kort? Tryck på</span> <strong data-i18n="Behåll handen">Behåll handen</strong>.</div></li>
           </ol>
           <p class="help-note" id="swap-who"></p>
-          <p class="help-note">Det blir två bytesomgångar. Bortbytta kort blandas tillbaka i draghögen först när båda spelarna är klara.</p>
+          <p class="help-note" data-i18n="Det blir två bytesomgångar. Bortbytta kort blandas tillbaka i draghögen först när båda spelarna är klara.">Det blir två bytesomgångar. Bortbytta kort blandas tillbaka i draghögen först när båda spelarna är klara.</p>
         </div>
-        <div class="help-actions"><button type="button" class="primary" id="swap-close">Visa mina kort</button></div>
+        <div class="help-actions"><button type="button" class="primary" id="swap-close" data-i18n="Visa mina kort">Visa mina kort</button></div>
       </dialog>
       <dialog id="start-dialog" class="confirm-dialog game-popup" aria-labelledby="start-title" aria-describedby="start-message">
-        <header class="popup-heading"><span class="eyebrow">FÖRSTA STRIDEN</span><h3 id="start-title"></h3></header>
+        <header class="popup-heading"><span class="eyebrow" data-i18n="FÖRSTA STRIDEN">FÖRSTA STRIDEN</span><h3 id="start-title"></h3></header>
         <div class="popup-confirm-body"><p id="start-message"></p><div id="start-clock"></div></div>
-        <div class="help-actions"><button type="button" class="primary" id="start-play">Börja striden</button></div>
+        <div class="help-actions"><button type="button" class="primary" id="start-play" data-i18n="Börja striden">Börja striden</button></div>
       </dialog>
       <dialog id="confirm-dialog" class="confirm-dialog game-popup" aria-labelledby="confirm-title" aria-describedby="confirm-message">
-        <button type="button" class="popup-close" data-close-dialog="confirm-dialog" aria-label="Avbryt och stäng">×</button>
-        <header class="popup-heading"><span class="eyebrow">DITT BESLUT</span><h3 id="confirm-title"></h3></header>
+        <button type="button" class="popup-close" data-close-dialog="confirm-dialog" aria-label="Avbryt och stäng" data-i18n-aria-label="Avbryt och stäng">×</button>
+        <header class="popup-heading"><span class="eyebrow" data-i18n="DITT BESLUT">DITT BESLUT</span><h3 id="confirm-title"></h3></header>
         <div class="popup-confirm-body"><span id="confirm-emblem" aria-hidden="true"></span><p id="confirm-message"></p></div>
         <div class="actions" id="confirm-actions"></div>
       </dialog>
     </section>
     </div>
-    <footer class="page-footer"><p>Tornstriden <span aria-hidden="true">·</span> Två torn. Tre liv. En vinnare.</p></footer>
-    <noscript><p>Aktivera JavaScript för att spela matchen.</p></noscript>
+    <footer class="page-footer"><p>Tornstriden <span aria-hidden="true">·</span> <span data-i18n="Två torn. Tre liv. En vinnare.">Två torn. Tre liv. En vinnare.</span></p></footer>
+    <noscript><p data-i18n="Aktivera JavaScript för att spela matchen.">Aktivera JavaScript för att spela matchen.</p></noscript>
   </main>
 </body>
 </html>

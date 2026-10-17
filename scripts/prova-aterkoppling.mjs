@@ -36,6 +36,7 @@ async function oppna(g) {
     });
   });
   g.page = await g.context.newPage();
+  await g.page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   g.page.on('pageerror', e => fel.push(`${g.namn}: ${e.message}`));
   g.page.on('console', m => {
     if (g.tapparKvittens && m.text() === 'Failed to load resource: net::ERR_FAILED' && m.location().url === `${base}/api/kommando`) return;

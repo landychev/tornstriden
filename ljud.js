@@ -1,3 +1,4 @@
+import { t as tr, onLanguageChange } from './sprak.js';
 /* Ljud är presentation: inga ljudhändelser ändrar matchens regler eller turer. */
 import { EVENT } from './lokalmatch.js';
 import { USAGE } from './matchregler.js';
@@ -115,7 +116,7 @@ export class GameAudio {
         this.loading = Promise.all(Object.entries(SOUND_FILES).map(async ([name, file]) => {
           try {
             const response = await this.fetchAsset(new URL(`assets/ljud/${file}`, import.meta.url));
-            if (!response.ok) throw new Error('Ljudfilen saknas');
+            if (!response.ok) throw new Error(tr('Ljudfilen saknas'));
             const buffer = await this.context.decodeAudioData(await response.arrayBuffer());
             this.buffers.set(name, buffer);
           } catch { this.failed = true; }
@@ -216,9 +217,9 @@ export function bindAudioControls(sound) {
     $('effects-volume').value = String(Math.round(sound.effectsVolume * 100));
     $('music-level').value = `${$('music-volume').value} %`;
     $('effects-level').value = `${$('effects-volume').value} %`;
-    $('sound-settings').textContent = sound.enabled ? '♫ Ljud' : '♫ Av';
-    $('sound-settings').setAttribute('aria-label', `Ljudinställningar – ljud ${sound.enabled ? 'på' : 'av'}`);
-    $('sound-status').textContent = sound.failed ? 'En del ljud kunde inte laddas. Spelet går fortfarande att spela.' : 'Musiken pausas när du lämnar fliken. Dina ljudinställningar sparas.';
+    $('sound-settings').textContent = sound.enabled ? tr('♫ Ljud') : tr('♫ Av');
+    $('sound-settings').setAttribute('aria-label', tr`Ljudinställningar – ljud ${sound.enabled ? tr('på') : tr('av')}`);
+    $('sound-status').textContent = sound.failed ? tr('En del ljud kunde inte laddas. Spelet går fortfarande att spela.') : tr('Musiken pausas när du lämnar fliken. Dina ljudinställningar sparas.');
   };
   $('sound-settings').addEventListener('click', () => { void sound.unlock(); $('sound-dialog').showModal(); });
   $('sound-close').addEventListener('click', () => $('sound-dialog').close());
@@ -233,5 +234,6 @@ export function bindAudioControls(sound) {
   window.addEventListener('pagehide', () => { void sound.setVisible(false); });
   window.addEventListener('pageshow', () => { void sound.setVisible(!document.hidden); });
   sound.visible = !document.hidden;
+  onLanguageChange(() => queueMicrotask(() => sound.onChange()));
   sound.onChange();
 }

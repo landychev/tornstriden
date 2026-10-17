@@ -1,3 +1,4 @@
+import { t as tr, cardText, onLanguageChange } from './sprak.js';
 /* Kortet förstorat och kortflygningar – gemensamt för duellvyn (matchvy.js) och lagvyn (lagmatchvy.js).
    Ett långt tryck (finger, mus, penna eller mellanslag som hålls in) på ett kort med `data-card` öppnar
    kortrutan; kortet flyger från sin plats in i rutan. Ett kort tryck markerar kortet som förut, och klicket
@@ -12,7 +13,7 @@ export const HOLD_SLACK = 10;           // px som fingret får glida under ett l
 export const ZOOM_MS = 360;             // kortet flyger från sin plats in i kortrutan
 export const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const html = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-const cardType = id => cards.find(card => card.id === id);
+const cardType = id => cardText(cards.find(card => card.id === id));
 
 /* ---- Kortflygningar: en kopia animeras i dokumentets koordinater, matchdata rörs inte ---- */
 export const docRect = el => { const r = el.getBoundingClientRect(); return { left: r.left + scrollX, top: r.top + scrollY, width: r.width, height: r.height }; };
@@ -56,8 +57,8 @@ export function flyGhost(template, from, to, { delay = 0, fade = false, layout =
 }
 
 const standardAnvandning = type => {
-  const uses = [canAttack(type) && 'anfaller', canDefend(type) && 'försvarar'].filter(Boolean);
-  return `Spelas när du ${uses.join(' eller ')}.`;
+  const uses = [canAttack(type) && tr('anfaller'), canDefend(type) && tr('försvarar')].filter(Boolean);
+  return tr`Spelas när du ${uses.join(tr(' eller '))}.`;
 };
 
 /* Kopplar långtryck på kort i `behallare` (element) till kortrutan `dialog` med innehållet i `detalj`.
@@ -69,21 +70,29 @@ export function kopplaKortlupp({ behallare, dialog, detalj, anvandning = standar
   const swallowed = () => performance.now() < swallowClicksUntil;
   const cardAt = target => target instanceof Element ? target.closest('[data-card]') : null;
 
+  let currentCard = null;
+  function renderDetail(type, simple) {
+    detalj.className = `card-detail ${type.type}`;
+    detalj.innerHTML = tr`<div class="card-detail-art"><div class="mini-card ${type.type}">${cardFace(type, { simple })}</div></div>
+    <div class="card-detail-text">
+      <span class="eyebrow">${simple ? tr('ENKEL ATTACK') : html(type.label).toUpperCase()}</span>
+      <h3 id="card-title">${html(type.name)}</h3>
+      <p class="card-detail-power"><strong>${simple ? '1' : html(type.value)}</strong><span>${simple ? tr('Attackstyrka') : html(type.valueLabel)}</span></p>
+      <p class="card-detail-use">${simple ? tr('Spelas den här striden som enkel attack 1, utan specialeffekt.') : anvandning(type)}</p>
+      <h4>${simple ? tr('Kortets vanliga effekt') : tr('Så fungerar kortet')}</h4>
+      <p>${html(type.effect)}</p>${simple ? '' : tillagg(type)}
+      <p class="help-note">Kortet slängs efter striden. Vilket kort som helst kan spelas som enkel attack 1, utan specialeffekt.</p>
+    </div>`;
+  }
+  onLanguageChange(() => {
+    if (dialog.open && currentCard) renderDetail(cardType(currentCard.id), currentCard.simple);
+  });
   function openCardDetail(source) {
     const type = cardType(source.dataset.card);
     if (!type) return;
     const simple = source.dataset.simple === 'true';
-    detalj.className = `card-detail ${type.type}`;
-    detalj.innerHTML = `<div class="card-detail-art"><div class="mini-card ${type.type}">${cardFace(type, { simple })}</div></div>
-    <div class="card-detail-text">
-      <span class="eyebrow">${simple ? 'ENKEL ATTACK' : html(type.label).toUpperCase()}</span>
-      <h3 id="card-title">${html(type.name)}</h3>
-      <p class="card-detail-power"><strong>${simple ? '1' : html(type.value)}</strong><span>${simple ? 'Attackstyrka' : html(type.valueLabel)}</span></p>
-      <p class="card-detail-use">${simple ? 'Spelas den här striden som enkel attack 1, utan specialeffekt.' : anvandning(type)}</p>
-      <h4>${simple ? 'Kortets vanliga effekt' : 'Så fungerar kortet'}</h4>
-      <p>${html(type.effect)}</p>${simple ? '' : tillagg(type)}
-      <p class="help-note">Kortet slängs efter striden. Vilket kort som helst kan spelas som enkel attack 1, utan specialeffekt.</p>
-    </div>`;
+    currentCard = { id: type.id, simple };
+    renderDetail(type, simple);
     const target = detalj.querySelector('.mini-card');
     target.style.visibility = 'hidden';
     const from = source.getBoundingClientRect();

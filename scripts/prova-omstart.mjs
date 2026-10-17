@@ -36,6 +36,7 @@ const text = (page, sel) => page.locator(sel).first().textContent({ timeout: 400
 async function gast(namn, mobil = false) {
   const context = await browser.newContext({ ...(mobil ? devices['iPhone 13'] : { viewport: { width: 1280, height: 900 } }), reducedMotion: 'reduce' });
   const page = await context.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   page.on('pageerror', e => fel.push(`${namn}: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/mp3|audio|media|404|Failed to load resource|ERR_CONNECTION_REFUSED|net::/i.test(m.text())) fel.push(`${namn}: ${m.text()}`); });
   await page.goto(`${base}/lobby.html`);

@@ -18,6 +18,7 @@ const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? 'OK ' : 'FEL'} ${name}${extra ? ' – ' + extra : ''}`); };
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined, executablePath: process.env.PLAYWRIGHT_EXECUTABLE || undefined });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await page.addInitScript(lang => { try { localStorage.setItem('tornstriden-language', lang); } catch {} }, process.env.TORNSTRIDEN_TEST_LANGUAGE === 'en' ? 'en' : 'sv');
 const consoleErrors = [];
 const missing = [];
 page.on('response', r => { if (r.status() === 404) missing.push(new URL(r.url()).pathname); });
@@ -87,7 +88,7 @@ try {
   }
   const over = await page.locator('#result-dialog[open]').count();
   const winnerText = await page.locator('#result .winner').textContent().catch(() => '');
-  check('matchen spelades till slut', over === 1 && /vinner matchen/.test(winnerText), `${battles} strider, ${played} anfall, ${defended} försvar, ${passed} avstådda – ${winnerText.trim()}`);
+  check('matchen spelades till slut', over === 1 && /vinner matchen|wins? the match/.test(winnerText), `${battles} strider, ${played} anfall, ${defended} försvar, ${passed} avstådda – ${winnerText.trim()}`);
   await page.screenshot({ path: join(OUT, '6-match-slut.png') });
   check('matchrutan har rätt utfallsklass', ['victory', 'defeat'].includes(await page.locator('#result-dialog').getAttribute('data-outcome')));
   await page.click('#dialog-new');
@@ -101,7 +102,7 @@ try {
   await page.click('#keep-hand');
   await page.waitForTimeout(300);
   const owner = await page.locator('#hand-owner').textContent();
-  check('tvåspelarläget visar nästa spelares hand', /NORRA/.test(owner), owner);
+  check('tvåspelarläget visar nästa spelares hand', /NORRA|NORTHERN/.test(owner), owner);
 
   for (let i = 0; i < 3; i++) {
     if (await visible('#swap-close')) await page.click('#swap-close');

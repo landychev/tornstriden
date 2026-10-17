@@ -28,6 +28,7 @@ const responses = { Anna: [], Bo: [] };
 async function gast(namn, options = {}) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   page.on('console', m => { if (m.type() === 'error' && !/mp3|audio|media|404/i.test(m.text())) consoleErrors.push(`${namn}: ${m.text()}`); });
   page.on('pageerror', e => consoleErrors.push(`${namn}: ${e.message}`));
   page.on('response', async r => { if (/\/api\/(match|kommando|status)/.test(r.url())) { try { responses[namn].push(await r.text()); } catch {} } });

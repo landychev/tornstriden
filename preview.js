@@ -16,6 +16,7 @@ try {
   const browser = await chromium.launch();
   for (const { page: path, file, width, height } of shots) {
     const page = await browser.newPage({ viewport: { width, height }, colorScheme: 'light', reducedMotion: 'reduce' });
+    await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
     await page.goto(`http://127.0.0.1:${PORT}/${path}`);
     await page.waitForTimeout(600);
     // Stäng hjälprutorna (spelförklaring och bytesförklaring) så att bilden visar bordet.

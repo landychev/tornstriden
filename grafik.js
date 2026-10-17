@@ -1,3 +1,4 @@
+import { t as tr, cardText } from './sprak.js';
 /* Gemensam presentation. Kortens regler och värden kommer fortfarande från kort.js. */
 import { cards } from './kort.js';
 import { effects } from './bildeffekter.js';
@@ -13,7 +14,8 @@ export function cardArt(card, { simple = false, lazy = false } = {}) {
 }
 
 export function cardFace(card, { simple = false } = {}) {
-  return `${cardArt(card, { simple })}<span class="mini-value">${simple ? '1' : escape(card.value)}</span><span class="mini-name">${escape(card.name)}</span><span class="mini-kind">${simple ? 'Enkel attack' : escape(card.label)}</span><span class="mini-label">${simple ? 'Attack 1 · utan specialeffekt' : escape(card.valueLabel)}</span>`;
+  card = cardText(card);
+  return `${cardArt(card, { simple })}<span class="mini-value">${simple ? '1' : escape(card.value)}</span><span class="mini-name">${escape(card.name)}</span><span class="mini-kind">${simple ? tr('Enkel attack') : escape(card.label)}</span><span class="mini-label">${simple ? tr('Attack 1 · utan specialeffekt') : escape(card.valueLabel)}</span>`;
 }
 
 /* Visuella skador följer verkliga liv, även efter läkning eller en ny match. */

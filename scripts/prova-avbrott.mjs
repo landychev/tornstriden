@@ -43,6 +43,7 @@ async function startaMatch(nicks) {
     g.context = await browser.newContext({ ...(g.mobil ? devices['iPhone 13'] : { viewport: { width: 1280, height: 900 } }), reducedMotion: 'reduce' });
     await g.context.addCookies([{ name: 'tornstriden_session', value: g.token, url: base }]);
     g.page = await g.context.newPage();
+    await g.page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
     g.page.on('pageerror', e => fel.push(`${g.namn}: ${e.message}`));
     g.page.on('console', m => { if (m.type() === 'error' && !/mp3|audio|media|404|ERR_INTERNET_DISCONNECTED|Failed to load resource|net::/i.test(m.text())) fel.push(`${g.namn}: ${m.text()}`); });
     await g.page.goto(`${base}/match.html?online=1`);
@@ -144,6 +145,7 @@ async function flytta(ms, utan = []) {
   await flytta(20_000);
   /* Ben öppnar sidan igen: samma tur med sparad tid, inte nya 90 sekunder. */
   ben.page = await ben.context.newPage();
+  await ben.page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   ben.page.on('pageerror', e => fel.push(`Ben: ${e.message}`));
   await ben.page.goto(`${base}/match.html?online=1`);
   await ben.page.locator('#intro-dialog[open]').waitFor();

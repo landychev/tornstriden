@@ -1,3 +1,5 @@
+import { initLanguage } from './sprakval.js';
+import { t as tr, source, message, cardText, language, onLanguageChange } from './sprak.js';
 /* Lagvyn (arbetsordning L15): lagmatchen för 4/6/8 deltagare i webbläsaren. Samma adaptergräns som duellen
    (onlinematch.js): vyn ser bara serverns privata vy – egen hand, offentliga torn, bordet och egna tillåtna
    val – och skickar kommandon enligt kontrakt.js. Inga lagkamraters händer finns någonstans. Allt som är
@@ -33,7 +35,7 @@ const $ = id => document.getElementById(id);
 const html = text => String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const HEART = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 20.6S3.4 15.3 3.4 9.4A4.6 4.6 0 0 1 12 6.9a4.6 4.6 0 0 1 8.6 2.5c0 5.9-8.6 11.2-8.6 11.2z"/></svg>';
 const TORN = { A: 'assets/torn/torn-rod.png', B: 'assets/torn/torn-bla.png' };
-const cardType = id => cards.find(card => card.id === id);
+const cardType = id => cardText(cards.find(card => card.id === id));
 
 let adapter = null;
 let v = null;   // senaste privata vyn från servern
@@ -52,7 +54,7 @@ const ui = {
 const playerOf = id => v.players.find(p => p.id === id);
 const alive = p => p?.status === PLAYER_STATUS.alive;
 const iAmAlive = () => alive(playerOf(v.viewer));
-const teamName = id => TEAMS.find(t => t.id === id)?.name ?? '';
+const teamName = id => tr(TEAMS.find(team => team.id === id)?.name ?? '');
 const otherTeam = id => id === 'A' ? 'B' : 'A';
 const allowedOf = type => v.allowed.find(a => a.type === type);
 const can = type => Boolean(allowedOf(type));
@@ -60,13 +62,13 @@ const running = () => ![FAS.over, FAS.error].includes(v.phase);
 const cardInHand = id => v.me.hand.find(c => c.instanceId === id);
 const selectedCard = () => ui.selected.length === 1 ? cardInHand(ui.selected[0]) : null;
 /* Namn i löptext (oescapade; escapas där de sätts in). Den egna spelaren heter "du"/"Du"/"dig". */
-const namn = id => id === v.viewer ? 'du' : playerOf(id)?.name ?? '?';
-const Namn = id => id === v.viewer ? 'Du' : namn(id);
+const namn = id => id === v.viewer ? tr('du') : playerOf(id)?.name ?? '?';
+const Namn = id => id === v.viewer ? tr('Du') : namn(id);
 /* "Anna, Bo och dig" (objekt) eller "Anna och du" (subjekt, först i meningen). */
 function lista(ids, { subjekt = false } = {}) {
-  const delar = ids.map(id => id === v.viewer ? (subjekt ? 'du' : 'dig') : playerOf(id)?.name ?? '?');
-  const text = delar.length > 1 ? `${delar.slice(0, -1).join(', ')} och ${delar.at(-1)}` : delar[0] ?? 'ingen';
-  return subjekt && text.startsWith('du') ? `D${text.slice(1)}` : text;
+  const delar = ids.map(id => id === v.viewer ? (subjekt ? tr('du') : tr('dig')) : playerOf(id)?.name ?? '?');
+  const text = delar.length > 1 ? tr`${delar.slice(0, -1).join(', ')} och ${delar.at(-1)}` : delar[0] ?? tr('ingen');
+  return subjekt ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 }
 /* Lagets nästa startspelare: första levande från lagets pekare i fast ordning (samma som servern visar). */
 function ledare(team) {
@@ -75,67 +77,67 @@ function ledare(team) {
   return [...order.slice(start), ...order.slice(0, start)].find(id => alive(playerOf(id))) ?? null;
 }
 /* Egen nedräkning (L16): bara när servern väntar på just mig. */
-const minKlocka = () => v.deadline && iAmAlive() && running() ? klockrad(v.viewer, { varning: 'kvar – välj nu, annars slås du ut' }) : '';
-const utslagText = p => ({ [ELIMINATION.left]: 'Du lämnade matchen.', [ELIMINATION.life]: 'Ditt torn har fallit.', [ELIMINATION.timeout]: 'Tiden för ditt val tog slut.', [ELIMINATION.disconnect]: 'Du kom inte tillbaka i tid.' })[p?.eliminationReason] ?? 'Ditt torn har fallit.';
+const minKlocka = () => v.deadline && iAmAlive() && running() ? klockrad(v.viewer, { varning: tr('kvar – välj nu, annars slås du ut') }) : '';
+const utslagText = p => ({ [ELIMINATION.left]: tr('Du lämnade matchen.'), [ELIMINATION.life]: tr('Ditt torn har fallit.'), [ELIMINATION.timeout]: tr('Tiden för ditt val tog slut.'), [ELIMINATION.disconnect]: tr('Du kom inte tillbaka i tid.') })[p?.eliminationReason] ?? tr('Ditt torn har fallit.');
 
 function resultTitle(r) {
-  if (r.outcome === UTFALL.aborted) return 'Striden avbröts';
-  return r.outcome === UTFALL.held ? 'Försvaret håller' : `${Namn(r.target)} träffas`;
+  if (r.outcome === UTFALL.aborted) return tr('Striden avbröts');
+  return r.outcome === UTFALL.held ? tr('Försvaret håller') : tr`${Namn(r.target)} träffas`;
 }
 function resultLine(r) {
-  if (r.outcome === UTFALL.aborted) return `${Namn(r.target)} lämnade striden – ingen skada, läkning eller motstöt.`;
-  return `Attack ${r.attack} mot försvar ${r.defence}.`;
+  if (r.outcome === UTFALL.aborted) return tr`${Namn(r.target)} lämnade striden – ingen skada, läkning eller motstöt.`;
+  return tr`Attack ${r.attack} mot försvar ${r.defence}.`;
 }
 function overTitle() {
-  if (v.endReason === TEAM_END.serverAbort) return 'Matchen avbröts';
-  if (!v.winnerTeam) return 'Ingen vann matchen';
-  return v.winnerTeam === v.teamId ? 'Ditt lag vinner matchen!' : `${teamName(v.winnerTeam)} vinner matchen`;
+  if (v.endReason === TEAM_END.serverAbort) return tr('Matchen avbröts');
+  if (!v.winnerTeam) return tr('Ingen vann matchen');
+  return v.winnerTeam === v.teamId ? tr('Ditt lag vinner matchen!') : tr`${teamName(v.winnerTeam)} vinner matchen`;
 }
 function overText() {
-  if (v.endReason === TEAM_END.serverAbort) return 'Matchen avbröts på grund av ett serveravbrott. Ingen vann. Gå till lobbyn för att ordna en ny match.';   // L18
-  if (v.endReason === TEAM_END.noPlayers || !v.winnerTeam) return 'Matchen avbröts utan vinnare: alla spelare har lämnat eller slagits ut.';
+  if (v.endReason === TEAM_END.serverAbort) return tr('Matchen avbröts på grund av ett serveravbrott. Ingen vann. Gå till lobbyn för att ordna en ny match.');   // L18
+  if (v.endReason === TEAM_END.noPlayers || !v.winnerTeam) return tr('Matchen avbröts utan vinnare: alla spelare har lämnat eller slagits ut.');
   const forlorare = otherTeam(v.winnerTeam);
-  const egen = !iAmAlive() && v.winnerTeam === v.teamId ? ' Du var utslagen, men laget tog hem segern.' : '';
-  return `${teamName(forlorare)} har inga torn kvar efter ${v.battleNumber} strider.${egen}`;
+  const egen = !iAmAlive() && v.winnerTeam === v.teamId ? tr(' Du var utslagen, men laget tog hem segern.') : '';
+  return tr`${teamName(forlorare)} har inga torn kvar efter ${v.battleNumber} strider.${egen}`;
 }
 
 /* "Just nu: attack 7 mot försvar 5 – anfallet går igenom om inget mer läggs." */
 function lageNu() {
   const p = v.battle?.preview;
-  return p ? ` Just nu: attack ${p.attack} mot försvar ${p.defence} – ${p.defended ? 'försvaret håller' : 'anfallet går igenom'} om inget mer läggs.` : '';
+  return p ? tr` Just nu: attack ${p.attack} mot försvar ${p.defence} – ${p.defended ? tr('försvaret håller') : tr('anfallet går igenom')} om inget mer läggs.` : '';
 }
 
 /* Fastexten; när en frånkopplad spelares val behövs säger den det (L17). */
 function phaseText() {
-  const t = fasText();
-  if (!running()) return t;
+  const phase = fasText();
+  if (!running()) return phase;
   const a = v.activePlayer;
-  if (a && a !== v.viewer && v.disconnects?.[a] !== undefined) return { ...t, text: `Väntar på att ${Namn(a)} återansluter.` };
+  if (a && a !== v.viewer && v.disconnects?.[a] !== undefined) return { ...phase, text: tr`Väntar på att ${Namn(a)} återansluter.` };
   /* Gemensamma val: nämn den som saknas för att hen är frånkopplad. */
   const borta = [...(v.swap?.waitingFor ?? []), ...(v.confirm?.waitingFor ?? [])].filter(id => id !== v.viewer && v.disconnects?.[id] !== undefined);
-  return borta.length ? { ...t, text: `${t.text} Väntar på att ${lista(borta)} återansluter.` } : t;
+  return borta.length ? { ...phase, text: tr`${phase.text} Väntar på att ${lista(borta)} återansluter.` } : phase;
 }
 function fasText() {
   const b = v.battle, r = v.lastResult;
   switch (v.phase) {
-    case FAS.swap: return { title: `Startbyten – omgång ${v.swap.round} av ${v.swap.rounds}`, text: v.swap.mine ? `Väntar på ${lista(v.swap.waitingFor)}.` : `Alla byter samtidigt. Markera upp till ${v.swap.maxCards} kort eller behåll handen.` };
-    case FAS.start: return { title: `${teamName(v.attackingTeam)} anfaller först`, text: `${Namn(ledare(v.attackingTeam))} väljer måltavla när alla har bekräftat.${v.confirm?.mine ? ` Väntar på ${lista(v.confirm.waitingFor)}.` : ''}` };
-    case FAS.target: return { title: `Strid ${v.battleNumber}: ${teamName(b.attackingTeam)} anfaller`, text: b.leader === v.viewer ? 'Du väljer vilket fiendetorn ni anfaller.' : `${Namn(b.leader)} väljer måltavla.` };
-    case FAS.attack: return { title: `Strid ${v.battleNumber}: anfall mot ${namn(b.target)}`, text: `${v.activePlayer === v.viewer ? 'Din tur: lägg ett kort eller avstå.' : `${Namn(v.activePlayer)} väljer anfall.`}${b.preview ? ` Lagets attack hittills: ${b.preview.attack}.` : ''}` };
+    case FAS.swap: return { title: tr`Startbyten – omgång ${v.swap.round} av ${v.swap.rounds}`, text: v.swap.mine ? tr`Väntar på ${lista(v.swap.waitingFor)}.` : tr`Alla byter samtidigt. Markera upp till ${v.swap.maxCards} kort eller behåll handen.` };
+    case FAS.start: return { title: tr`${teamName(v.attackingTeam)} anfaller först`, text: tr`${Namn(ledare(v.attackingTeam))} väljer måltavla när alla har bekräftat.${v.confirm?.mine ? tr` Väntar på ${lista(v.confirm.waitingFor)}.` : ''}` };
+    case FAS.target: return { title: tr`Strid ${v.battleNumber}: ${teamName(b.attackingTeam)} anfaller`, text: b.leader === v.viewer ? tr('Du väljer vilket fiendetorn ni anfaller.') : tr`${Namn(b.leader)} väljer måltavla.` };
+    case FAS.attack: return { title: tr`Strid ${v.battleNumber}: anfall mot ${namn(b.target)}`, text: `${v.activePlayer === v.viewer ? tr('Din tur: lägg ett kort eller avstå.') : tr`${Namn(v.activePlayer)} väljer anfall.`}${b.preview ? tr` Lagets attack hittills: ${b.preview.attack}.` : ''}` };
     case FAS.defence: return {
-      title: `Strid ${v.battleNumber}: ${b.target === v.viewer ? 'du försvarar' : `${namn(b.target)} försvarar`}`,
-      text: `${v.activePlayer === v.viewer ? (b.target === v.viewer ? 'Försvara ditt torn eller avstå.' : `Hjälp ${namn(b.target)} eller avstå.`) : `${Namn(v.activePlayer)} ${v.activePlayer === b.target ? 'försvarar sitt torn' : 'väljer om hen hjälper till'}.`}${lageNu()}`
+      title: tr`Strid ${v.battleNumber}: ${b.target === v.viewer ? tr('du försvarar') : tr`${namn(b.target)} försvarar`}`,
+      text: `${v.activePlayer === v.viewer ? (b.target === v.viewer ? tr('Försvara ditt torn eller avstå.') : tr`Hjälp ${namn(b.target)} eller avstå.`) : `${Namn(v.activePlayer)} ${v.activePlayer === b.target ? tr('försvarar sitt torn') : tr('väljer om hen hjälper till')}.`}${lageNu()}`
     };
-    case FAS.result: return { title: resultTitle(r), text: `${resultLine(r)} ${v.confirm?.mine ? `Väntar på ${lista(v.confirm.waitingFor)}.` : 'Tryck Fortsätt för nästa strid.'}` };
+    case FAS.result: return { title: resultTitle(r), text: `${resultLine(r)} ${v.confirm?.mine ? tr`Väntar på ${lista(v.confirm.waitingFor)}.` : tr('Tryck Fortsätt för nästa strid.')}` };
     case FAS.over: return { title: overTitle(), text: overText() };
-    case FAS.error: return { title: 'Matchen har stoppats', text: 'Ett internt fel stoppade matchen. Ingen vann.' };
+    case FAS.error: return { title: tr('Matchen har stoppats'), text: tr('Ett internt fel stoppade matchen. Ingen vann.') };
     default: return { title: '', text: '' };
   }
 }
 
 /* ---- Lagbordet ---- */
 /* `forut`: livet före en ny strid – de förlorade hjärtana brister (spelbord.css). */
-const hearts = (life, forut = life) => `<span class="hearts" role="img" aria-label="${life} av ${MAX_LIFE} liv">${Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < life ? '' : 'lost'}${n >= life && n < forut ? ' just-lost' : ''}">${HEART}</span>`).join('')}</span>`;
+const hearts = (life, forut = life) => tr`<span class="hearts" role="img" aria-label="${life} av ${MAX_LIFE} liv">${Array.from({ length: MAX_LIFE }, (_, n) => `<span aria-hidden="true" class="${n < life ? '' : 'lost'}${n >= life && n < forut ? ' just-lost' : ''}">${HEART}</span>`).join('')}</span>`;
 /* Livet före stridsresultatet, bara för ett resultat som kom som ny händelse och bara strax efter den. */
 function livForut(p) {
   const r = v.lastResult;
@@ -145,14 +147,14 @@ function livForut(p) {
 }
 
 function chipStatus(p) {
-  if (!alive(p)) return ({ [ELIMINATION.left]: 'Lämnade matchen', [ELIMINATION.timeout]: 'Utslagen – tiden tog slut', [ELIMINATION.disconnect]: 'Utslagen – kom inte tillbaka' })[p.eliminationReason] ?? 'Utslagen';
+  if (!alive(p)) return ({ [ELIMINATION.left]: tr('Lämnade matchen'), [ELIMINATION.timeout]: tr('Utslagen – tiden tog slut'), [ELIMINATION.disconnect]: tr('Utslagen – kom inte tillbaka') })[p.eliminationReason] ?? tr('Utslagen');
   const b = v.battle;
   const delar = [];
-  if (b?.target === p.id) delar.push('Måltavla');
-  if (v.activePlayer === p.id) delar.push(v.phase === FAS.target ? 'Väljer måltavla' : v.phase === FAS.attack ? 'Väljer anfall' : b?.target === p.id ? 'Försvarar' : 'Väljer hjälp');
-  else if (b?.leader === p.id) delar.push('Startspelare');
-  if (v.confirm?.waitingFor.includes(p.id) || v.swap?.waitingFor.includes(p.id)) delar.push('Inte klar');
-  if (p.connection !== CONNECTION.online) delar.push('Frånkopplad');
+  if (b?.target === p.id) delar.push(tr('Måltavla'));
+  if (v.activePlayer === p.id) delar.push(v.phase === FAS.target ? tr('Väljer måltavla') : v.phase === FAS.attack ? tr('Väljer anfall') : b?.target === p.id ? tr('Försvarar') : tr('Väljer hjälp'));
+  else if (b?.leader === p.id) delar.push(tr('Startspelare'));
+  if (v.confirm?.waitingFor.includes(p.id) || v.swap?.waitingFor.includes(p.id)) delar.push(tr('Inte klar'));
+  if (p.connection !== CONNECTION.online) delar.push(tr('Frånkopplad'));
   return delar.join(' · ');
 }
 
@@ -164,23 +166,23 @@ function chip(p, { valbar }) {
   if (!alive(p)) klass.push('out');
   if (p.connection !== CONNECTION.online) klass.push('offline');
   const status = chipStatus(p);
-  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life, livForut(p))}<small>${alive(p) ? `${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span><span class="chip-avbrott" data-avbrott="${html(p.id)}" hidden></span>` : ''}</small></span>`;
+  const inner = `<img src="${TORN[p.teamId]}" alt="" width="280" height="320"><span class="chip-text"><strong>${html(p.name)}${p.id === v.viewer ? ' <em>(du)</em>' : ''}</strong>${hearts(p.life, livForut(p))}<small>${alive(p) ? tr`${p.cardCount} kort` : ''}${status ? `${alive(p) ? ' · ' : ''}${html(status)}` : ''}${alive(p) ? `<span class="chip-clock" data-klocka="${html(p.id)}" hidden></span><span class="chip-avbrott" data-avbrott="${html(p.id)}" hidden></span>` : ''}</small></span>`;
   return valbar
-    ? `<li><button type="button" class="${klass.join(' ')} selectable" data-target="${html(p.id)}" aria-pressed="${ui.target === p.id}" aria-label="Välj ${html(p.name)} som måltavla, ${p.life} liv">${inner}</button></li>`
+    ? tr`<li><button type="button" class="${klass.join(' ')} selectable" data-target="${html(p.id)}" aria-pressed="${ui.target === p.id}" aria-label="Välj ${html(p.name)} som måltavla, ${p.life} liv">${inner}</button></li>`
     : `<li class="${klass.join(' ')}">${inner}</li>`;
 }
 
 function spelatKort(entry, { stoppad = false } = {}) {
   const type = cardType(entry.cardId);
   const simple = entry.usage === USAGE.simple;
-  return `<div class="mini-card ${type.type}${stoppad ? ' stopped' : ''}" data-card="${type.id}"${simple ? ' data-simple="true"' : ''} aria-label="${html(type.name)}${simple ? ' som enkel attack 1' : ''}${stoppad ? ', stoppat' : ''}">${cardFace(type, { simple })}</div>`;
+  return `<div class="mini-card ${type.type}${stoppad ? ' stopped' : ''}" data-card="${type.id}"${simple ? ' data-simple="true"' : ''} aria-label="${html(type.name)}${simple ? tr(' som enkel attack 1') : ''}${stoppad ? tr(', stoppat') : ''}">${cardFace(type, { simple })}</div>`;
 }
 function malText(entry, table) {
   if (entry.targetCard) {
     const t = table.find(e => e.instanceId === entry.targetCard);
-    return t ? `→ ${cardType(t.cardId).name} (${namn(t.playerId)})` : '→ målkortet är borta';
+    return t ? `→ ${cardType(t.cardId).name} (${namn(t.playerId)})` : tr('→ målkortet är borta');
   }
-  return entry.targetPlayer ? `→ motstöt mot ${namn(entry.targetPlayer)}` : '';
+  return entry.targetPlayer ? tr`→ motstöt mot ${namn(entry.targetPlayer)}` : '';
 }
 
 /* Vad ett kort räknas som just nu (förhandsvisning) eller räknades som (resultat): stopp, spegling,
@@ -190,10 +192,10 @@ function kortNot(entry, info, table) {
   const type = cardType(entry.cardId);
   const tryckt = entry.role === 'attack' ? (entry.usage === USAGE.simple ? 1 : type.attack ?? 0) : type.defence ?? 0;
   const delar = [];
-  if (info?.stoppedBy?.length) delar.push(`Stoppad av ${info.stoppedBy.map(kort).filter(Boolean).join(', ') || 'ett kort'}`);
-  else if (info?.mirrorOf) delar.push(`Speglar ${kort(info.mirrorOf) ?? 'kortet'}: ${info.value}`);
-  else if (info?.bonus) delar.push(`Räknas ${info.value} (+${info.bonus})`);
-  else if (info && info.value !== tryckt) delar.push(`Räknas ${info.value}`);
+  if (info?.stoppedBy?.length) delar.push(tr`Stoppad av ${info.stoppedBy.map(kort).filter(Boolean).join(', ') || tr('ett kort')}`);
+  else if (info?.mirrorOf) delar.push(tr`Speglar ${kort(info.mirrorOf) ?? tr('kortet')}: ${info.value}`);
+  else if (info?.bonus) delar.push(tr`Räknas ${info.value} (+${info.bonus})`);
+  else if (info && info.value !== tryckt) delar.push(tr`Räknas ${info.value}`);
   if (!info?.mirrorOf) { const mal = malText(entry, table); if (mal) delar.push(mal); }
   return delar.join(' · ');
 }
@@ -205,26 +207,26 @@ function koLista(role) {
   const queue = role === 'attack' ? b.attackQueue : b.defenceQueue;
   const index = role === 'attack' ? b.attackIndex : b.defenceIndex;
   const fas = role === 'attack' ? FAS.attack : FAS.defence;
-  if (!queue.length) return `<li class="empty-note">${role === 'defence' ? (b.target ? `${html(Namn(b.target))} försvarar först, sedan lagkamraterna.` : 'Väntar på måltavla.') : 'Startspelaren väljer måltavla.'}</li>`;
+  if (!queue.length) return `<li class="empty-note">${role === 'defence' ? (b.target ? tr`${html(Namn(b.target))} försvarar först, sedan lagkamraterna.` : tr('Väntar på måltavla.')) : tr('Startspelaren väljer måltavla.')}</li>`;
   return queue.map((id, i) => {
     const entry = b.table.find(e => e.playerId === id && e.role === role);
     const turn = b.turns.find(t => t.playerId === id && t.role === role);
     const nu = v.phase === fas && i === index && !entry && !turn;
     const info = entry ? b.preview?.cards[entry.instanceId] : null;
     const body = entry ? spelatKort(entry, { stoppad: stoppad(entry, info) })
-      : turn?.instanceId === null ? '<span class="queue-state passed">Avstod</span>'
-      : turn ? '<span class="queue-state passed">Kortet togs bort</span>'
-      : nu ? '<span class="queue-state now">Väljer nu …</span>'
-      : '<span class="queue-state">Väntar</span>';
+      : turn?.instanceId === null ? tr('<span class="queue-state passed">Avstod</span>')
+      : turn ? tr('<span class="queue-state passed">Kortet togs bort</span>')
+      : nu ? tr('<span class="queue-state now">Väljer nu …</span>')
+      : tr('<span class="queue-state">Väntar</span>');
     const note = entry ? kortNot(entry, info, b.table) : '';
-    return `<li class="queue-item${nu ? ' now' : ''}"><span class="queue-name">${html(Namn(id))}${role === 'defence' && id === b.target ? ' · måltavla' : ''}</span>${body}${note ? `<span class="queue-note">${html(note)}</span>` : ''}</li>`;
+    return `<li class="queue-item${nu ? ' now' : ''}"><span class="queue-name">${html(Namn(id))}${role === 'defence' && id === b.target ? tr(' · måltavla') : ''}</span>${body}${note ? `<span class="queue-note">${html(note)}</span>` : ''}</li>`;
   }).join('');
 }
 /* Efter avgörandet: korten som räknades, med stoppade kort markerade. */
 function resultatLista(role) {
   const r = v.lastResult;
   const entries = r.table.filter(e => e.role === role);
-  if (!entries.length) return `<li class="empty-note">${role === 'attack' ? 'Inga anfallskort kvar' : 'Inget försvar'}</li>`;
+  if (!entries.length) return `<li class="empty-note">${role === 'attack' ? tr('Inga anfallskort kvar') : tr('Inget försvar')}</li>`;
   return entries.map(e => {
     const info = r.cards?.[e.instanceId];
     const ar = stoppad(e, info) || r.stopped.includes(e.instanceId);
@@ -266,16 +268,16 @@ function renderBoard() {
   const mitt = v.teamId, fiende = otherTeam(mitt);
   const valbara = new Set(allowedOf(C.target)?.players ?? []);
   const kvar = team => v.teams[team].filter(id => alive(playerOf(id))).length;
-  $('enemy-name').textContent = `${teamName(fiende)} · ${kvar(fiende)} av ${v.teams[fiende].length} kvar`;
-  $('own-name').textContent = `${teamName(mitt)} · ditt lag · ${kvar(mitt)} av ${v.teams[mitt].length} kvar`;
+  $('enemy-name').textContent = tr`${teamName(fiende)} · ${kvar(fiende)} av ${v.teams[fiende].length} kvar`;
+  $('own-name').textContent = tr`${teamName(mitt)} · ditt lag · ${kvar(mitt)} av ${v.teams[mitt].length} kvar`;
   skriv('enemy-towers', v.teams[fiende].map(id => chip(playerOf(id), { valbar: valbara.has(id) })).join(''));
   skriv('own-towers', v.teams[mitt].map(id => chip(playerOf(id), { valbar: false })).join(''));
   const { title, text } = phaseText();
   $('phase-title').textContent = title;
   $('phase-description').textContent = text;
   const n = v.players.length / 2;
-  $('match-label').textContent = `LAGMATCH ${n} MOT ${n}${v.battleNumber ? ` · STRID ${v.battleNumber}` : ''}`;
-  $('rules-label').textContent = `Regler ${v.rulesVersion} · Kortlek ${v.deckVersion} · draghög ${v.drawPileCount} kort, slänghög ${v.discardPileCount} kort.`;
+  $('match-label').textContent = tr`LAGMATCH ${n} MOT ${n}${v.battleNumber ? tr` · STRID ${v.battleNumber}` : ''}`;
+  $('rules-label').textContent = tr`Regler ${v.rulesVersion} · Kortlek ${v.deckVersion} · draghög ${v.drawPileCount} kort, slänghög ${v.discardPileCount} kort.`;
   const visaResultat = [FAS.result, FAS.over].includes(v.phase) && v.lastResult && (v.phase === FAS.result || v.lastResult.battleNumber === v.battleNumber);
   const strid = Boolean(v.battle) || visaResultat;
   document.querySelector('.team-board').classList.toggle('no-battle', !strid);
@@ -283,8 +285,8 @@ function renderBoard() {
   const summor = (berakning, { forsvar = true } = {}) => {
     $('attack-total').textContent = berakning ? String(berakning.attack) : '';
     $('defence-total').textContent = berakning && forsvar ? String(berakning.defence) : '';
-    $('attack-deduction').textContent = berakning?.deductions?.frost ? `−${berakning.deductions.frost} Isrustning` : '';
-    $('defence-deduction').textContent = berakning?.deductions?.pierce ? `−${berakning.deductions.pierce} Sprängladdning` : '';
+    $('attack-deduction').textContent = berakning?.deductions?.frost ? tr`−${berakning.deductions.frost} Isrustning` : '';
+    $('defence-deduction').textContent = berakning?.deductions?.pierce ? tr`−${berakning.deductions.pierce} Sprängladdning` : '';
   };
   if (v.battle) {
     $('attack-cards').innerHTML = koLista('attack');
@@ -314,7 +316,7 @@ function usableNow(instanceId) {
 }
 function renderHand() {
   const interactive = canChoose();
-  const key = `${v.me.hand.map(c => c.instanceId).join(',')}|${v.phase}|${ui.usage}|${interactive}`;
+  const key = `${language()}|${v.me.hand.map(c => c.instanceId).join(',')}|${v.phase}|${ui.usage}|${interactive}`;
   if (key !== handKey) {
     const scrollLeft = $('hand').scrollLeft;
     handKey = key;
@@ -323,7 +325,7 @@ function renderHand() {
       const type = cardType(cardId);
       const usable = interactive && usableNow(instanceId);
       const fresh = !shownIds.has(instanceId);
-      return `<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 80}ms"` : ''} data-instance="${html(instanceId)}" data-card="${type.id}" aria-pressed="false" aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${interactive && !usable ? ', kan inte spelas just nu' : ''}">${cardFace(type)}<span class="swap-mark" hidden>Byts</span></button>`;
+      return tr`<button type="button" class="mini-card ${type.type}${usable ? '' : ' unusable'}${fresh ? ' dealt' : ''}"${fresh ? ` style="animation-delay:${dealt++ * 80}ms"` : ''} data-instance="${html(instanceId)}" data-card="${type.id}" aria-pressed="false" aria-label="${html(type.name)}, ${html(type.valueLabel)} ${html(type.value)}${interactive && !usable ? tr(', kan inte spelas just nu') : ''}">${cardFace(type)}<span class="swap-mark" hidden>Byts</span></button>`;
     }).join('');
     $('hand').scrollLeft = scrollLeft;
     shownIds = new Set(v.me.hand.map(c => c.instanceId));
@@ -336,48 +338,48 @@ function renderHand() {
     el.querySelector('.swap-mark').hidden = !(chosen && v.phase === FAS.swap);
   }
   const b = v.battle;
-  $('hand-owner').textContent = `DINA KORT · ${playerOf(v.viewer).name.toUpperCase()}`;
-  $('hand-heading').textContent = !iAmAlive() ? 'Du är utslagen'
-    : can(C.swap) ? 'Välj kort att byta'
-    : can(C.attack) ? 'Välj ditt anfall'
-    : can(C.defend) ? (b?.target === v.viewer ? 'Försvara ditt torn' : `Hjälp ${namn(b?.target)}`)
-    : 'Dina kort';
-  $('hand-count').textContent = `${v.me.hand.length} kort`;
+  $('hand-owner').textContent = tr`DINA KORT · ${playerOf(v.viewer).name.toUpperCase()}`;
+  $('hand-heading').textContent = !iAmAlive() ? tr('Du är utslagen')
+    : can(C.swap) ? tr('Välj kort att byta')
+    : can(C.attack) ? tr('Välj ditt anfall')
+    : can(C.defend) ? (b?.target === v.viewer ? tr('Försvara ditt torn') : tr`Hjälp ${namn(b?.target)}`)
+    : tr('Dina kort');
+  $('hand-count').textContent = tr`${v.me.hand.length} kort`;
 }
 
 /* ---- Knappraden ovanför handen ---- */
 function renderActions() {
   const pending = Boolean(v.pending);
   const knapp = (id, action, label, { kind = 'primary', disabled = false } = {}) => `<button type="button" id="${id}" class="${kind}" data-action="${action}"${disabled || pending ? ' disabled' : ''}>${label}</button>`;
-  const vanta = () => { const { title, text } = phaseText(); return `<h3>${html(title)}</h3><p>${html(text)} Håll in ett kort för att läsa det medan du väntar.</p>`; };
+  const vanta = () => { const { title, text } = phaseText(); return tr`<h3>${html(title)}</h3><p>${html(text)} Håll in ett kort för att läsa det medan du väntar.</p>`; };
   const b = v.battle;
   let info = '', choices = null, usage = false, actions = '';
 
   if (!iAmAlive() && running()) {
-    info = `<h3>Du är utslagen – laget spelar vidare</h3><p>${html(utslagText(v.me))} Du kan följa matchen här eller gå till lobbyn.</p>`;
-    actions = knapp('to-lobby-bar', 'lobby', 'Till lobbyn', { kind: 'secondary' });
+    info = tr`<h3>Du är utslagen – laget spelar vidare</h3><p>${html(utslagText(v.me))} Du kan följa matchen här eller gå till lobbyn.</p>`;
+    actions = knapp('to-lobby-bar', 'lobby', tr('Till lobbyn'), { kind: 'secondary' });
   } else switch (v.phase) {
     case FAS.swap: {
       if (can(C.swap)) {
         const n = ui.selected.length, max = v.swap.maxCards;
         const pick = selectedCard();
-        info = `<h3>Välj upp till ${max} kort · ${n}/${max} valda</h3><p>Omgång ${v.swap.round} av ${v.swap.rounds}. ${pick ? html(cardType(pick.cardId).effect) : 'Tryck på ett kort för att markera det, igen för att ångra. Alla byter samtidigt.'}</p>`;
-        actions = knapp('keep-hand', 'keep', 'Behåll handen', { kind: 'secondary' }) + knapp('confirm-swap', 'swap', n ? `Byt ${n} kort` : 'Byt kort', { disabled: !n });
-      } else info = `<h3>Du är klar med omgång ${v.swap.round}</h3><p>Väntar på ${html(lista(v.swap.waitingFor))}.</p>`;
+        info = tr`<h3>Välj upp till ${max} kort · ${n}/${max} valda</h3><p>Omgång ${v.swap.round} av ${v.swap.rounds}. ${pick ? html(cardType(pick.cardId).effect) : tr('Tryck på ett kort för att markera det, igen för att ångra. Alla byter samtidigt.')}</p>`;
+        actions = knapp('keep-hand', 'keep', tr('Behåll handen'), { kind: 'secondary' }) + knapp('confirm-swap', 'swap', n ? tr`Byt ${n} kort` : tr('Byt kort'), { disabled: !n });
+      } else info = tr`<h3>Du är klar med omgång ${v.swap.round}</h3><p>Väntar på ${html(lista(v.swap.waitingFor))}.</p>`;
       break;
     }
     case FAS.start: {
-      info = `<h3>${html(teamName(v.attackingTeam))} anfaller först</h3><p>${html(Namn(ledare(v.attackingTeam)))} väljer måltavla. ${v.confirm?.mine ? `Väntar på ${html(lista(v.confirm.waitingFor))}.` : 'Striden börjar när alla har bekräftat.'}</p>`;
-      actions = knapp('confirm-start', 'start', v.confirm?.mine ? 'Väntar …' : 'Börja striden', { disabled: !can(C.confirmStart) });
+      info = tr`<h3>${html(teamName(v.attackingTeam))} anfaller först</h3><p>${html(Namn(ledare(v.attackingTeam)))} väljer måltavla. ${v.confirm?.mine ? tr`Väntar på ${html(lista(v.confirm.waitingFor))}.` : tr('Striden börjar när alla har bekräftat.')}</p>`;
+      actions = knapp('confirm-start', 'start', v.confirm?.mine ? tr('Väntar …') : tr('Börja striden'), { disabled: !can(C.confirmStart) });
       break;
     }
     case FAS.target: {
       const t = allowedOf(C.target);
       if (t) {
-        info = `<h3>Välj måltavla</h3><p>Vilket fiendetorn ska ${html(teamName(v.teamId))} anfalla? Tryck på ett namn här eller på ett torn på bordet.</p>`;
+        info = tr`<h3>Välj måltavla</h3><p>Vilket fiendetorn ska ${html(teamName(v.teamId))} anfalla? Tryck på ett namn här eller på ett torn på bordet.</p>`;
         choices = t.players.map(id => { const p = playerOf(id); return `<button type="button" class="choice" data-target="${html(id)}" aria-pressed="${ui.target === id}">${html(p.name)}<small>${p.life} liv · ${p.cardCount} kort</small></button>`; }).join('');
         const ok = t.players.includes(ui.target);
-        actions = knapp('confirm-target', 'target', ok ? `Anfall ${html(playerOf(ui.target).name)}` : 'Anfall', { disabled: !ok });
+        actions = knapp('confirm-target', 'target', ok ? `Anfall ${html(playerOf(ui.target).name)}` : tr('Anfall'), { disabled: !ok });
       } else info = vanta();
       break;
     }
@@ -389,10 +391,10 @@ function renderActions() {
         const type = pick && cardType(pick.cardId);
         const ok = Boolean(pick && usableNow(pick.instanceId));
         const passOk = can(C.passAttack);
-        const maste = passOk ? '' : '<p class="invalid">Laget har inte lagt något kort – du måste bidra. Alla kort kan spelas som enkel attack 1.</p>';
-        const hint = type && !ok ? '<p class="invalid">Välj ”Enkel attack 1” för att anfalla med det här kortet.</p>' : '';
-        info = `<h3>${type ? html(type.name) : `Ditt anfall mot ${html(namn(b.target))}`}</h3>${hint || `<p>${type ? (ui.usage === USAGE.simple ? 'Vanlig attack 1, utan specialeffekt.' : html(type.effect)) : `Välj ett kort i handen.${passOk ? ' Du kan också avstå.' : ''}`}</p>`}${maste}`;
-        actions = (passOk ? knapp('confirm-pass-attack', 'pass-attack', 'Avstå anfall', { kind: 'secondary' }) : '') + knapp('confirm-attack', 'attack', ok ? `Anfall med ${html(type.name)}${ui.usage === USAGE.simple ? ' (attack 1)' : ''}` : 'Anfall', { disabled: !ok });
+        const maste = passOk ? '' : tr('<p class="invalid">Laget har inte lagt något kort – du måste bidra. Alla kort kan spelas som enkel attack 1.</p>');
+        const hint = type && !ok ? tr('<p class="invalid">Välj ”Enkel attack 1” för att anfalla med det här kortet.</p>') : '';
+        info = `<h3>${type ? html(type.name) : tr`Ditt anfall mot ${html(namn(b.target))}`}</h3>${hint || `<p>${type ? (ui.usage === USAGE.simple ? tr('Vanlig attack 1, utan specialeffekt.') : html(type.effect)) : tr`Välj ett kort i handen.${passOk ? tr(' Du kan också avstå.') : ''}`}</p>`}${maste}`;
+        actions = (passOk ? knapp('confirm-pass-attack', 'pass-attack', tr('Avstå anfall'), { kind: 'secondary' }) : '') + knapp('confirm-attack', 'attack', ok ? tr`Anfall med ${html(type.name)}${ui.usage === USAGE.simple ? ' (attack 1)' : ''}` : tr('Anfall'), { disabled: !ok });
       } else info = vanta();
       break;
     }
@@ -405,36 +407,36 @@ function renderActions() {
         const sjalv = b.target === v.viewer;
         const kortmal = option?.cardTargets?.length ? option.cardTargets : null;
         const spelarmal = option?.playerTargets?.length ? option.playerTargets : null;
-        if (kortmal) choices = kortmal.map(id => { const e = b.table.find(t => t.instanceId === id); const t = cardType(e.cardId); return `<button type="button" class="choice" data-card-target="${html(id)}" aria-pressed="${ui.cardTarget === id}">${html(t.name)}<small>${html(Namn(e.playerId))}${e.usage === USAGE.simple ? ' · enkel attack 1' : ` · ${html(t.value)}`}</small></button>`; }).join('');
+        if (kortmal) choices = kortmal.map(id => { const e = b.table.find(t => t.instanceId === id); const t = cardType(e.cardId); return `<button type="button" class="choice" data-card-target="${html(id)}" aria-pressed="${ui.cardTarget === id}">${html(t.name)}<small>${html(Namn(e.playerId))}${e.usage === USAGE.simple ? tr(' · enkel attack 1') : ` · ${html(t.value)}`}</small></button>`; }).join('');
         if (spelarmal) choices = spelarmal.map(id => { const p = playerOf(id); return `<button type="button" class="choice" data-player-target="${html(id)}" aria-pressed="${ui.playerTarget === id}">${html(p.name)}<small>${p.life} liv</small></button>`; }).join('');
         const valt = kortmal ? kortmal.includes(ui.cardTarget) : spelarmal ? spelarmal.includes(ui.playerTarget) : true;
         const ok = Boolean(option) && valt;
-        const malHjalp = kortmal ? `<p>Välj vilket attackkort ${html(type.name)} ska ${type.cancel ? 'stoppa' : type.ability === 'seal' ? 'försegla' : 'spegla'}.</p>`
-          : spelarmal ? '<p>Välj vilken anfallare Törneskölden ska träffa om försvaret håller.</p>'
-          : option && (type.ability === 'seal' || type.ability === 'mirror') ? `<p>Inget magiskt attackkort finns att ${type.ability === 'seal' ? 'försegla' : 'spegla'} – kortet ger försvar ${type.defence}.</p>` : '';
-        const hint = type && !option ? '<p class="invalid">Kortet kan inte försvara just nu. Välj ett annat kort eller avstå.</p>' : '';
-        info = `<h3>${type ? html(type.name) : sjalv ? 'Försvara ditt torn' : `Hjälp ${html(namn(b.target))}`}</h3>${hint || (type ? `<p>${html(type.effect)}</p>${malHjalp}` : `<p>${sjalv ? 'Du försvarar först.' : `${html(Namn(b.target))} är måltavla.`}${html(lageNu())} Lika hög eller högre sammanlagd försvarsstyrka stoppar anfallet.</p>`)}`;
-        actions = knapp('confirm-pass', 'pass', sjalv ? 'Avstå försvar' : 'Avstå – hjälp inte', { kind: 'secondary' }) + knapp('confirm-defend', 'defend', ok ? `${sjalv ? 'Försvara' : 'Hjälp'} med ${html(type.name)}` : sjalv ? 'Försvara' : 'Hjälp till', { disabled: !ok });
+        const malHjalp = kortmal ? tr`<p>Välj vilket attackkort ${html(type.name)} ska ${type.cancel ? tr('stoppa') : type.ability === 'seal' ? tr('försegla') : tr('spegla')}.</p>`
+          : spelarmal ? tr('<p>Välj vilken anfallare Törneskölden ska träffa om försvaret håller.</p>')
+          : option && (type.ability === 'seal' || type.ability === 'mirror') ? tr`<p>Inget magiskt attackkort finns att ${type.ability === 'seal' ? tr('försegla') : tr('spegla')} – kortet ger försvar ${type.defence}.</p>` : '';
+        const hint = type && !option ? tr('<p class="invalid">Kortet kan inte försvara just nu. Välj ett annat kort eller avstå.</p>') : '';
+        info = `<h3>${type ? html(type.name) : sjalv ? tr('Försvara ditt torn') : tr`Hjälp ${html(namn(b.target))}`}</h3>${hint || (type ? `<p>${html(type.effect)}</p>${malHjalp}` : tr`<p>${sjalv ? tr('Du försvarar först.') : tr`${html(Namn(b.target))} är måltavla.`}${html(lageNu())} Lika hög eller högre sammanlagd försvarsstyrka stoppar anfallet.</p>`)}`;
+        actions = knapp('confirm-pass', 'pass', sjalv ? tr('Avstå försvar') : tr('Avstå – hjälp inte'), { kind: 'secondary' }) + knapp('confirm-defend', 'defend', ok ? tr`${sjalv ? tr('Försvara') : tr('Hjälp')} med ${html(type.name)}` : sjalv ? tr('Försvara') : tr('Hjälp till'), { disabled: !ok });
       } else info = vanta();
       break;
     }
     case FAS.result: {
       const r = v.lastResult;
-      info = `<h3>${html(resultTitle(r))}</h3><p>${html(resultLine(r))}${v.confirm?.mine ? ` Väntar på ${html(lista(v.confirm.waitingFor))}.` : ''}</p>`;
-      actions = knapp('confirm-next', 'next', v.confirm?.mine ? 'Väntar …' : 'Fortsätt <span aria-hidden="true">→</span>', { disabled: !can(C.next) });
+      info = `<h3>${html(resultTitle(r))}</h3><p>${html(resultLine(r))}${v.confirm?.mine ? tr` Väntar på ${html(lista(v.confirm.waitingFor))}.` : ''}</p>`;
+      actions = knapp('confirm-next', 'next', v.confirm?.mine ? tr('Väntar …') : tr('Fortsätt <span aria-hidden="true">→</span>'), { disabled: !can(C.next) });
       break;
     }
     default: {
       const { title, text } = phaseText();
       info = `<h3>${html(title)}</h3><p>${html(text)}</p>`;
-      actions = knapp('to-lobby-bar', 'lobby', 'Till lobbyn');
+      actions = knapp('to-lobby-bar', 'lobby', tr('Till lobbyn'));
     }
   }
   /* Egen nedräkning överst: bara när servern väntar på just mig (L16). */
   $('action-info').innerHTML = minKlocka() + info;
   $('choices').innerHTML = choices ?? '';
   $('choices').hidden = !choices;
-  $('choices').setAttribute('aria-label', v.phase === FAS.target ? 'Välj måltavla' : 'Välj mål för kortet');
+  $('choices').setAttribute('aria-label', v.phase === FAS.target ? tr('Välj måltavla') : tr('Välj mål för kortet'));
   $('usage').hidden = !usage;
   $('usage-normal').setAttribute('aria-pressed', String(ui.usage === USAGE.normal));
   $('usage-simple').setAttribute('aria-pressed', String(ui.usage === USAGE.simple));
@@ -454,28 +456,28 @@ function resultatHTML() {
   const kind = over ? slutUtfall() : r.outcome === UTFALL.hit ? 'hit' : 'held';
   const delar = [];
   if (stridVisas) {
-    if (r.outcome === UTFALL.aborted) delar.push(`<p>${html(Namn(r.target))} lämnade striden. Ingen skada, läkning eller motstöt – de spelade korten slängs.</p>`);
+    if (r.outcome === UTFALL.aborted) delar.push(tr`<p>${html(Namn(r.target))} lämnade striden. Ingen skada, läkning eller motstöt – de spelade korten slängs.</p>`);
     else {
-      delar.push(`<div class="result-score" role="group" aria-label="Stridens slutliga styrkor"><div class="score-side score-attack"><span>Attack</span><strong>${r.attack}</strong><small>${html(teamName(r.attackingTeam))}</small></div>${popupIcon('swords')}<div class="score-side score-defence"><span>Försvar</span><strong>${r.defence}</strong><small>${html(Namn(r.target))} och laget</small></div></div>`);
+      delar.push(tr`<div class="result-score" role="group" aria-label="Stridens slutliga styrkor"><div class="score-side score-attack"><span>Attack</span><strong>${r.attack}</strong><small>${html(teamName(r.attackingTeam))}</small></div>${popupIcon('swords')}<div class="score-side score-defence"><span>Försvar</span><strong>${r.defence}</strong><small>${html(Namn(r.target))} och laget</small></div></div>`);
       const kortrad = role => {
         const list = r.table.filter(e => e.role === role);
-        return list.length ? list.map(e => { const not = kortNot(e, r.cards?.[e.instanceId], r.table); return `<li>${html(Namn(e.playerId))}: ${html(cardType(e.cardId).name)}${e.usage === USAGE.simple ? ' (enkel attack 1)' : ''}${not ? ` – ${html(not)}` : ''}</li>`; }).join('') : `<li>${role === 'attack' ? 'Inga anfallskort kvar' : 'Ingen försvarade'}</li>`;
+        return list.length ? list.map(e => { const not = kortNot(e, r.cards?.[e.instanceId], r.table); return `<li>${html(Namn(e.playerId))}: ${html(cardType(e.cardId).name)}${e.usage === USAGE.simple ? tr(' (enkel attack 1)') : ''}${not ? ` – ${html(not)}` : ''}</li>`; }).join('') : `<li>${role === 'attack' ? tr('Inga anfallskort kvar') : tr('Ingen försvarade')}</li>`;
       };
-      delar.push(`<div class="team-cards"><div><h4>Anfall</h4><ul>${kortrad('attack')}</ul></div><div><h4>Försvar</h4><ul>${kortrad('defence')}</ul></div></div>`);
-      const avdrag = [r.deductions?.frost ? `Isrustning sänkte attacken med ${r.deductions.frost}.` : '', r.deductions?.pierce ? `Sprängladdning sänkte försvaret med ${r.deductions.pierce}.` : ''].filter(Boolean);
+      delar.push(tr`<div class="team-cards"><div><h4>Anfall</h4><ul>${kortrad('attack')}</ul></div><div><h4>Försvar</h4><ul>${kortrad('defence')}</ul></div></div>`);
+      const avdrag = [r.deductions?.frost ? tr`Isrustning sänkte attacken med ${r.deductions.frost}.` : '', r.deductions?.pierce ? tr`Sprängladdning sänkte försvaret med ${r.deductions.pierce}.` : ''].filter(Boolean);
       if (avdrag.length) delar.push(`<p class="life-lines">${html(avdrag.join(' '))}</p>`);
-      const liv = Object.entries(r.lifeDelta).filter(([, d]) => d).map(([id, d]) => `${Namn(id)} ${d < 0 ? `förlorar ${-d} liv` : `får tillbaka ${d} liv`} (${r.life[id]} kvar).`);
+      const liv = Object.entries(r.lifeDelta).filter(([, d]) => d).map(([id, d]) => tr`${Namn(id)} ${d < 0 ? tr`förlorar ${-d} liv` : tr`får tillbaka ${d} liv`} (${r.life[id]} kvar).`);
       if (liv.length) delar.push(`<p class="life-lines">${liv.map(html).join(' ')}</p>`);
-      if (r.eliminated.length) delar.push(`<p class="life-lines">${html(lista(r.eliminated, { subjekt: true }))} ${r.eliminated.length > 1 ? 'är utslagna' : 'är utslagen'}.</p>`);
-      delar.push(`<details><summary>Hela beräkningen</summary><ul>${r.events.map(e => `<li>${html(e)}</li>`).join('')}</ul></details>`);
+      if (r.eliminated.length) delar.push(`<p class="life-lines">${html(lista(r.eliminated, { subjekt: true }))} ${r.eliminated.length > 1 ? tr('är utslagna') : tr('är utslagen')}.</p>`);
+      delar.push(tr`<details><summary>Hela beräkningen</summary><ul>${r.events.map(e => `<li>${html(message(e))}</li>`).join('')}</ul></details>`);
     }
-    if (!over && r.eliminated.includes(v.viewer)) delar.push('<p class="personal"><strong>Du är utslagen – laget spelar vidare.</strong> Du kan följa matchen eller gå till lobbyn.</p>');
+    if (!over && r.eliminated.includes(v.viewer)) delar.push(tr('<p class="personal"><strong>Du är utslagen – laget spelar vidare.</strong> Du kan följa matchen eller gå till lobbyn.</p>'));
   } else if (over) delar.push(`<p>${html(overText())}</p>`);
   if (over) {
     delar.push(`<p class="winner"><strong>${html(overTitle())}</strong></p>`);
     if (stridVisas) delar.push(`<p>${html(overText())}</p>`);
   }
-  return `${resultHeader(kind, over ? overTitle() : resultTitle(r), over && v.endReason === TEAM_END.serverAbort ? 'SERVERAVBROTT' : over)}<div class="popup-result-body">${delar.join('')}</div>`;
+  return `${resultHeader(kind, over ? overTitle() : resultTitle(r), over && v.endReason === TEAM_END.serverAbort ? tr('SERVERAVBROTT') : over)}<div class="popup-result-body">${delar.join('')}</div>`;
 }
 function renderResult() {
   const dialog = $('result-dialog');
@@ -490,8 +492,8 @@ function renderResult() {
   dialog.dataset.outcome = over ? slutUtfall() : v.lastResult.outcome === UTFALL.hit ? 'hit' : 'held';
   const pending = Boolean(v.pending);
   $('dialog-actions').innerHTML = over
-    ? `<button type="button" id="dialog-lobby" class="primary" data-action="lobby">Till lobbyn</button>`
-    : `${minKlocka()}<button type="button" id="dialog-next" class="primary" data-action="next"${!can(C.next) || pending ? ' disabled' : ''}>${v.confirm?.mine ? `Väntar på ${html(lista(v.confirm.waitingFor))} …` : 'Fortsätt <span aria-hidden="true">→</span>'}</button>`;
+    ? tr`<button type="button" id="dialog-lobby" class="primary" data-action="lobby">Till lobbyn</button>`
+    : `${minKlocka()}<button type="button" id="dialog-next" class="primary" data-action="next"${!can(C.next) || pending ? ' disabled' : ''}>${v.confirm?.mine ? tr`Väntar på ${html(lista(v.confirm.waitingFor))} …` : tr('Fortsätt <span aria-hidden="true">→</span>')}</button>`;
   const key = over ? `${v.matchId}|slut` : `${v.matchId}|${v.lastResult.battleNumber}`;
   if (key === resultKey) return;
   resultKey = key;
@@ -514,19 +516,23 @@ function oppnaResultat() {
 /* ---- Kort återkoppling när det blir min tur ---- */
 let feedbackKey = null;
 let feedbackTimer = null;
+function updateFeedbackText() {
+  const banner = $('turn-feedback');
+  const b = v.battle;
+  const label = v.phase === FAS.target ? tr('Du väljer måltavla!') : v.phase === FAS.attack ? tr('Din tur att anfalla!') : b.target === v.viewer ? tr('Du blir anfallen!') : tr`Hjälp ${namn(b.target)}!`;
+  banner.dataset.tone = v.phase === FAS.defence ? 'defence' : 'attack';
+  banner.innerHTML = tr`<small>STRID ${v.battleNumber}</small>${html(label)}`;
+}
 function renderTurnFeedback() {
   const banner = $('turn-feedback');
   const mine = v.activePlayer === v.viewer && [FAS.target, FAS.attack, FAS.defence].includes(v.phase);
   const key = mine ? `${v.matchId}|${v.battleNumber}|${v.phase}` : null;
-  if (key === feedbackKey) return;
+  if (key === feedbackKey) { if (mine) updateFeedbackText(); return; }
   feedbackKey = key;
   clearTimeout(feedbackTimer);
   banner.hidden = true;
   if (!mine) return;
-  const b = v.battle;
-  const label = v.phase === FAS.target ? 'Du väljer måltavla!' : v.phase === FAS.attack ? 'Din tur att anfalla!' : b.target === v.viewer ? 'Du blir anfallen!' : `Hjälp ${namn(b.target)}!`;
-  banner.dataset.tone = v.phase === FAS.defence ? 'defence' : 'attack';
-  banner.innerHTML = `<small>STRID ${v.battleNumber}</small>${html(label)}`;
+  updateFeedbackText();
   banner.hidden = false;
   if (!reduceMotion.matches) banner.animate([{ opacity: 0, translate: '0 -6px' }, { opacity: 1, translate: '0 0', offset: .15 }, { opacity: 1, offset: .8 }, { opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' });
   feedbackTimer = setTimeout(() => { banner.hidden = true; }, 1800);
@@ -543,9 +549,9 @@ function render() {
   const ute = !iAmAlive() || !running();
   $('leave-match').hidden = ute;
   $('to-lobby').hidden = !ute;
-  $('log').innerHTML = v.log.map(line => `<li>${html(line)}</li>`).join('');
-  const pendingText = v.pending?.status === PENDING.sending ? 'Skickar ditt drag …' : v.pending?.status === PENDING.checking ? 'Kontrollerar om draget registrerades …' : null;
-  $('notice').textContent = ui.notice?.text ?? pendingText ?? '';
+  $('log').innerHTML = v.log.map(line => `<li>${html(message(line))}</li>`).join('');
+  const pendingText = v.pending?.status === PENDING.sending ? tr('Skickar ditt drag …') : v.pending?.status === PENDING.checking ? tr('Kontrollerar om draget registrerades …') : null;
+  $('notice').textContent = ui.notice?.eliminated ? ui.notice.eliminated.map(({ name, reason }) => `${name} ${tr(UTSLAG_BESKED[reason])}.`).join(' ') : message(ui.notice?.text ?? pendingText ?? '');
   $('notice').className = `notice${(ui.notice ? ui.notice.kind === 'info' : Boolean(pendingText)) ? ' info' : ''}`;
   for (const el of document.querySelectorAll('.dialog-clock')) el.dataset.klocka = v.viewer;
   /* Blir jag utslagen (t.ex. på tid) medan en hjälpruta är öppen ska beskedet synas direkt. */
@@ -587,8 +593,8 @@ function playEvents(events) {
   const strid = nya.findLast(e => e.type === EVENT.result);
   if (strid) { levandeStrid = `${strid.matchId}|${strid.data.battleNumber}`; brytsTill = Date.now() + HJARTBROTT_MS; }
   /* Utslagning utanför en strid (avhopp, tid, avbrott): vem och varför. En strids utslagningar visas i resultatrutan. */
-  const besked = nya.filter(e => e.type === EVENT.eliminated && e.data.playerId !== v.viewer && UTSLAG_BESKED[e.data.reason]).map(e => `${playerOf(e.data.playerId)?.name ?? '?'} ${UTSLAG_BESKED[e.data.reason]}.`);
-  if (besked.length) ui.notice = { text: besked.join(' '), kind: 'info' };
+  const besked = nya.filter(e => e.type === EVENT.eliminated && e.data.playerId !== v.viewer && UTSLAG_BESKED[e.data.reason]).map(e => ({ name: playerOf(e.data.playerId)?.name ?? '?', reason: e.data.reason }));
+  if (besked.length) ui.notice = { eliminated: besked, kind: 'info' };
 }
 
 /* ---- Handlingar: vyn skickar ett kommando, servern avgör ---- */
@@ -616,7 +622,7 @@ function choose(instanceId) {
   if (can(C.swap)) {
     const max = v.swap.maxCards;
     if (ui.selected.includes(instanceId)) ui.selected = ui.selected.filter(id => id !== instanceId);
-    else if (ui.selected.length >= max) ui.notice = { text: `Högst ${max} kort per bytesomgång. Avmarkera ett kort först.`, kind: 'error' };
+    else if (ui.selected.length >= max) ui.notice = { text: source`Högst ${max} kort per bytesomgång. Avmarkera ett kort först.`, kind: 'error' };
     else ui.selected = [...ui.selected, instanceId];
   } else {
     ui.selected = ui.selected[0] === instanceId ? [] : [instanceId];
@@ -661,12 +667,12 @@ const LAGREGEL = {
   seal: 'Kan spelas som hjälp. Välj ett magiskt attackkort på bordet att stoppa helt. Utan magiskt mål ger kortet försvar 2.',
   dragon: 'Får +2 om något vanligt blått försvarskort ligger på försvarssidan, även hos en hjälpare.',
   lastAttack: 'Bonusen gäller om du själv hade exakt ett liv när striden började.',
-  lastDefence: 'Kan spelas som hjälp. Bonusen gäller om du själv hade exakt ett liv när striden började.'
+  lastDefence: ('Kan spelas som hjälp. Bonusen gäller om du själv hade exakt ett liv när striden började.')
 };
-const lagAnvandning = type => `Spelas när ${[type.attack ? 'ditt lag anfaller' : null, type.defence || type.cancel ? 'ditt lag försvarar – för ditt eget torn eller som hjälp' : null].filter(Boolean).join(' eller ')}.`;
+const lagAnvandning = type => tr`Spelas när ${[type.attack ? tr('ditt lag anfaller') : null, type.defence || type.cancel ? tr('ditt lag försvarar – för ditt eget torn eller som hjälp') : null].filter(Boolean).join(tr(' eller '))}.`;
 function lagTillagg(type) {
-  const text = type.cancel ? 'Kan spelas som hjälp. Välj ett attackkort på bordet som inte redan stoppats.' : LAGREGEL[type.ability];
-  return text ? `<h4>I lagmatch</h4><p>${html(text)}</p>` : '';
+  const text = type.cancel ? tr('Kan spelas som hjälp. Välj ett attackkort på bordet som inte redan stoppats.') : tr(LAGREGEL[type.ability]);
+  return text ? tr`<h4>I lagmatch</h4><p>${html(text)}</p>` : '';
 }
 
 const nedrakning = kopplaNedrakning({ klockor: () => v?.clocks, avbrott: () => v?.disconnects, nu: () => adapter?.serverNu() ?? Date.now(), egen: () => v?.viewer, varna: text => { $('clock-alert').textContent = text; } });
@@ -687,6 +693,7 @@ for (const id of ['intro-dialog', 'confirm-dialog', 'card-dialog', 'sound-dialog
 /* ---- Start: hämta matchen; en duell har sin egen vy, utan match går man till lobbyn ---- */
 const CONNECTION_TEXT = { ansluter: 'Ansluter …', ansluten: 'Ansluten', ateransluter: 'Återansluter …', ersatt: 'Öppen i en annan flik', utloggad: 'Sessionen har gått ut' };
 async function boot() {
+  await initLanguage();
   let data;
   try {
     const response = await fetch('/api/match', { credentials: 'same-origin' });
@@ -697,7 +704,8 @@ async function boot() {
   adapter = skapaOnlineMatch({ initial: data });
   adapter.pa((lage, extra) => {
     const node = $('connection');
-    node.textContent = CONNECTION_TEXT[lage] ?? lage;
+    node.dataset.connection = lage;
+    node.textContent = tr(CONNECTION_TEXT[lage]) ?? lage;
     node.classList.toggle('warn', lage !== 'ansluten');
     if (lage === 'utloggad') { location.replace('lobby.html'); return; }
     if (lage === 'ersatt') ui.notice = { text: 'Spelet är öppet i en annan flik. Ladda om sidan för att spela här.', kind: 'error' };
@@ -706,7 +714,7 @@ async function boot() {
   });
   v = adapter.view();
   vakt.historik(v);   // det som redan hänt är tyst
-  $('intro-size').textContent = `${v.players.length / 2} mot ${v.players.length / 2}. Ett torn var. Tre liv. Ett lag vinner.`;
+  $('intro-size').textContent = tr`${v.players.length / 2} mot ${v.players.length / 2}. Ett torn var. Tre liv. Ett lag vinner.`;
   adapter.subscribe((view, events) => {
     v = view;
     playEvents(events);
@@ -719,3 +727,18 @@ async function boot() {
   render();
 }
 boot();
+
+onLanguageChange(() => {
+  if (!v) return;
+  const focused = document.activeElement;
+  const instance = focused?.dataset.instance;
+  const id = focused?.id;
+  const scroll = $('hand').scrollLeft;
+  $('intro-size').textContent = tr`${v.players.length / 2} mot ${v.players.length / 2}. Ett torn var. Tre liv. Ett lag vinner.`;
+  render();
+  $('hand').scrollLeft = scroll;
+  if (instance) [...$('hand').querySelectorAll('[data-instance]')].find(el => el.dataset.instance === instance)?.focus({ preventScroll: true });
+  else if (id) document.getElementById(id)?.focus({ preventScroll: true });
+  const connection = $('connection');
+  if (connection.dataset.connection) connection.textContent = tr(CONNECTION_TEXT[connection.dataset.connection]);
+});

@@ -1,0 +1,26 @@
+/* Samma språkval i sidhuvud och dialoger, med text utöver flaggorna. */
+.language-switch { display: flex; flex-wrap: wrap; gap: .3rem; align-items: center; justify-content: center; }
+.language-switch button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-height: 36px; padding: .35rem .55rem; font: inherit; font-size: .78rem; line-height: 1.2; border: 1px solid #f7df9d; border-radius: .4rem; background: #e5c57b; color: #17251d; cursor: pointer; white-space: nowrap; }
+.language-switch img { display: block; object-fit: cover; border-radius: 2px; flex: 0 0 auto; }
+.language-switch button[aria-pressed="true"] { background: #172a24; color: #f9efd5; border-color: #b99a57; font-weight: 700; }
+.language-switch button:focus-visible { outline: 3px solid #89c7ff; outline-offset: 3px; }
+.masthead nav > .language-switch { margin-inline-start: .3rem; }
+dialog > .language-switch { margin: .6rem 2.8rem .6rem .8rem; }
+.language-dialog { width: min(460px, calc(100vw - 2rem)); padding: 1.5rem; text-align: center; color: #f9efd5; background: #172a24; border: 1px solid #b99a57; border-radius: 1rem; }
+.language-dialog h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 1rem; }
+.language-dialog p { line-height: 1.5; }
+.language-dialog > .language-switch { margin: 1.3rem 0 .3rem; }
+.language-dialog .language-switch button { min-height: 48px; padding: .7rem 1rem; font-size: 1rem; }
+@media (max-width: 600px) {
+  .masthead nav > .language-switch { margin-inline-start: 0; }
+  .language-switch button { min-height: 36px; }
+}
+
+@media (max-width: 680px) {
+  .compact-match .masthead .language-switch { flex-wrap: nowrap; gap: 3px; }
+  .compact-match .masthead .language-switch button { padding: 4px; min-width: 28px; min-height: 40px; }
+  .compact-match .masthead .language-switch button span { display: none; }
+  .compact-match .masthead .language-switch img { width: 18px; height: 12px; }
+  .compact-match .masthead .brand { flex-shrink: 0; }
+  .compact-match .masthead nav { min-width: 0; gap: 3px; }
+}

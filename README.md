@@ -18,6 +18,14 @@ Detta repository är projektets huvudsakliga arbetskatalog. Nya filer och framti
 
 Den lokala matchen mot datorn sparas inte – om sidan laddas om försvinner den (onlinematcher ligger på servern och överlever en omladdning). Datorn följer en enkel grundstrategi (fasta försvarsexempel vid anfall, exakt beräkning vid försvar) och kan göra svaga val mot specialkort som Spegelsköld eller Törnesköld; vikterna ligger i `STRATEGY` i `dator.js`. Onlinespelet (lobby, duell och lagmatcher via servern) beskrivs under Onlineserver nedan. Kortbalans och specialeffekter i lagspel behöver vidare arbete.
 
+## Språk
+
+Matchen, lobbyn och lagmatchen har svenska och engelska texter. Vid första besöket väljer spelaren språk före introduktionen. Valet sparas i webbläsarens `localStorage` under `tornstriden-language`. Flaggknapparna i sidhuvudet och dialogerna byter språk direkt; kortval, matchdata och serverns klockor bevaras. På små mobilskärmar visar sidhuvudet flaggorna med tillgängliga språknamn. Varje onlinespelare använder sitt eget val.
+
+`sprak.js` sköter språkval och parametrar, `sprakval.js` kopplar knappar och statiska `data-i18n`-texter. Svenska källtexter används som nycklar; engelska motsvarigheter ligger i `sprak-en.js`. Behåll alla `{0}`, `{1}`, … vid översättning och lägg hela meningar i katalogen. Kortens regeldata i `kort.js` är gemensamma för båda språken. Protokollets befintliga meddelanden översätts genom de uttryckliga mallarna i `sprak-meddelanden.js`; markera endast kort-, lag- och meddelandeparametrar för vidare översättning, så att spelarnas nick bevaras.
+
+Verifiera med `npm test` och `PLAYWRIGHT_CHANNEL=chrome node scripts/prova-sprak.mjs`. Den vanliga matchkontrollen kan köras på engelska med `TORNSTRIDEN_TEST_LANGUAGE=en PLAYWRIGHT_CHANNEL=chrome node scripts/prova-match.mjs`.
+
 ## Öppna prototypen
 
 Prototypen är skriven som ES-moduler och behöver därför en lokal webbserver – att dubbelklicka på `spelbord.html` fungerar inte. Med Node.js installerat:

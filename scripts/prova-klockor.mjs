@@ -44,6 +44,7 @@ async function startaMatch(nicks) {
     g.context = await browser.newContext({ ...(g.mobil ? devices['iPhone 13'] : { viewport: { width: 1280, height: 900 } }), reducedMotion: 'reduce' });
     await g.context.addCookies([{ name: 'tornstriden_session', value: g.token, url: base }]);
     g.page = await g.context.newPage();
+    await g.page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
     g.page.on('pageerror', e => fel.push(`${g.namn}: ${e.message}`));
     g.page.on('console', m => { if (m.type() === 'error' && !/mp3|audio|media|404/i.test(m.text())) fel.push(`${g.namn}: ${m.text()}`); });
     await g.page.goto(`${base}/match.html?online=1`);

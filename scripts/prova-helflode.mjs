@@ -46,6 +46,7 @@ const hemligt = [];
 
 async function nyFlik(g) {
   const page = await g.context.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('tornstriden-language')) localStorage.setItem('tornstriden-language', 'sv'); } catch {} });
   page.on('pageerror', e => fel.push(`${g.namn}: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error' && !/mp3|audio|media|Failed to load resource|net::ERR/i.test(m.text())) fel.push(`${g.namn}: ${m.text()}`); });
   page.on('response', async r => {
